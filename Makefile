@@ -1,6 +1,8 @@
 SHELL := /bin/sh
 
 UV ?= uv
+UV_DEFAULT_INDEX ?= https://pypi.org/simple
+export UV_DEFAULT_INDEX
 PNPM ?= pnpm
 API_DIR := apps/api
 WEB_PACKAGE := @beatprints/web
@@ -32,7 +34,7 @@ help: ## 显示可用命令
 setup: sync\:api install\:web ## 安装全部依赖
 
 sync\:api: ## 使用 uv 同步 API 依赖
-	cd $(API_DIR) && $(UV) sync --locked
+	cd $(API_DIR) && UV_DEFAULT_INDEX=$(UV_DEFAULT_INDEX) $(UV) sync --locked
 
 install\:web: ## 安装 pnpm workspace 依赖
 	$(PNPM) install --frozen-lockfile
@@ -75,7 +77,7 @@ format\:api: ## 格式化 Python 代码
 lock: lock\:api lock\:web ## 更新全部锁文件
 
 lock\:api: ## 更新 uv.lock
-	cd $(API_DIR) && $(UV) lock
+	cd $(API_DIR) && UV_DEFAULT_INDEX=$(UV_DEFAULT_INDEX) $(UV) lock
 
 lock\:web: ## 更新 pnpm-lock.yaml
 	$(PNPM) install --lockfile-only
