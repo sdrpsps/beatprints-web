@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+.env
+dist/
+build/
+node_modules/
+.pnpm-store/
+coverage/
+*.tsbuildinfo

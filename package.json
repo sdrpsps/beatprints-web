@@ -1,0 +1,8 @@
+{
+  "name": "beatprints",
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "devDependencies": {
+    "concurrently": "10.0.4"
+  }
+}

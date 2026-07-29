@@ -1,0 +1,121 @@
+from typing import Annotated, Literal
+
+from fastapi import APIRouter, Depends, Query
+from fastapi.concurrency import run_in_threadpool
+
+from beatprints_api.api.dependencies import require_api_key
+from beatprints_api.exceptions import UpstreamServiceError
+from beatprints_api.models import (
+    ApiResponse,
+    SearchProvider,
+    SearchResult,
+    ThemesData,
+)
+from beatprints_api.services import beatprints as beatprints_service
+from beatprints_api.spotify import SpotifyNotConfiguredError
+
+router = APIRouter(
+    prefix="/v1",
+    tags=["Catalog"],
+    dependencies=[Depends(require_api_key)],
+)
+
+ERROR_RESPONSES = {
+    401: {"model": ApiResponse[object], "description": "API Key 缺失或错误。"},
+    422: {"model": ApiResponse[object], "description": "请求参数校验失败。"},
+    502: {"model": ApiResponse[object], "description": "音乐目录请求失败。"},
+    503: {
+        "model": ApiResponse[object],
+        "description": "服务端尚未配置指定的数据源。",
+    },
+}
+
+THEMES = [
+    "Light",
+    "Dark",
+    "Catppuccin",
+    "Gruvbox",
+    "Nord",
+    "RosePine",
+    "Everforest",
+]
+
+
+@router.get(
+    "/themes",
+    summary="获取海报主题",
+    description="返回歌曲和专辑海报都支持的主题名称。",
+    response_model=ApiResponse[ThemesData],
+    responses={401: ERROR_RESPONSES[401]},
+)
+def themes() -> ApiResponse[ThemesData]:
+    return ApiResponse(
+        code=0,
+        data=ThemesData(themes=THEMES),
+        message="success",
+    )
+
+
+@router.get(
+    "/search",
+    summary="搜索歌曲或专辑",
+    description=(
+        "按 provider 在音乐目录中搜索，返回的 provider + id 可以直接交给海报生成接口。"
+        "provider=spotify 需要服务端配置 Spotify Client Credentials；"
+        "provider=all 会合并当前已启用的来源。"
+    ),
+    response_model=ApiResponse[list[SearchResult]],
+    response_model_exclude_none=True,
+    responses=ERROR_RESPONSES,
+)
+async def search(
+    query: Annotated[
+        str,
+        Query(
+            min_length=1,
+            max_length=500,
+            description="歌名、专辑名或歌手关键词，允许近似拼写。",
+            examples=["Summer Breeze Seals and Crofts"],
+        ),
+    ],
+    type: Annotated[
+        Literal["track", "album"],
+        Query(description="搜索类型：track 表示歌曲，album 表示专辑。"),
+    ] = "track",
+    provider: Annotated[
+        SearchProvider,
+        Query(
+            description="搜索数据源：deezer、spotify 或 all。",
+            examples=["all"],
+        ),
+    ] = "spotify",
+    limit: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=20,
+            description="每个数据源最多返回多少条结果。",
+            examples=[5],
+        ),
+    ] = 5,
+) -> ApiResponse[list[SearchResult]]:
+    try:
+        results = await run_in_threadpool(
+            beatprints_service.search_catalog,
+            query,
+            type,
+            limit,
+            provider,
+        )
+    except SpotifyNotConfiguredError as exc:
+        raise UpstreamServiceError(str(exc), unavailable=True) from exc
+    except beatprints_service.UpstreamError as exc:
+        raise UpstreamServiceError(str(exc)) from exc
+    except Exception as exc:
+        raise UpstreamServiceError("Music catalog request failed") from exc
+
+    return ApiResponse(
+        code=0,
+        data=[SearchResult.model_validate(item) for item in results],
+        message="success",
+    )

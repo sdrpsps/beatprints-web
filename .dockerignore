@@ -1,0 +1,10 @@
+.git
+**/.venv
+**/node_modules
+.pnpm-store
+__pycache__
+.pytest_cache
+apps/api/tests
+*.png
+.env
+*.egg-info

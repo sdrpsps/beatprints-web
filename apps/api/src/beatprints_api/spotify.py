@@ -1,0 +1,206 @@
+import threading
+import time
+from typing import Literal
+
+import httpx
+
+
+class SpotifyError(RuntimeError):
+    """Raised when Spotify is unavailable or rejects a request."""
+
+
+class SpotifyNotConfiguredError(SpotifyError):
+    """Raised when Spotify credentials were not configured."""
+
+
+class SpotifyClient:
+    TOKEN_URL = "https://accounts.spotify.com/api/token"
+    API_URL = "https://api.spotify.com/v1"
+
+    def __init__(
+        self,
+        client_id: str | None,
+        client_secret: str | None,
+        market: str = "US",
+    ) -> None:
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.market = market
+        self._token: str | None = None
+        self._token_expires_at = 0.0
+        self._token_lock = threading.Lock()
+
+    @property
+    def configured(self) -> bool:
+        return bool(self.client_id and self.client_secret)
+
+    def _access_token(self) -> str:
+        if not self.configured:
+            raise SpotifyNotConfiguredError(
+                "Spotify search is not configured. Set SPOTIFY_CLIENT_ID and "
+                "SPOTIFY_CLIENT_SECRET."
+            )
+
+        with self._token_lock:
+            if self._token and time.monotonic() < self._token_expires_at:
+                return self._token
+
+            try:
+                response = httpx.post(
+                    self.TOKEN_URL,
+                    data={"grant_type": "client_credentials"},
+                    auth=(self.client_id or "", self.client_secret or ""),
+                    timeout=10.0,
+                )
+                response.raise_for_status()
+            except httpx.HTTPError as exc:
+                raise SpotifyError(
+                    f"Could not authenticate with Spotify: {exc}"
+                ) from exc
+
+            payload = response.json()
+            self._token = payload["access_token"]
+            self._token_expires_at = time.monotonic() + max(
+                int(payload.get("expires_in", 3600)) - 30,
+                1,
+            )
+            return self._token
+
+    def search(
+        self,
+        query: str,
+        search_type: Literal["track", "album"],
+        limit: int,
+    ) -> list[dict]:
+        payload = self._get(
+            "/search",
+            params={
+                "q": query,
+                "type": search_type,
+                "limit": min(limit, 10),
+                "market": self.market,
+            },
+        )
+        key = "tracks" if search_type == "track" else "albums"
+        items = payload[key]["items"]
+        return [
+            (
+                self._format_track(item)
+                if search_type == "track"
+                else self._format_album(item)
+            )
+            for item in items
+        ]
+
+    def _get(self, path: str, params: dict | None = None) -> dict:
+        token = self._access_token()
+        try:
+            response = httpx.get(
+                f"{self.API_URL}{path}",
+                params=params,
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=15.0,
+            )
+            if response.status_code == 429:
+                retry_after = response.headers.get("Retry-After", "unknown")
+                raise SpotifyError(
+                    f"Spotify rate limit exceeded; retry after {retry_after} seconds"
+                )
+            response.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise SpotifyError(f"Spotify request failed: {exc}") from exc
+        return response.json()
+
+    def track_metadata(self, track_id: str) -> dict:
+        track = self._get(f"/tracks/{track_id}", {"market": self.market})
+        album = self._get(f"/albums/{track['album']['id']}", {"market": self.market})
+        seconds = int(track["duration_ms"]) // 1000
+        minutes, remaining_seconds = divmod(seconds, 60)
+        return {
+            "title": track["name"],
+            "artists": [artist["name"] for artist in track["artists"]],
+            "album": album["name"],
+            "released": album["release_date"],
+            "duration": f"{minutes:02d}:{remaining_seconds:02d}",
+            "cover": self._cover_url(album),
+            "label": album.get("label") or "Unknown label",
+            "link": track["external_urls"]["spotify"],
+        }
+
+    def album_metadata(self, album_id: str) -> dict:
+        album = self._get(f"/albums/{album_id}", {"market": self.market})
+        tracks_page = album["tracks"]
+        tracks = [item["name"] for item in tracks_page["items"]]
+        while tracks_page.get("next"):
+            next_url = tracks_page["next"]
+            path = next_url.removeprefix(self.API_URL)
+            tracks_page = self._get(path)
+            tracks.extend(item["name"] for item in tracks_page["items"])
+        return {
+            "title": album["name"],
+            "artists": [artist["name"] for artist in album["artists"]],
+            "released": album["release_date"],
+            "tracks": tracks,
+            "cover": self._cover_url(album),
+            "label": album.get("label") or "Unknown label",
+            "link": album["external_urls"]["spotify"],
+        }
+
+    @staticmethod
+    def _cover_url(item: dict) -> str:
+        images = item.get("images") or []
+        if not images:
+            raise SpotifyError("Spotify result did not include cover art")
+        return images[0]["url"]
+
+    @classmethod
+    def _format_track(cls, item: dict) -> dict:
+        album = item["album"]
+        seconds = int(item["duration_ms"]) // 1000
+        minutes, remaining_seconds = divmod(seconds, 60)
+        release_date = album.get("release_date")
+        return {
+            "id": item["id"],
+            "provider": "spotify",
+            "type": "track",
+            "title": item["name"],
+            "artists": [artist["name"] for artist in item["artists"]],
+            "cover_url": cls._cover_url(album),
+            "link": item["external_urls"]["spotify"],
+            "release_date": release_date,
+            "release_year": (
+                int(release_date[:4])
+                if release_date and len(release_date) >= 4
+                else None
+            ),
+            "release_date_precision": album.get("release_date_precision"),
+            "album": {
+                "id": album["id"],
+                "title": album["name"],
+            },
+            "duration_seconds": seconds,
+            "duration": f"{minutes:02d}:{remaining_seconds:02d}",
+            "explicit": item.get("explicit"),
+            "isrc": (item.get("external_ids") or {}).get("isrc"),
+        }
+
+    @classmethod
+    def _format_album(cls, item: dict) -> dict:
+        release_date = item.get("release_date")
+        return {
+            "id": item["id"],
+            "provider": "spotify",
+            "type": "album",
+            "title": item["name"],
+            "artists": [artist["name"] for artist in item["artists"]],
+            "cover_url": cls._cover_url(item),
+            "link": item["external_urls"]["spotify"],
+            "release_date": release_date,
+            "release_year": (
+                int(release_date[:4])
+                if release_date and len(release_date) >= 4
+                else None
+            ),
+            "release_date_precision": item.get("release_date_precision"),
+            "track_count": item.get("total_tracks"),
+        }
