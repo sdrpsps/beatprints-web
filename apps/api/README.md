@@ -9,16 +9,16 @@
 
 ## 本地启动
 
-需要 Python 3.12 和 [uv](https://docs.astral.sh/uv/)：
+需要 Python 3.14 和 [uv](https://docs.astral.sh/uv/)：
 
 ```bash
-cd apps/api
+# 从 monorepo 根目录执行
 uv sync
 uv run uvicorn beatprints_api.main:app --reload
 ```
 
 添加或删除依赖使用 `uv add` / `uv remove`，不要直接编辑 `requirements.txt` 或向
-`.venv` 执行 `pip install`。`uv.lock` 必须提交到版本控制。
+`.venv` 执行 `pip install`。根目录的 `uv.lock` 必须提交到版本控制。
 
 或使用 Docker：
 

@@ -10,3 +10,5 @@ node_modules/
 .pnpm-store/
 coverage/
 *.tsbuildinfo
+
+.DS_Store

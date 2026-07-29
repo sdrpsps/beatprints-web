@@ -1,22 +1,22 @@
-FROM ghcr.io/astral-sh/uv:0.11.32-python3.12-trixie-slim AS builder
+FROM ghcr.io/astral-sh/uv:0.11.32-python3.14-trixie-slim AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_NO_DEV=1 \
-    UV_DEFAULT_INDEX=https://pypi.org/simple \
     PORT=8000 \
     WEB_CONCURRENCY=1 \
     MAX_CONCURRENT_JOBS=1
 
 WORKDIR /app
 
-COPY apps/api/pyproject.toml apps/api/uv.lock apps/api/README.md LICENSE ./
+COPY pyproject.toml uv.lock LICENSE ./
+COPY apps/api/README.md ./apps/api/
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project
 
-COPY apps/api/src ./src
+COPY apps/api/src ./apps/api/src
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-editable && \
     uv pip uninstall \
@@ -25,7 +25,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     find /app/.venv -type d -name __pycache__ -prune -exec rm -rf {} + && \
     find /app/.venv -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
 
-FROM python:3.12-slim-trixie AS runtime
+FROM python:3.14-slim-trixie AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

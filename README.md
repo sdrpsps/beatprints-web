@@ -1,7 +1,7 @@
 # BeatPrints
 
 BeatPrints 图片生成服务 monorepo。后端使用 FastAPI + uv，前端工作区使用 pnpm；
-两套依赖系统彼此独立，仓库根目录只负责编排开发和部署命令。
+两套依赖系统彼此独立；根目录同时作为 Python 项目和开发、部署命令入口。
 
 ```text
 .
@@ -10,6 +10,8 @@ BeatPrints 图片生成服务 monorepo。后端使用 FastAPI + uv，前端工�
 │   └── web/          # 预留前端应用，pnpm 管理
 ├── packages/         # 预留前端共享包
 ├── Makefile
+├── pyproject.toml    # API 项目、构建及工具配置
+├── uv.lock
 ├── package.json
 ├── pnpm-workspace.yaml
 └── docker-compose.yml
@@ -17,9 +19,10 @@ BeatPrints 图片生成服务 monorepo。后端使用 FastAPI + uv，前端工�
 
 ## 快速开始
 
-需要 Python 3.12、[uv](https://docs.astral.sh/uv/) 和 pnpm 11：
+需要 Python 3.14、[uv](https://docs.astral.sh/uv/) 和 pnpm 11：
 
 ```bash
+uv sync
 make setup
 make dev
 ```
@@ -63,8 +66,8 @@ API 文档和调用示例见 [apps/api/README.md](apps/api/README.md)。
 
 ## 依赖边界
 
-- Python 依赖：只在 `apps/api/pyproject.toml` 中维护，使用 `uv add`、`uv remove`。
+- Python 依赖：只在根目录 `pyproject.toml` 中维护，使用 `uv add`、`uv remove`。
 - 前端依赖：只通过根目录 pnpm workspace 或具体前端 package 维护。
-- `apps/api/uv.lock` 与根目录 `pnpm-lock.yaml` 都应提交。
+- 根目录的 `uv.lock` 与 `pnpm-lock.yaml` 都应提交。
 - Makefile 负责跨应用命令编排，采用 `动作:应用` 命名。
-- pnpm 只管理前端 workspace，uv 只管理 `apps/api`。
+- pnpm 只管理前端 workspace，uv 在根目录管理 `apps/api`。
