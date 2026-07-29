@@ -27,20 +27,59 @@ ERROR_RESPONSES = {
 }
 
 TRACK_EXAMPLES = {
-    "search": {
-        "summary": "在 Spotify 搜索并自动生成",
+    "search_no_qr": {
+        "summary": "搜索生成，不显示平台二维码",
+        "description": "未提供 qr_platform，因此左下角不显示任何平台标识或二维码。",
         "value": {
             "provider": "spotify",
-            "query": "Summer Breeze Seals and Crofts",
+            "query": "Summer Breeze Piper",
             "theme": "Light",
             "accent": True,
         },
     },
-    "catalog_id": {
-        "summary": "使用 Spotify 搜索结果生成（推荐）",
+    "spotify_qr_auto": {
+        "summary": "显示 Spotify 二维码，自动使用源链接",
+        "description": (
+            "元数据来源和二维码平台都是 Spotify，可以省略 platform_links.spotify。"
+        ),
         "value": {
             "provider": "spotify",
-            "catalog_id": "3B0ms7Xlxl16tRztKHpcu9",
+            "query": "Summer Breeze Piper",
+            "qr_platform": "spotify",
+            "theme": "Light",
+            "accent": True,
+        },
+    },
+    "apple_music_qr": {
+        "summary": "用 Spotify 资料生成 Apple Music 版本",
+        "description": (
+            "provider 只决定元数据来源；qr_platform 单独指定海报二维码平台。"
+        ),
+        "value": {
+            "provider": "spotify",
+            "query": "Summer Breeze Piper",
+            "platform_links": {
+                "apple_music": (
+                    "https://music.apple.com/us/album/summer-breeze/1790520587"
+                ),
+                "qq_music": "https://y.qq.com/n/ryqq/songDetail/001example",
+                "netease_music": "https://music.163.com/song?id=123456",
+            },
+            "qr_platform": "apple_music",
+            "theme": "Light",
+            "accent": True,
+        },
+    },
+    "qq_music_qr": {
+        "summary": "用 Spotify 资料生成 QQ 音乐版本",
+        "description": "QQ 音乐不是元数据源，因此需要显式提供对应歌曲链接。",
+        "value": {
+            "provider": "spotify",
+            "query": "Summer Breeze Piper",
+            "platform_links": {
+                "qq_music": "https://y.qq.com/n/ryqq/songDetail/001example",
+            },
+            "qr_platform": "qq_music",
             "theme": "Light",
             "accent": True,
         },
@@ -50,12 +89,12 @@ TRACK_EXAMPLES = {
         "value": {
             "metadata": {
                 "title": "Summer Breeze",
-                "artists": ["Seals and Crofts"],
-                "album": "Seals & Crofts' Greatest Hits",
-                "released": "October 11, 1977",
-                "duration": "03:25",
+                "artists": ["Piper"],
+                "album": "Summer Breeze",
+                "released": "1983",
+                "duration": "03:23",
                 "cover_url": "https://example.com/cover.jpg",
-                "label": "Warner Records",
+                "label": "Light In The Attic Records",
             },
             "lyrics": "First line\nSecond line\nThird line\nFourth line",
             "theme": "Light",
@@ -65,21 +104,42 @@ TRACK_EXAMPLES = {
 }
 
 ALBUM_EXAMPLES = {
-    "search": {
-        "summary": "在 Spotify 搜索并自动生成",
+    "search_no_qr": {
+        "summary": "搜索生成，不显示平台二维码",
+        "description": "未提供 qr_platform，因此左下角不显示任何平台标识或二维码。",
         "value": {
             "provider": "spotify",
-            "query": "Summer Breeze Seals and Crofts",
+            "query": "Summer Breeze Piper",
             "theme": "Light",
             "accent": True,
             "indexing": True,
         },
     },
-    "catalog_id": {
-        "summary": "使用 Spotify 搜索结果生成（推荐）",
+    "spotify_qr_auto": {
+        "summary": "显示 Spotify 二维码，自动使用源链接",
+        "description": (
+            "明确选择 spotify 后，服务会使用 Spotify 专辑元数据中的跳转链接。"
+        ),
         "value": {
             "provider": "spotify",
-            "catalog_id": "1Ugdi2OTxKopVVqsprp5pb",
+            "query": "Summer Breeze Piper",
+            "qr_platform": "spotify",
+            "theme": "Light",
+            "accent": True,
+            "indexing": True,
+            "shuffle": False,
+        },
+    },
+    "netease_music_qr": {
+        "summary": "用 Spotify 资料生成网易云音乐版本",
+        "description": "网易云音乐不是元数据源，因此需要显式提供对应专辑链接。",
+        "value": {
+            "provider": "spotify",
+            "query": "Summer Breeze Piper",
+            "platform_links": {
+                "netease_music": "https://music.163.com/album?id=123456",
+            },
+            "qr_platform": "netease_music",
             "theme": "Light",
             "accent": True,
             "indexing": True,
@@ -91,11 +151,16 @@ ALBUM_EXAMPLES = {
         "value": {
             "metadata": {
                 "title": "Summer Breeze",
-                "artists": ["Seals & Crofts"],
-                "released": "June 10, 1981",
-                "tracks": ["Hummingbird", "Funny Little Man", "Say", "Summer Breeze"],
+                "artists": ["Piper"],
+                "released": "1983",
+                "tracks": [
+                    "Shine On",
+                    "Summer Breeze",
+                    "Hot Sand",
+                    "Gentle Shower",
+                ],
                 "cover_url": "https://example.com/cover.jpg",
-                "label": "Warner Records",
+                "label": "Light In The Attic Records",
             },
             "theme": "Light",
             "accent": True,
@@ -136,10 +201,19 @@ async def _generate(
 @router.post(
     "/track",
     summary="生成歌曲海报",
-    description="生成包含歌曲标题、歌手、时长、歌词、封面和调色板的 PNG。",
+    description=(
+        "生成包含歌曲标题、歌手、时长、歌词、封面和调色板的 PNG。\n\n"
+        "`provider` 只控制 Deezer/Spotify 元数据来源；`qr_platform` 单独控制"
+        "左下角显示哪个音乐平台。未提供 `qr_platform` 时不显示平台标识或二维码。"
+        "每张海报最多显示一个二维码，其颜色从封面提取，并在白色背景上保持安全"
+        "对比度。"
+    ),
     responses={
         200: {
-            "description": "生成成功，响应体是 PNG 图片。",
+            "description": (
+                "生成成功，响应体是 PNG 图片。只有请求明确提供 qr_platform 时，"
+                "图片左下角才包含对应平台的封面取色二维码。"
+            ),
             "content": {"image/png": {}},
         },
         **ERROR_RESPONSES,
@@ -152,7 +226,9 @@ async def track_poster(
         Body(
             description=(
                 "`query`、`catalog_id`、`metadata` 必须且只能填写其中一个；"
-                "Deezer 和 Spotify 都通过 provider 选择。"
+                "`provider` 选择元数据来源；`qr_platform` 可选，并明确选择唯一的"
+                "二维码平台。不填 `qr_platform` 就不显示。除 Spotify 元数据源自动"
+                "链接外，所选平台必须在 `platform_links` 中提供对应链接。"
             ),
             openapi_examples=TRACK_EXAMPLES,
         ),
@@ -164,10 +240,19 @@ async def track_poster(
 @router.post(
     "/album",
     summary="生成专辑海报",
-    description="生成包含专辑标题、歌手、曲目列表、封面和调色板的 PNG。",
+    description=(
+        "生成包含专辑标题、歌手、曲目列表、封面和调色板的 PNG。\n\n"
+        "`provider` 只控制 Deezer/Spotify 元数据来源；`qr_platform` 单独控制"
+        "左下角显示哪个音乐平台。未提供 `qr_platform` 时不显示平台标识或二维码。"
+        "每张海报最多显示一个二维码，其颜色从封面提取，并在白色背景上保持安全"
+        "对比度。"
+    ),
     responses={
         200: {
-            "description": "生成成功，响应体是 PNG 图片。",
+            "description": (
+                "生成成功，响应体是 PNG 图片。只有请求明确提供 qr_platform 时，"
+                "图片左下角才包含对应平台的封面取色二维码。"
+            ),
             "content": {"image/png": {}},
         },
         **ERROR_RESPONSES,
@@ -180,7 +265,9 @@ async def album_poster(
         Body(
             description=(
                 "`query`、`catalog_id`、`metadata` 必须且只能填写其中一个；"
-                "Deezer 和 Spotify 都通过 provider 选择。"
+                "`provider` 选择元数据来源；`qr_platform` 可选，并明确选择唯一的"
+                "二维码平台。不填 `qr_platform` 就不显示。除 Spotify 元数据源自动"
+                "链接外，所选平台必须在 `platform_links` 中提供对应链接。"
             ),
             openapi_examples=ALBUM_EXAMPLES,
         ),

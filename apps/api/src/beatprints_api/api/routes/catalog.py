@@ -75,7 +75,7 @@ async def search(
             min_length=1,
             max_length=500,
             description="歌名、专辑名或歌手关键词，允许近似拼写。",
-            examples=["Summer Breeze Seals and Crofts"],
+            examples=["Summer Breeze Piper"],
         ),
     ],
     type: Annotated[

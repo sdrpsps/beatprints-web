@@ -1,6 +1,6 @@
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
+from pydantic import AnyUrl, BaseModel, ConfigDict, Field, HttpUrl, model_validator
 
 Theme = Annotated[
     Literal[
@@ -20,6 +20,46 @@ Theme = Annotated[
 
 CatalogProvider = Literal["deezer", "spotify"]
 SearchProvider = Literal["deezer", "spotify", "all"]
+PosterPlatform = Literal["spotify", "apple_music", "qq_music", "netease_music"]
+
+
+class PosterPlatformLinks(BaseModel):
+    """海报左下角二维码对应的音乐平台直达链接。"""
+
+    spotify: Annotated[
+        AnyUrl | None,
+        Field(
+            description="Spotify 歌曲或专辑的网页链接、Universal Link 或 Deep Link。",
+            examples=["https://open.spotify.com/track/7lp5evZr7qEDwlv5PS8b6i"],
+        ),
+    ] = None
+    apple_music: Annotated[
+        AnyUrl | None,
+        Field(
+            description="Apple Music 歌曲或专辑的网页链接、Universal Link 或 Deep Link。",
+            examples=["https://music.apple.com/us/album/summer-breeze/1790520587"],
+        ),
+    ] = None
+    qq_music: Annotated[
+        AnyUrl | None,
+        Field(
+            description="QQ 音乐歌曲或专辑的网页链接、Universal Link 或 Deep Link。",
+            examples=["https://y.qq.com/n/ryqq/songDetail/001example"],
+        ),
+    ] = None
+    netease_music: Annotated[
+        AnyUrl | None,
+        Field(
+            description="网易云音乐歌曲或专辑的网页链接、Universal Link 或 Deep Link。",
+            examples=["https://music.163.com/song?id=123456"],
+        ),
+    ] = None
+
+    @model_validator(mode="after")
+    def require_at_least_one_link(self) -> "PosterPlatformLinks":
+        if not any((self.spotify, self.apple_music, self.qq_music, self.netease_music)):
+            raise ValueError("platform_links must contain at least one platform URL")
+        return self
 
 
 class TrackMetadataInput(BaseModel):
@@ -40,7 +80,7 @@ class TrackMetadataInput(BaseModel):
             min_length=1,
             max_length=20,
             description="参与歌曲的歌手名称列表。",
-            examples=[["Seals and Crofts"]],
+            examples=[["Piper"]],
         ),
     ]
     album: Annotated[
@@ -58,7 +98,7 @@ class TrackMetadataInput(BaseModel):
             min_length=1,
             max_length=100,
             description="显示在海报上的发行日期，可以使用任意可读格式。",
-            examples=["September 4, 1972"],
+            examples=["May 1, 1983"],
         ),
     ]
     duration: Annotated[
@@ -66,7 +106,7 @@ class TrackMetadataInput(BaseModel):
         Field(
             pattern=r"^\d{1,3}:\d{2}$",
             description="歌曲时长，格式为 分钟:秒。",
-            examples=["03:25"],
+            examples=["03:23"],
         ),
     ]
     cover_url: Annotated[
@@ -82,7 +122,7 @@ class TrackMetadataInput(BaseModel):
             min_length=1,
             max_length=300,
             description="唱片公司或发行厂牌。",
-            examples=["Warner Records"],
+            examples=["Light In The Attic Records"],
         ),
     ]
 
@@ -105,7 +145,7 @@ class AlbumMetadataInput(BaseModel):
             min_length=1,
             max_length=20,
             description="专辑歌手名称列表。",
-            examples=[["Seals & Crofts"]],
+            examples=[["Piper"]],
         ),
     ]
     released: Annotated[
@@ -114,7 +154,7 @@ class AlbumMetadataInput(BaseModel):
             min_length=1,
             max_length=100,
             description="显示在海报上的发行日期。",
-            examples=["September 4, 1972"],
+            examples=["May 1, 1983"],
         ),
     ]
     tracks: Annotated[
@@ -123,7 +163,7 @@ class AlbumMetadataInput(BaseModel):
             min_length=1,
             max_length=100,
             description="按展示顺序排列的专辑曲目名称。",
-            examples=[["Hummingbird", "Funny Little Man", "Say"]],
+            examples=[["Shine On", "Summer Breeze", "Hot Sand", "Gentle Shower"]],
         ),
     ]
     cover_url: Annotated[
@@ -139,7 +179,7 @@ class AlbumMetadataInput(BaseModel):
             min_length=1,
             max_length=300,
             description="唱片公司或发行厂牌。",
-            examples=["Warner Records"],
+            examples=["Light In The Attic Records"],
         ),
     ]
 
@@ -164,7 +204,7 @@ class PosterSource(BaseModel):
                 "在 provider 指定的平台中搜索并使用第一条结果；"
                 "不能与 catalog_id、metadata 同时提供。"
             ),
-            examples=["Summer Breeze Seals and Crofts"],
+            examples=["Summer Breeze Piper"],
         ),
     ] = None
     catalog_id: Annotated[
@@ -174,9 +214,56 @@ class PosterSource(BaseModel):
                 "由 /v1/search 返回的平台歌曲或专辑 ID，必须和 provider 配套使用；"
                 "不能与 query、metadata 同时提供。"
             ),
-            examples=["3B0ms7Xlxl16tRztKHpcu9"],
+            examples=[
+                "7lp5evZr7qEDwlv5PS8b6i",
+                "614LGcMwiEpyQ5SVg6S5Im",
+            ],
         ),
     ] = None
+    platform_links: Annotated[
+        PosterPlatformLinks | None,
+        Field(
+            description=(
+                "各音乐平台的歌曲或专辑直达链接。只有同时通过 qr_platform "
+                "明确选择一个平台时才会在海报上渲染二维码；未选中的链接只保存"
+                "在请求中，不会同时渲染。"
+            )
+        ),
+    ] = None
+    qr_platform: Annotated[
+        PosterPlatform | None,
+        Field(
+            description=(
+                "明确选择要在海报左下角显示二维码的平台；不提供时不显示任何"
+                "平台标识或二维码。使用 Spotify 数据源并选择 spotify 时，"
+                "可以省略 platform_links.spotify。每张海报只显示一个平台，"
+                "二维码和平台名称使用从封面提取并经过对比度保护的颜色。"
+            ),
+            examples=["spotify"],
+        ),
+    ] = None
+
+    @model_validator(mode="after")
+    def validate_qr_platform_link(self) -> "PosterSource":
+        if self.qr_platform is None:
+            return self
+        selected_link = (
+            getattr(self.platform_links, self.qr_platform)
+            if self.platform_links is not None
+            else None
+        )
+        metadata = getattr(self, "metadata", None)
+        can_use_spotify_source = (
+            self.qr_platform == "spotify"
+            and self.provider == "spotify"
+            and metadata is None
+        )
+        if selected_link is None and not can_use_spotify_source:
+            raise ValueError(
+                f"platform_links.{self.qr_platform} is required for "
+                f"qr_platform={self.qr_platform}"
+            )
+        return self
 
     def validate_source(self, metadata: object | None) -> None:
         supplied = sum(
@@ -195,7 +282,14 @@ class TrackPosterRequest(PosterSource):
         json_schema_extra={
             "example": {
                 "provider": "spotify",
-                "catalog_id": "3B0ms7Xlxl16tRztKHpcu9",
+                "query": "Summer Breeze Piper",
+                "platform_links": {
+                    "apple_music": (
+                        "https://music.apple.com/us/album/summer-breeze/1790520587"
+                    ),
+                    "qq_music": "https://y.qq.com/n/ryqq/songDetail/001example",
+                },
+                "qr_platform": "apple_music",
                 "theme": "Light",
                 "accent": True,
             }
@@ -265,7 +359,11 @@ class AlbumPosterRequest(PosterSource):
         json_schema_extra={
             "example": {
                 "provider": "spotify",
-                "catalog_id": "1Ugdi2OTxKopVVqsprp5pb",
+                "query": "Summer Breeze Piper",
+                "platform_links": {
+                    "netease_music": "https://music.163.com/album?id=123456",
+                },
+                "qr_platform": "netease_music",
                 "theme": "Light",
                 "accent": True,
                 "indexing": True,
@@ -319,14 +417,14 @@ class SearchAlbumSummary(BaseModel):
         int | str,
         Field(
             description="数据源中的专辑 ID。Deezer 使用整数，Spotify 使用字符串。",
-            examples=[496095, "1Ugdi2OTxKopVVqsprp5pb"],
+            examples=["614LGcMwiEpyQ5SVg6S5Im"],
         ),
     ]
     title: Annotated[
         str,
         Field(
             description="歌曲所属专辑标题。",
-            examples=["Seals & Crofts' Greatest Hits"],
+            examples=["Summer Breeze"],
         ),
     ]
 
@@ -341,14 +439,14 @@ class SearchResult(BaseModel):
                 "数据源中的结果 ID。将它与 provider 一起作为生成接口的 "
                 "catalog_id，即可获取同一平台的海报资料。"
             ),
-            examples=[5416564, "3B0ms7Xlxl16tRztKHpcu9"],
+            examples=["7lp5evZr7qEDwlv5PS8b6i"],
         ),
     ]
     provider: Annotated[
         Literal["deezer", "spotify"],
         Field(
             description="结果的数据来源。",
-            examples=["deezer"],
+            examples=["spotify"],
         ),
     ]
     type: Annotated[
@@ -361,7 +459,7 @@ class SearchResult(BaseModel):
     ]
     artists: Annotated[
         list[str],
-        Field(description="歌手名称列表。", examples=[["Seals and Crofts"]]),
+        Field(description="歌手名称列表。", examples=[["Piper"]]),
     ]
     cover_url: Annotated[
         HttpUrl,
@@ -380,7 +478,7 @@ class SearchResult(BaseModel):
         HttpUrl,
         Field(
             description="数据源中的歌曲或专辑网页地址。",
-            examples=["https://www.deezer.com/track/5416564"],
+            examples=["https://open.spotify.com/track/7lp5evZr7qEDwlv5PS8b6i"],
         ),
     ]
     release_date: Annotated[
@@ -390,14 +488,14 @@ class SearchResult(BaseModel):
                 "当前匹配版本的发行日期。通常为 YYYY-MM-DD；"
                 "Spotify 在精度不足时也可能只返回 YYYY 或 YYYY-MM。"
             ),
-            examples=["1977-10-11"],
+            examples=["1983-05-01"],
         ),
     ] = None
     release_year: Annotated[
         int | None,
         Field(
             description="从 release_date 提取的年份，便于前端显示和筛选。",
-            examples=[1977],
+            examples=[1983],
         ),
     ] = None
     release_date_precision: Annotated[
@@ -413,13 +511,13 @@ class SearchResult(BaseModel):
     ] = None
     duration_seconds: Annotated[
         int | None,
-        Field(description="歌曲时长，单位为秒；专辑结果中不返回。", examples=[205]),
+        Field(description="歌曲时长，单位为秒；专辑结果中不返回。", examples=[203]),
     ] = None
     duration: Annotated[
         str | None,
         Field(
             description="便于前端直接显示的歌曲时长；专辑结果中不返回。",
-            examples=["03:25"],
+            examples=["03:23"],
         ),
     ] = None
     explicit: Annotated[

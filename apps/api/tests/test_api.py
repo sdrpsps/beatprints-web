@@ -77,6 +77,37 @@ def test_track_returns_png(monkeypatch) -> None:
     assert response.headers["x-process-time"]
 
 
+def test_platform_links_require_at_least_one_url() -> None:
+    response = client.post(
+        "/v1/posters/track",
+        json={
+            "catalog_id": "spotify-track-id",
+            "platform_links": {},
+            "lyrics": "one\ntwo\nthree\nfour",
+        },
+    )
+
+    assert response.status_code == 422
+    assert "at least one platform URL" in response.text
+
+
+def test_selected_qr_platform_requires_its_link() -> None:
+    response = client.post(
+        "/v1/posters/track",
+        json={
+            "catalog_id": "spotify-track-id",
+            "qr_platform": "apple_music",
+            "platform_links": {
+                "spotify": "https://open.spotify.com/track/spotify-track-id"
+            },
+            "lyrics": "one\ntwo\nthree\nfour",
+        },
+    )
+
+    assert response.status_code == 422
+    assert "platform_links.apple_music is required" in response.text
+
+
 def test_search_returns_rich_frontend_data(monkeypatch) -> None:
     monkeypatch.setattr(
         catalog.beatprints_service,
@@ -220,12 +251,50 @@ def test_openapi_includes_descriptions_and_request_examples() -> None:
         "description"
     )
     assert set(track["requestBody"]["content"]["application/json"]["examples"]) == {
-        "search",
-        "catalog_id",
+        "search_no_qr",
+        "spotify_qr_auto",
+        "apple_music_qr",
+        "qq_music_qr",
         "custom",
     }
     assert set(album["requestBody"]["content"]["application/json"]["examples"]) == {
-        "search",
-        "catalog_id",
+        "search_no_qr",
+        "spotify_qr_auto",
+        "netease_music_qr",
         "custom",
     }
+    assert "未提供 `qr_platform` 时不显示" in track["description"]
+    assert "未提供 `qr_platform` 时不显示" in album["description"]
+    assert "封面取色二维码" in track["responses"]["200"]["description"]
+    assert "封面取色二维码" in album["responses"]["200"]["description"]
+    track_examples = track["requestBody"]["content"]["application/json"]["examples"]
+    assert "qr_platform" not in track_examples["search_no_qr"]["value"]
+    assert track_examples["spotify_qr_auto"]["value"]["qr_platform"] == "spotify"
+    assert track_examples["apple_music_qr"]["value"]["qr_platform"] == "apple_music"
+    assert track_examples["qq_music_qr"]["value"]["qr_platform"] == "qq_music"
+    album_examples = album["requestBody"]["content"]["application/json"]["examples"]
+    assert "qr_platform" not in album_examples["search_no_qr"]["value"]
+    assert album_examples["spotify_qr_auto"]["value"]["qr_platform"] == "spotify"
+    assert album_examples["netease_music_qr"]["value"]["qr_platform"] == "netease_music"
+    platform_links = schema["components"]["schemas"]["PosterPlatformLinks"]
+    assert set(platform_links["properties"]) == {
+        "spotify",
+        "apple_music",
+        "qq_music",
+        "netease_music",
+    }
+    assert set(
+        schema["components"]["schemas"]["TrackPosterRequest"]["properties"][
+            "qr_platform"
+        ]["anyOf"][0]["enum"]
+    ) == {"spotify", "apple_music", "qq_music", "netease_music"}
+    track_schema = schema["components"]["schemas"]["TrackPosterRequest"]
+    album_schema = schema["components"]["schemas"]["AlbumPosterRequest"]
+    assert track_schema["example"]["query"] == "Summer Breeze Piper"
+    assert album_schema["example"]["query"] == "Summer Breeze Piper"
+    assert schema["components"]["schemas"]["TrackMetadataInput"]["properties"][
+        "artists"
+    ]["examples"] == [["Piper"]]
+    assert schema["components"]["schemas"]["TrackMetadataInput"]["properties"][
+        "duration"
+    ]["examples"] == ["03:23"]

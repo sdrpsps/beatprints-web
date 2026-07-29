@@ -42,6 +42,25 @@ def test_spotify_formats_track_search_result() -> None:
     assert result["isrc"] == "USSM17300508"
 
 
+def test_spotify_uses_album_label_when_available() -> None:
+    assert SpotifyClient._album_label({"label": "Epic", "copyrights": []}) == "Epic"
+
+
+def test_spotify_derives_deprecated_label_from_phonographic_copyright() -> None:
+    album = {
+        "copyrights": [
+            {"type": "C", "text": "© 1973 Sony Music Entertainment"},
+            {"type": "P", "text": "℗ 1973 Epic Records"},
+        ]
+    }
+
+    assert SpotifyClient._album_label(album) == "Epic Records"
+
+
+def test_spotify_leaves_missing_label_blank_instead_of_fabricating_unknown() -> None:
+    assert SpotifyClient._album_label({}) == ""
+
+
 def test_spotify_catalog_id_can_supply_poster_metadata(monkeypatch) -> None:
     monkeypatch.setattr(
         beatprints_service.spotify_client,
@@ -68,3 +87,77 @@ def test_spotify_catalog_id_can_supply_poster_metadata(monkeypatch) -> None:
     assert metadata.title == "Summer Breeze"
     assert metadata.album == "3 + 3"
     assert metadata.cover == "https://i.scdn.co/image/example"
+    assert metadata.label == "Epic"
+    assert metadata.link == "https://open.spotify.com/track/spotify-track-id"
+
+
+def test_spotify_source_link_is_added_to_platform_qr_codes() -> None:
+    request = TrackPosterRequest(
+        provider="spotify",
+        catalog_id="spotify-track-id",
+        qr_platform="spotify",
+        platform_links={
+            "apple_music": "https://music.apple.com/us/album/example/123456789"
+        },
+    )
+
+    link = beatprints_service._selected_platform_link(
+        request.platform_links,
+        request.qr_platform,
+        request.provider,
+        "https://open.spotify.com/track/spotify-track-id",
+    )
+
+    assert link == ("Spotify", "https://open.spotify.com/track/spotify-track-id")
+
+
+def test_no_qr_platform_means_no_selected_link() -> None:
+    request = TrackPosterRequest(
+        provider="spotify",
+        catalog_id="spotify-track-id",
+        platform_links={"spotify": "https://open.spotify.com/track/example"},
+    )
+
+    link = beatprints_service._selected_platform_link(
+        request.platform_links,
+        request.qr_platform,
+        request.provider,
+        "https://open.spotify.com/track/spotify-track-id",
+    )
+
+    assert link is None
+
+
+def test_rendering_hides_platform_area_without_manual_selection() -> None:
+    original = beatprints_service.beatprints_image.scannable
+
+    with beatprints_service._provider_rendering(None, None, None):
+        image = beatprints_service.beatprints_image.scannable("Light")
+        assert image.getbbox() is None
+
+    assert beatprints_service.beatprints_image.scannable is original
+
+
+def test_platform_scannable_uses_cover_color() -> None:
+    item = ("QQ 音乐", "https://y.qq.com/n/ryqq/songDetail/example")
+    color = (82, 44, 126)
+
+    image = beatprints_service._platform_scannable(item, color)("Light")
+
+    assert image.mode == "RGBA"
+    assert image.size == beatprints_service.beatprints_image.s.SCANCODE
+    assert image.getbbox() is not None
+    colors = image.getcolors(maxcolors=image.width * image.height) or []
+    assert color + (255,) in {value for _count, value in colors}
+
+
+def test_cover_qr_color_is_colored_and_has_safe_white_contrast(tmp_path) -> None:
+    cover_path = tmp_path / "cover.png"
+    from PIL import Image
+
+    Image.new("RGB", (200, 200), (217, 164, 65)).save(cover_path)
+
+    color = beatprints_service._cover_qr_color(cover_path)
+
+    assert color[0] > color[2]
+    assert beatprints_service._contrast_with_white(color) >= 4.5

@@ -1,3 +1,4 @@
+import re
 import threading
 import time
 from typing import Literal
@@ -123,7 +124,7 @@ class SpotifyClient:
             "released": album["release_date"],
             "duration": f"{minutes:02d}:{remaining_seconds:02d}",
             "cover": self._cover_url(album),
-            "label": album.get("label") or "Unknown label",
+            "label": self._album_label(album),
             "link": track["external_urls"]["spotify"],
         }
 
@@ -142,7 +143,7 @@ class SpotifyClient:
             "released": album["release_date"],
             "tracks": tracks,
             "cover": self._cover_url(album),
-            "label": album.get("label") or "Unknown label",
+            "label": self._album_label(album),
             "link": album["external_urls"]["spotify"],
         }
 
@@ -152,6 +153,36 @@ class SpotifyClient:
         if not images:
             raise SpotifyError("Spotify result did not include cover art")
         return images[0]["url"]
+
+    @staticmethod
+    def _album_label(album: dict) -> str:
+        """Return a real label value, deriving it from copyright data if needed."""
+
+        label = str(album.get("label") or "").strip()
+        if label and label.casefold() not in {
+            "unknown",
+            "unknown label",
+            "unknown records",
+        }:
+            return label
+
+        copyrights = album.get("copyrights") or []
+        ordered = sorted(
+            copyrights,
+            key=lambda item: 0 if str(item.get("type", "")).upper() == "P" else 1,
+        )
+        for copyright_item in ordered:
+            text = str(copyright_item.get("text") or "").strip()
+            if not text:
+                continue
+            derived = re.sub(
+                r"^\s*(?:[℗©]|[(][PCpc][)])?\s*(?:\d{4})?\s*[-–—:]?\s*",
+                "",
+                text,
+            ).strip()
+            if derived:
+                return derived
+        return ""
 
     @classmethod
     def _format_track(cls, item: dict) -> dict:

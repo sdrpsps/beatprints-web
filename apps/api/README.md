@@ -108,7 +108,7 @@ curl -X POST http://localhost:8000/v1/posters/track \
   -H "Authorization: Bearer $API_KEY" \
   -d '{
     "provider": "spotify",
-    "query": "Apples - Rocco",
+    "query": "Summer Breeze Piper",
     "theme": "Light",
     "accent": false
   }' \
@@ -120,7 +120,13 @@ curl -X POST http://localhost:8000/v1/posters/track \
 ```json
 {
   "provider": "spotify",
-  "catalog_id": "3B0ms7Xlxl16tRztKHpcu9",
+  "catalog_id": "7lp5evZr7qEDwlv5PS8b6i",
+  "platform_links": {
+    "apple_music": "https://music.apple.com/us/album/summer-breeze/1790520587",
+    "qq_music": "https://y.qq.com/n/ryqq/songDetail/001example",
+    "netease_music": "https://music.163.com/song?id=123456"
+  },
+  "qr_platform": "apple_music",
   "lyrics": "line one\nline two\nline three\nline four",
   "theme": "Nord",
   "accent": true
@@ -135,7 +141,7 @@ curl -X POST http://localhost:8000/v1/posters/album \
   -H "Authorization: Bearer $API_KEY" \
   -d '{
     "provider": "spotify",
-    "query": "Charm - Clairo",
+    "query": "Summer Breeze Piper",
     "theme": "Light",
     "accent": true,
     "indexing": false
@@ -170,6 +176,42 @@ curl -X POST http://localhost:8000/v1/posters/track \
 
 专辑的 `metadata` 将 `album`、`duration` 换成 `tracks` 数组即可。
 
+## 海报中的音乐平台直达入口
+
+歌曲和专辑海报接口都支持 `qr_platform + platform_links`。`qr_platform` 用来明确指定这张
+海报显示哪个平台；未提供 `qr_platform` 时，海报不会显示任何平台标识或二维码：
+
+```json
+{
+  "provider": "spotify",
+  "catalog_id": "7lp5evZr7qEDwlv5PS8b6i",
+  "qr_platform": "apple_music",
+  "platform_links": {
+    "spotify": "https://open.spotify.com/track/7lp5evZr7qEDwlv5PS8b6i",
+    "apple_music": "https://music.apple.com/us/album/summer-breeze/1790520587",
+    "qq_music": "https://y.qq.com/n/ryqq/songDetail/001example",
+    "netease_music": "https://music.163.com/song?id=123456"
+  }
+}
+```
+
+上述请求只会显示 Apple Music 二维码，其他链接不会同时渲染。这样调用方可以保存一组跨平台
+链接，并针对同一首歌曲分别生成不同平台版本的海报。
+
+`qr_platform` 支持 `spotify`、`apple_music`、`qq_music` 和 `netease_music`。选定平台后，
+`platform_links` 必须包含该平台的链接。链接支持平台网页地址、Universal Link 或 Deep
+Link。推荐优先传平台分享功能生成的 HTTPS/Universal Link：扫码设备安装了对应 App 时通常
+会直接唤起 App，未安装时仍可回退到网页。
+
+唯一的自动补全是：使用 Spotify 作为 `provider`、同时明确选择
+`"qr_platform": "spotify"` 时，可以省略 `platform_links.spotify`，服务会使用 Spotify
+元数据返回的歌曲或专辑链接。未指定 `qr_platform` 时不会因为数据源是 Spotify 而自动显示。
+其他三个平台当前没有接入搜索数据源，因此需要调用方完成跨平台匹配后传入对应链接。
+
+二维码的深色模块和平台名称会使用从专辑封面提取的颜色。服务优先选择饱和度较高、且与白色
+背景达到安全对比度的封面颜色；封面颜色全部过浅时，会把选中的颜色压暗到足以扫描，而不是
+退回固定黑色。二维码背景和 quiet zone 始终保持白色，以提高相机识别稳定性。
+
 ## 音乐平台
 
 Spotify 搜索和海报资料获取需要在
@@ -203,8 +245,10 @@ Spotify 时，`all` 会只返回 Deezer；明确指定 `provider=spotify` 则返
 生成接口统一使用 `provider + catalog_id`。Deezer 和 Spotify 是同等级 provider；
 以后新增 Apple Music、QQ 音乐等平台时，也不需要改变请求结构。
 
-Spotify 海报分支会保持封面原有构图和色彩，并隐藏 BeatPrints 内置的 Deezer 图标。后续可在
-同一个平台渲染钩子中加入 Spotify 跳转码和署名；对外发布前应补齐跳转链接与 Spotify 标识。
+Spotify 海报分支会保持封面原有构图和色彩。BeatPrints 内置的 Deezer 图标现在默认隐藏，
+只有明确提供 `qr_platform` 时才会在原位置显示指定平台的彩色二维码。Spotify 完整专辑响应
+中的 `label` 已被官方标记为 deprecated，因此服务会先使用真实 `label`，字段缺失时再从
+录音版权信息中提取厂牌；仍无法确定时留空，不显示误导性的 `Unknown Label`。
 
 ## 接口
 

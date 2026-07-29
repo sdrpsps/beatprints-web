@@ -1,3 +1,4 @@
+import colorsys
 import ipaddress
 import random
 import socket
@@ -9,16 +10,22 @@ from urllib.parse import urljoin, urlparse
 
 import deezer
 import httpx
-from PIL import Image
+import qrcode
+from PIL import Image, ImageDraw, ImageFont
+from qrcode.constants import ERROR_CORRECT_M
 
 from beatprints_api.config import settings
-from beatprints_api.models.dto import AlbumPosterRequest, TrackPosterRequest
+from beatprints_api.models.dto import (
+    AlbumPosterRequest,
+    PosterPlatformLinks,
+    TrackPosterRequest,
+)
 from beatprints_api.palette import extract_palette, install_pylette_compatibility_module
 from beatprints_api.spotify import SpotifyClient
 
 install_pylette_compatibility_module()
 
-from BeatPrints import deez, image as beatprints_image, lyrics, poster
+from BeatPrints import deez, image as beatprints_image, lyrics, poster, write
 
 beatprints_image.get_palette = extract_palette
 
@@ -30,10 +37,23 @@ spotify_client = SpotifyClient(
     settings.spotify_market,
 )
 rendering_lock = threading.Lock()
+PLATFORM_LABELS = {
+    "spotify": "Spotify",
+    "apple_music": "Apple Music",
+    "qq_music": "QQ 音乐",
+    "netease_music": "网易云",
+}
 
 
 class UpstreamError(RuntimeError):
     """Raised when a metadata, lyrics, or cover provider fails."""
+
+
+def _normalized_label(value: object) -> str:
+    label = str(value or "").strip()
+    if label.casefold() in {"unknown", "unknown label", "unknown records"}:
+        return ""
+    return label
 
 
 def _is_public_host(hostname: str) -> bool:
@@ -116,17 +136,21 @@ def _track_metadata(request: TrackPosterRequest) -> deez.TrackMetadata:
     provider, track_id = _catalog_reference(request, "track")
     if provider == "spotify":
         value = spotify_client.track_metadata(str(track_id))
-        return deez.TrackMetadata(
+        metadata = deez.TrackMetadata(
             title=value["title"],
             artists=value["artists"],
             album=value["album"],
             released=value["released"],
             duration=value["duration"],
             cover=value["cover"],
-            label=value["label"],
+            label=_normalized_label(value["label"]),
         )
+        metadata.link = value["link"]
+        return metadata
 
-    return deez.Deezer().get_track(int(track_id))
+    metadata = deez.Deezer().get_track(int(track_id))
+    metadata.label = _normalized_label(metadata.label)
+    return metadata
 
 
 def _album_metadata(request: AlbumPosterRequest) -> deez.AlbumMetadata:
@@ -150,13 +174,16 @@ def _album_metadata(request: AlbumPosterRequest) -> deez.AlbumMetadata:
             released=value["released"],
             tracks=value["tracks"],
             cover=value["cover"],
-            label=value["label"],
+            label=_normalized_label(value["label"]),
         )
+        metadata.link = value["link"]
         if request.shuffle:
             random.shuffle(metadata.tracks)
         return metadata
 
-    return deez.Deezer().get_album(int(album_id), shuffle=request.shuffle)
+    metadata = deez.Deezer().get_album(int(album_id), shuffle=request.shuffle)
+    metadata.label = _normalized_label(metadata.label)
+    return metadata
 
 
 def _catalog_reference(
@@ -194,16 +221,124 @@ def _empty_scannable(_theme: str = "Light") -> Image.Image:
     return Image.new("RGBA", beatprints_image.s.SCANCODE, (0, 0, 0, 0))
 
 
+def _selected_platform_link(
+    links: PosterPlatformLinks | None,
+    selected_platform: str | None,
+    provider: str | None,
+    source_link: str | None,
+) -> tuple[str, str] | None:
+    if selected_platform is None:
+        return None
+    values = (
+        links.model_dump(mode="json", exclude_none=True) if links is not None else {}
+    )
+    if (
+        selected_platform == "spotify"
+        and provider == "spotify"
+        and source_link
+        and "spotify" not in values
+    ):
+        values["spotify"] = source_link
+    link = values.get(selected_platform)
+    if link is None:
+        return None
+    return PLATFORM_LABELS[selected_platform], link
+
+
+def _qr_font(size: int) -> ImageFont.FreeTypeFont:
+    font_paths = write.font("Regular")
+    path = next(
+        (path for path in font_paths if "NotoSansSC" in path),
+        next(iter(font_paths)),
+    )
+    return ImageFont.truetype(path, size)
+
+
+def _relative_luminance(color: tuple[int, int, int]) -> float:
+    channels = []
+    for value in color:
+        channel = value / 255
+        channels.append(
+            channel / 12.92
+            if channel <= 0.04045
+            else ((channel + 0.055) / 1.055) ** 2.4
+        )
+    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
+
+
+def _contrast_with_white(color: tuple[int, int, int]) -> float:
+    return 1.05 / (_relative_luminance(color) + 0.05)
+
+
+def _cover_qr_color(cover_path: Path) -> tuple[int, int, int]:
+    with Image.open(cover_path) as cover:
+        palette = extract_palette(cover, size=8)
+
+    def saturation(color: tuple[int, int, int]) -> float:
+        return colorsys.rgb_to_hsv(*(channel / 255 for channel in color))[1]
+
+    high_contrast = [color for color in palette if _contrast_with_white(color) >= 4.5]
+    if high_contrast:
+        return max(high_contrast, key=saturation)
+
+    selected = max(palette, key=saturation)
+    for step in range(19, -1, -1):
+        factor = step / 20
+        darkened = tuple(round(channel * factor) for channel in selected)
+        if _contrast_with_white(darkened) >= 4.5:
+            return darkened
+    return 0, 0, 0
+
+
+def _platform_scannable(
+    item: tuple[str, str],
+    color: tuple[int, int, int],
+):
+    def render(_theme: str = "Light") -> Image.Image:
+        width, height = beatprints_image.s.SCANCODE
+        canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(canvas)
+        label, link = item
+        qr = qrcode.QRCode(
+            version=None,
+            error_correction=ERROR_CORRECT_M,
+            box_size=4,
+            border=2,
+        )
+        qr.add_data(link)
+        qr.make(fit=True)
+        code = qr.make_image(fill_color=color, back_color="white").convert("RGBA")
+        qr_size = 112
+        code = code.resize((qr_size, qr_size), Image.Resampling.NEAREST)
+        canvas.alpha_composite(code, (0, (height - qr_size) // 2))
+        draw.text(
+            (136, height // 2),
+            label,
+            fill=color + (255,),
+            font=_qr_font(28),
+            anchor="lm",
+        )
+        return canvas
+
+    return render
+
+
 @contextmanager
-def _provider_rendering(provider: str | None):
+def _provider_rendering(
+    provider: str | None,
+    platform_link: tuple[str, str] | None,
+    qr_color: tuple[int, int, int] | None,
+):
     """Temporarily adapt BeatPrints' fixed Deezer rendering to a catalog provider."""
 
     with rendering_lock:
         original_cover = beatprints_image.cover
         original_scannable = beatprints_image.scannable
+        beatprints_image.scannable = _empty_scannable
         if provider == "spotify":
             beatprints_image.cover = _spotify_cover
-            beatprints_image.scannable = _empty_scannable
+        if platform_link is not None and qr_color is not None:
+            beatprints_image.scannable = _platform_scannable(platform_link, qr_color)
         try:
             yield
         finally:
@@ -234,13 +369,20 @@ def _select_lyrics(metadata: deez.TrackMetadata, request: TrackPosterRequest) ->
 def generate_track(request: TrackPosterRequest) -> tuple[bytes, str]:
     metadata = _track_metadata(request)
     selected_lyrics = _select_lyrics(metadata, request)
+    provider = request.provider if request.metadata is None else None
+    platform_link = _selected_platform_link(
+        request.platform_links,
+        request.qr_platform,
+        provider,
+        getattr(metadata, "link", None),
+    )
 
     with tempfile.TemporaryDirectory(prefix="beatprints-") as temp:
         directory = Path(temp)
         cover_path = directory / "cover"
         _download_cover(metadata.cover, cover_path)
-        provider = request.provider if request.metadata is None else None
-        with _provider_rendering(provider):
+        qr_color = _cover_qr_color(cover_path) if platform_link is not None else None
+        with _provider_rendering(provider, platform_link, qr_color):
             poster.Poster(str(directory)).track(
                 metadata=metadata,
                 lyrics=selected_lyrics,
@@ -256,12 +398,20 @@ def generate_album(request: AlbumPosterRequest) -> tuple[bytes, str]:
     if request.metadata is not None and request.shuffle:
         random.shuffle(metadata.tracks)
 
+    provider = request.provider if request.metadata is None else None
+    platform_link = _selected_platform_link(
+        request.platform_links,
+        request.qr_platform,
+        provider,
+        getattr(metadata, "link", None),
+    )
+
     with tempfile.TemporaryDirectory(prefix="beatprints-") as temp:
         directory = Path(temp)
         cover_path = directory / "cover"
         _download_cover(metadata.cover, cover_path)
-        provider = request.provider if request.metadata is None else None
-        with _provider_rendering(provider):
+        qr_color = _cover_qr_color(cover_path) if platform_link is not None else None
+        with _provider_rendering(provider, platform_link, qr_color):
             poster.Poster(str(directory)).album(
                 metadata=metadata,
                 indexing=request.indexing,
