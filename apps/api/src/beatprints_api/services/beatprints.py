@@ -9,12 +9,18 @@ from urllib.parse import urljoin, urlparse
 
 import deezer
 import httpx
-from BeatPrints import deez, image as beatprints_image, lyrics, poster
 from PIL import Image
 
 from beatprints_api.config import settings
 from beatprints_api.models.dto import AlbumPosterRequest, TrackPosterRequest
+from beatprints_api.palette import extract_palette, install_pylette_compatibility_module
 from beatprints_api.spotify import SpotifyClient
+
+install_pylette_compatibility_module()
+
+from BeatPrints import deez, image as beatprints_image, lyrics, poster
+
+beatprints_image.get_palette = extract_palette
 
 MAX_COVER_BYTES = 15 * 1024 * 1024
 ALLOWED_COVER_TYPES = {"image/jpeg", "image/png", "image/webp"}

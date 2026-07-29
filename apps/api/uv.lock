@@ -65,7 +65,6 @@ dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
     { name = "pydantic" },
-    { name = "pylette" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -81,7 +80,6 @@ requires-dist = [
     { name = "fastapi", specifier = "==0.116.1" },
     { name = "httpx", specifier = "==0.28.1" },
     { name = "pydantic", specifier = "==2.11.7" },
-    { name = "pylette", specifier = "==5.3.0" },
     { name = "uvicorn", extras = ["standard"], specifier = "==0.35.0" },
 ]
 
