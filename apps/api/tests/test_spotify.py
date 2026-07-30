@@ -1,3 +1,6 @@
+from io import BytesIO
+
+from PIL import Image
 import pytest
 
 from beatprints_api.models import TrackPosterRequest
@@ -198,10 +201,51 @@ def test_platform_scannable_uses_cover_color() -> None:
     assert color + (255,) in {value for _count, value in colors}
 
 
+def test_spotify_uri_accepts_canonical_track_and_album_urls() -> None:
+    track_id = "4uLU6hMCjMI75M1A2tKUQC"
+    album_id = "1ATL5GLyefJaxhQzSPVrLX"
+
+    assert (
+        beatprints_service._spotify_uri(
+            f"https://open.spotify.com/track/{track_id}?si=example"
+        )
+        == f"spotify:track:{track_id}"
+    )
+    assert (
+        beatprints_service._spotify_uri(
+            f"https://open.spotify.com/intl-zh/album/{album_id}"
+        )
+        == f"spotify:album:{album_id}"
+    )
+    assert beatprints_service._spotify_uri("https://example.com/track/abc") is None
+
+
+def test_spotify_code_scannable_uses_spotify_image_service_output(monkeypatch) -> None:
+    source = Image.new("RGB", (560, 140), "white")
+    source.paste((0, 0, 0), (28, 28, 532, 112))
+    payload = BytesIO()
+    source.save(payload, format="PNG")
+    calls: list[tuple[str, int]] = []
+
+    def png(uri: str, width: int) -> bytes:
+        calls.append((uri, width))
+        return payload.getvalue()
+
+    monkeypatch.setattr(beatprints_service.spotify_code_client, "png", png)
+    scannable = beatprints_service._spotify_code_scannable(
+        "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC"
+    )
+
+    assert scannable is not None
+    image = scannable("Light")
+    assert calls == [("spotify:track:4uLU6hMCjMI75M1A2tKUQC", 560)]
+    assert image.size == (560, 120)
+    assert image.getpixel((0, 0))[3] == 0
+    assert image.getpixel((212, 60)) == (50, 47, 48, 255)
+
+
 def test_cover_qr_color_is_colored_and_has_safe_white_contrast(tmp_path) -> None:
     cover_path = tmp_path / "cover.png"
-    from PIL import Image
-
     Image.new("RGB", (200, 200), (217, 164, 65)).save(cover_path)
 
     color = beatprints_service._cover_qr_color(cover_path)

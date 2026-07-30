@@ -102,8 +102,10 @@ When Spotify supplies the metadata and `qr_platform=spotify`, the backend can re
 source link. Apple Music, QQ Music, and NetEase Music currently are not search providers, so
 the frontend or another service must supply the matching URL in `platform_links`.
 
-Only one platform is rendered per poster. The backend extracts a sufficiently contrasting
-color from the cover for the QR code and platform label while keeping the QR background white.
+Only one platform is rendered per poster. For Spotify, a canonical Spotify track or album link
+renders Spotify's native Spotify Code, which is scan-ready in the Spotify mobile app. The other
+platforms use a standard QR code whose dark color is extracted from the cover while the QR
+background remains white.
 
 The UI should present this as an optional poster destination, not as the metadata search source.
 Do not label both concepts simply as “音乐平台.”

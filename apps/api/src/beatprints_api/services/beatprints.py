@@ -1,8 +1,10 @@
 import atexit
 import colorsys
 import copy
+import io
 import ipaddress
 import random
+import re
 import socket
 import tempfile
 import threading
@@ -28,7 +30,7 @@ from beatprints_api.models.dto import (
     TrackPosterRequest,
 )
 from beatprints_api.palette import extract_palette, install_pylette_compatibility_module
-from beatprints_api.spotify import SpotifyClient
+from beatprints_api.spotify import SpotifyCodeClient, SpotifyClient
 
 install_pylette_compatibility_module()
 
@@ -50,6 +52,7 @@ spotify_client = SpotifyClient(
     settings.spotify_client_secret,
     settings.spotify_market,
 )
+spotify_code_client = SpotifyCodeClient()
 cover_client = httpx.Client(
     follow_redirects=False,
     timeout=httpx.Timeout(15.0, connect=5.0),
@@ -68,6 +71,9 @@ PLATFORM_LABELS = {
     "qq_music": "QQ 音乐",
     "netease_music": "网易云",
 }
+SPOTIFY_CODE_SCALE = 1.06
+SPOTIFY_CODE_WIDTH = 560
+SPOTIFY_CODE_HEIGHT = 120
 
 
 class UpstreamError(RuntimeError):
@@ -399,6 +405,66 @@ def _platform_scannable(
     return render
 
 
+def _spotify_uri(link: str) -> str | None:
+    """Return a canonical Spotify track or album URI for a supported web link."""
+
+    parsed = urlparse(link)
+    if parsed.scheme == "spotify":
+        parts = parsed.path.split(":")
+        if len(parts) == 2 and parts[0] in {"track", "album"}:
+            return link
+
+    host = (parsed.hostname or "").lower()
+    if host not in {"open.spotify.com", "play.spotify.com"}:
+        return None
+    parts = [part for part in parsed.path.split("/") if part]
+    for index, part in enumerate(parts[:-1]):
+        if part in {"track", "album"}:
+            item_id = parts[index + 1]
+            if re.fullmatch(r"[A-Za-z0-9]{22}", item_id):
+                return f"spotify:{part}:{item_id}"
+    return None
+
+
+def _spotify_code_scannable(link: str):
+    """Render a Spotify Code in BeatPrints' fixed bottom-left slot."""
+
+    uri = _spotify_uri(link)
+    if uri is None:
+        return None
+    width, height = SPOTIFY_CODE_WIDTH, SPOTIFY_CODE_HEIGHT
+    content = spotify_code_client.png(uri, width)
+    try:
+        with Image.open(io.BytesIO(content)) as source:
+            code = source.convert("L")
+    except OSError as exc:
+        raise UpstreamError("Spotify Code service returned an invalid PNG") from exc
+
+    def render(theme: str = "Light") -> Image.Image:
+        color = beatprints_image.t.THEMES[theme]
+        mask = code.point(lambda value: 255 - value)
+        content_box = mask.getbbox()
+        if content_box is None:
+            raise UpstreamError("Spotify Code image contains no scannable content")
+        mask = mask.crop(content_box)
+        colored = Image.new("RGBA", mask.size, color + (0,))
+        colored.putalpha(mask)
+        canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        target_width = min(width, round(colored.width * SPOTIFY_CODE_SCALE))
+        target_height = round(colored.height * target_width / colored.width)
+        if target_height > height:
+            target_height = height
+            target_width = round(colored.width * target_height / colored.height)
+        fitted = colored.resize((target_width, target_height), Image.Resampling.LANCZOS)
+        canvas.alpha_composite(
+            fitted,
+            ((width - fitted.width) // 2, (height - fitted.height) // 2),
+        )
+        return canvas
+
+    return render
+
+
 @contextmanager
 def _provider_rendering(
     provider: str | None,
@@ -414,7 +480,15 @@ def _provider_rendering(
         if provider == "spotify":
             beatprints_image.cover = _spotify_cover
         if platform_link is not None and qr_color is not None:
-            beatprints_image.scannable = _platform_scannable(platform_link, qr_color)
+            spotify_code = (
+                _spotify_code_scannable(platform_link[1])
+                if platform_link[0] == "Spotify"
+                else None
+            )
+            beatprints_image.scannable = spotify_code or _platform_scannable(
+                platform_link,
+                qr_color,
+            )
         try:
             yield
         finally:

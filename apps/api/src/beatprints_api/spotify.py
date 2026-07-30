@@ -3,6 +3,7 @@ import re
 import threading
 import time
 from typing import Literal
+from urllib.parse import quote
 
 import httpx
 
@@ -13,6 +14,50 @@ class SpotifyError(RuntimeError):
 
 class SpotifyNotConfiguredError(SpotifyError):
     """Raised when Spotify credentials were not configured."""
+
+
+class SpotifyCodeClient:
+    """Fetches Spotify's own scan-ready code artwork for a Spotify URI.
+
+    Spotify Codes are not part of the public Web API and have no official Python
+    SDK. Spotify's own code service returns the image that its mobile scanner
+    recognizes, so keeping this small adapter local is safer than depending on
+    an unmaintained third-party code generator.
+    """
+
+    SCANNABLES_URL = "https://scannables.scdn.co/uri/plain"
+    MAX_IMAGE_BYTES = 2 * 1024 * 1024
+
+    def __init__(self) -> None:
+        self._http = httpx.Client(
+            timeout=httpx.Timeout(10.0, connect=5.0),
+            limits=httpx.Limits(
+                max_connections=10,
+                max_keepalive_connections=5,
+                keepalive_expiry=30.0,
+            ),
+            headers={"User-Agent": "BeatPrints-API/0.1"},
+        )
+        atexit.register(self._http.close)
+
+    def png(self, uri: str, width: int) -> bytes:
+        """Return Spotify's standard black-on-white PNG code for ``uri``."""
+
+        url = (
+            f"{self.SCANNABLES_URL}/png/ffffff/black/{width}/" f"{quote(uri, safe=':')}"
+        )
+        try:
+            response = self._http.get(url)
+            response.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise SpotifyError(f"Could not generate Spotify Code: {exc}") from exc
+
+        content_type = response.headers.get("content-type", "").split(";", 1)[0]
+        if content_type != "image/png":
+            raise SpotifyError("Spotify Code service returned an unexpected image type")
+        if len(response.content) > self.MAX_IMAGE_BYTES:
+            raise SpotifyError("Spotify Code image exceeds the 2 MB limit")
+        return response.content
 
 
 class SpotifyClient:
