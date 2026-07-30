@@ -39,7 +39,12 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-editable --reinstall-package beatprints-api && \
     uv pip uninstall \
         pylette opencv-python scikit-learn scipy numpy \
-        joblib narwhals threadpoolctl && \
+        joblib narwhals threadpoolctl \
+        black mypy-extensions pathspec platformdirs pytokens \
+        questionary prompt-toolkit wcwidth \
+        rich markdown-it-py mdurl pygments \
+        toml typer shellingham \
+        python-dotenv pyyaml watchfiles websockets && \
     find /app/.venv -type d -name __pycache__ -prune -exec rm -rf {} + && \
     find /app/.venv -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
 
@@ -55,10 +60,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY --from=builder /app/.venv /app/.venv
-COPY --from=web-builder /app/apps/web/dist /app/web
+RUN useradd --create-home --uid 10001 appuser
 
-RUN useradd --create-home --uid 10001 appuser && chown -R appuser:appuser /app
+COPY --chown=appuser:appuser --from=builder /app/.venv /app/.venv
+COPY --chown=appuser:appuser --from=web-builder /app/apps/web/dist /app/web
+
 USER appuser
 
 EXPOSE 8000
