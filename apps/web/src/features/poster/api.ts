@@ -87,6 +87,14 @@ export async function fetchLyrics(
 
 function responseFilename(response: Response) {
   const disposition = response.headers.get("Content-Disposition") ?? ""
+  const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i)
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1])
+    } catch {
+      // Fall back to the ASCII filename when an upstream response is malformed.
+    }
+  }
   const match = disposition.match(/filename="?([^";]+)"?/i)
   return match?.[1] ?? "beatprints-poster.png"
 }

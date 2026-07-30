@@ -97,6 +97,26 @@ def test_track_returns_png(monkeypatch) -> None:
     assert response.headers["x-process-time"]
 
 
+def test_poster_response_supports_unicode_filenames(monkeypatch) -> None:
+    monkeypatch.setattr(
+        posters.beatprints_service,
+        "generate_album",
+        lambda request: posters.beatprints_service.PosterResult(
+            b"\x89PNG\r\n\x1a\n",
+            "我在切爾諾貝爾　等你 - Juno Mak.png",
+            {},
+        ),
+    )
+    response = client.post(
+        "/v1/posters/album",
+        json={"query": "test"},
+    )
+
+    assert response.status_code == 200
+    assert 'filename="beatprints-poster.png"' in response.headers["content-disposition"]
+    assert "filename*=UTF-8''%E6%88%91" in response.headers["content-disposition"]
+
+
 def test_platform_links_require_at_least_one_url() -> None:
     response = client.post(
         "/v1/posters/track",

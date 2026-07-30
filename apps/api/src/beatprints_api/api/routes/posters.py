@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+from urllib.parse import quote
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
@@ -189,11 +190,19 @@ def _image_response(
     server_timing = ", ".join(
         f"{name};dur={duration:.0f}" for name, duration in timings.items()
     )
+    safe_filename = (
+        filename
+        if filename.isascii() and all(character not in '"\\;' for character in filename)
+        else "beatprints-poster.png"
+    )
+    content_disposition = (
+        f'inline; filename="{safe_filename}"; ' f"filename*=UTF-8''{quote(filename)}"
+    )
     return Response(
         content=content,
         media_type="image/png",
         headers={
-            "Content-Disposition": f'inline; filename="{filename}"',
+            "Content-Disposition": content_disposition,
             "Server-Timing": server_timing,
         },
     )
