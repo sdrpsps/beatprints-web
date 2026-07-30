@@ -27,6 +27,32 @@ mapping, current backend capabilities, and known integration gaps. Preserve thes
   drive the interface's visual identity; avoid generic AI-product and dashboard conventions.
 - BeatPrints is licensed CC BY-NC-SA 4.0 for non-commercial use and requires attribution.
 
+### Cross-platform link matching
+
+When implementing or changing a QR platform destination, preserve the established matching
+journey for both **tracks and albums**:
+
+1. Start from the user's exact selected `provider + id` and pass it unchanged as
+   `provider + catalog_id` plus `type=track|album`. Do not replace this with a text query that
+   silently selects a first result.
+2. Match conservatively. Prefer stable identifiers such as ISRC; only use title, artist, release,
+   and duration fallbacks when they meet a strict confidence threshold. Return an explicit no-match
+   result rather than linking a plausibly named but unconfirmed release.
+3. Display a successful match in the same `Item`-style hierarchy as a source search result: cover,
+   title, artists, and contextual metadata. Tracks show their album; albums show release year and
+   track count. The right-side confirmation action is labelled only “Open”.
+4. A user must be able to reject an automatic result and manually paste a public platform link.
+   Resolving that link must fetch its **current** track or album metadata and refresh only the
+   platform confirmation card. It must never overwrite the selected source item's poster title,
+   artists, cover, lyrics, release data, or catalog ID.
+5. Keep automatic matching, manual-link resolution, error/no-match fallback, disabled generation,
+   and confirmation-card rendering equivalent for tracks and albums. Add backend regression tests
+   for both item types and both automatic and manual routes whenever this flow changes.
+
+Apple Music and Deezer-to-Spotify currently implement this contract. Any future cross-platform
+destination should follow the same API and interaction pattern unless the product requirements
+explicitly say otherwise.
+
 ## Frontend scope
 
 These rules apply to all work under `apps/web`.

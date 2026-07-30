@@ -337,6 +337,8 @@ def test_deezer_album_can_match_spotify(monkeypatch) -> None:
             "url": "https://open.spotify.com/album/spotify-album-id",
             "title": "Example album",
             "artists": ["Artist"],
+            "release_year": 1983,
+            "track_count": 10,
             "cover_url": "https://i.scdn.co/image/example",
             "type": item_type,
         }
@@ -354,6 +356,8 @@ def test_deezer_album_can_match_spotify(monkeypatch) -> None:
         "url": "https://open.spotify.com/album/spotify-album-id",
         "title": "Example album",
         "artists": ["Artist"],
+        "release_year": 1983,
+        "track_count": 10,
         "cover_url": "https://i.scdn.co/image/example",
         "type": "album",
     }
@@ -389,6 +393,8 @@ def test_spotify_album_link_resolve_returns_link_metadata(monkeypatch) -> None:
             "url": url,
             "title": "Manual Spotify album",
             "artists": ["Artist"],
+            "release_year": 1999,
+            "track_count": 12,
             "cover_url": "https://i.scdn.co/image/example",
             "type": "album",
         }
@@ -403,6 +409,8 @@ def test_spotify_album_link_resolve_returns_link_metadata(monkeypatch) -> None:
         "url": url,
         "title": "Manual Spotify album",
         "artists": ["Artist"],
+        "release_year": 1999,
+        "track_count": 12,
         "cover_url": "https://i.scdn.co/image/example",
         "type": "album",
     }

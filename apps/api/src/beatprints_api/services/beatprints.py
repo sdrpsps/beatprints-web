@@ -199,6 +199,8 @@ def _apple_music_result_data(result: dict) -> AppleMusicMatchData:
         title=title,
         artists=[result["artistName"]] if isinstance(result.get("artistName"), str) else [],
         album=result.get("collectionName") if is_track else None,
+        release_year=None if is_track else _release_year(result.get("releaseDate")),
+        track_count=None if is_track else result.get("trackCount"),
         cover_url=result.get("artworkUrl100"),
         type="track" if is_track else "album",
     )
@@ -302,6 +304,8 @@ def _apple_music_album_match(metadata: deez.AlbumMetadata) -> AppleMusicMatchDat
         title=match["collectionName"],
         artists=[match["artistName"]],
         type="album",
+        release_year=_release_year(match.get("releaseDate")),
+        track_count=match.get("trackCount"),
         cover_url=match.get("artworkUrl100"),
     )
 
@@ -551,6 +555,8 @@ def match_deezer_to_spotify(
                     url=candidate["link"],
                     title=candidate["title"],
                     artists=candidate["artists"],
+                    release_year=candidate.get("release_year"),
+                    track_count=candidate.get("track_count"),
                     cover_url=candidate["cover_url"],
                     type="album",
                 )
@@ -581,6 +587,8 @@ def resolve_spotify_url(url: str) -> SpotifyMatchData:
         url=value["link"],
         title=value["title"],
         artists=value["artists"],
+        release_year=_release_year(value["released"]),
+        track_count=len(value["tracks"]),
         cover_url=value["cover"],
         type="album",
     )

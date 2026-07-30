@@ -592,6 +592,8 @@ class AppleMusicMatchData(BaseModel):
     artists: list[str]
     type: Literal["track", "album"]
     album: str | None = None
+    release_year: int | None = None
+    track_count: int | None = None
     cover_url: HttpUrl | None = None
 
 
@@ -603,4 +605,6 @@ class SpotifyMatchData(BaseModel):
     artists: list[str]
     type: Literal["track", "album"]
     album: str | None = None
+    release_year: int | None = None
+    track_count: int | None = None
     cover_url: HttpUrl | None = None

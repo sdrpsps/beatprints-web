@@ -284,6 +284,13 @@ function AppleMusicConfirmationCard({
   manualLabel?: string
 }) {
   const { t } = useTranslation()
+  const albumDetails = [
+    match.release_year,
+    match.track_count ? `${match.track_count} ${t("poster.trackCountUnit")}` : undefined,
+  ]
+    .filter(Boolean)
+    .join(" · ")
+
   return (
     <Item variant="outline">
       <ItemMedia variant="image" className="size-16">
@@ -293,11 +300,16 @@ function AppleMusicConfirmationCard({
           <CoverArt result={source} />
         )}
       </ItemMedia>
-      <ItemContent>
-        <ItemTitle>{match.title}</ItemTitle>
-        <ItemDescription>{match.artists.join("、")}</ItemDescription>
-        {match.album ? <ItemDescription>{match.album}</ItemDescription> : null}
-      </ItemContent>
+        <ItemContent>
+          <ItemTitle>{match.title}</ItemTitle>
+          <ItemDescription>{match.artists.join("、")}</ItemDescription>
+          {match.type === "album" && albumDetails ? (
+            <ItemDescription>{albumDetails}</ItemDescription>
+          ) : null}
+          {match.type === "track" && match.album ? (
+            <ItemDescription>{match.album}</ItemDescription>
+          ) : null}
+        </ItemContent>
       <ItemActions className="max-sm:basis-full max-sm:justify-end">
         <Button render={<a href={match.url} target="_blank" rel="noreferrer" />} variant="outline" size="sm">
           <ExternalLinkIcon data-icon="inline-start" aria-hidden="true" />

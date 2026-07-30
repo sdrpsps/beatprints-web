@@ -55,6 +55,8 @@ export type AppleMusicMatch = {
   artists: string[]
   type: PosterKind
   album?: string
+  release_year?: number
+  track_count?: number
   cover_url?: string
 }
 
