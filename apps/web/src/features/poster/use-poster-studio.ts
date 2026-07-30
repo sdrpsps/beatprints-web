@@ -102,7 +102,7 @@ export function usePosterStudio() {
   const [theme, setThemeState] = useState<Theme>(initial.theme)
   const [accent, setAccentState] = useState(initial.accent)
   const [query, setQuery] = useState("")
-  const [provider, setProviderState] = useState<CatalogProvider>("deezer")
+  const [provider, setProviderState] = useState<CatalogProvider>("spotify")
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [searchState, setSearchState] = useState<
     "idle" | "loading" | "success" | "error"

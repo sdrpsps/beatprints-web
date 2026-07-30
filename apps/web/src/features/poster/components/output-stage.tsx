@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   ArrowDownToLineIcon,
@@ -16,6 +16,12 @@ import { cn } from "@/lib/utils"
 export function OutputStage({ studio }: { studio: Studio }) {
   const { t } = useTranslation()
   const stageRef = useRef<HTMLDivElement>(null)
+  const [readyOutputUrl, setReadyOutputUrl] = useState<string>()
+  const isGenerating = studio.generationState === "loading"
+  const outputReady =
+    Boolean(studio.output) && readyOutputUrl === studio.output?.url
+  const showLoadingOverlay =
+    isGenerating || Boolean(studio.output && !outputReady)
   const elapsedSeconds = studio.output?.processTime
     ? `${(Number(studio.output.processTime) / 1000).toFixed(2)}s`
     : "—"
@@ -55,16 +61,27 @@ export function OutputStage({ studio }: { studio: Studio }) {
       >
         {studio.output ? (
           <img
-            className="poster-output block max-h-[80vh] max-w-full object-contain shadow-[0_24px_70px_rgba(5,6,10,0.28)] motion-reduce:animate-none"
+            key={studio.output.url}
+            className={cn(
+              "block max-h-[80vh] max-w-full object-contain shadow-[0_24px_70px_rgba(5,6,10,0.28)]",
+              outputReady && "poster-output motion-reduce:animate-none",
+            )}
             src={studio.output.url}
             alt={t("poster.posterAlt", { title: studio.output.title })}
+            onLoad={() => setReadyOutputUrl(studio.output?.url)}
           />
         ) : null}
-        {!studio.output && studio.generationState !== "loading" ? (
+        {!studio.output && !isGenerating ? (
           <EmptyOutputState studio={studio} />
         ) : null}
-        {studio.generationState === "loading" ? (
-          <div className="absolute inset-0 z-2 m-auto flex max-w-[280px] flex-col items-center justify-center gap-2 bg-[color-mix(in_srgb,var(--stage)_88%,transparent)] p-6 text-center text-muted-foreground backdrop-blur-[5px]">
+        <div
+          className={cn(
+            "pointer-events-none absolute inset-0 z-2 grid place-items-center bg-[color-mix(in_srgb,var(--stage)_88%,transparent)] p-6 text-center opacity-0 backdrop-blur-[5px] transition-opacity duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none",
+            showLoadingOverlay && "pointer-events-auto opacity-100",
+          )}
+          aria-hidden={!showLoadingOverlay}
+        >
+          <div className="flex max-w-[280px] flex-col items-center gap-2 text-muted-foreground">
             <Spinner />
             <strong className="mt-1.5 text-sm text-foreground">
               {t("poster.generating")}
@@ -73,7 +90,7 @@ export function OutputStage({ studio }: { studio: Studio }) {
               {t("poster.generatingNotice")}
             </span>
           </div>
-        ) : null}
+        </div>
       </div>
       {studio.output ? <OutputActions studio={studio} /> : null}
     </aside>

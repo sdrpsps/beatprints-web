@@ -28,8 +28,8 @@ import type { CatalogProvider } from "@/features/poster/types"
 import { cn } from "@/lib/utils"
 
 const providerItems = [
-  { value: "deezer", label: "Deezer" },
   { value: "spotify", label: "Spotify" },
+  { value: "deezer", label: "Deezer" },
 ] satisfies { value: CatalogProvider; label: string }[]
 
 export function SearchSection({ studio }: { studio: Studio }) {
