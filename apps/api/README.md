@@ -271,8 +271,8 @@ Apple Music、QQ 音乐和网易云音乐继续使用普通二维码：深色模
 全部过浅时，会把选中的颜色压暗到足以扫描，而不是退回固定黑色。二维码背景和 quiet zone
 始终保持白色，以提高相机识别稳定性。
 
-Apple Music 会使用 Apple Music Symbol 加二维码的紧凑组合，整体采用从封面提取的主题色，
-以贴近 Spotify Code 的视觉位置和比例。它不是 App Clip Code；扫码仍会打开调用方提供的
+Apple Music 会使用 Apple Music Symbol 加二维码的紧凑组合，并与 Spotify Code 一样采用海报主题色，
+以保持相同的视觉位置、比例和配色逻辑。它不是 App Clip Code；扫码仍会打开调用方提供的
 Apple Music 链接，因此可由任意标准相机扫码。
 
 ## 音乐平台

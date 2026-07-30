@@ -832,13 +832,14 @@ def _transparent_qr(
     return code.resize((target_size, target_size), Image.Resampling.LANCZOS)
 
 
-def _apple_music_scannable(item: tuple[str, str], color: tuple[int, int, int]):
-    """Render a colour-matched Apple Music mark and standard QR code."""
+def _apple_music_scannable(item: tuple[str, str]):
+    """Render Apple Music artwork using the poster theme, like Spotify Code."""
 
-    def render(_theme: str = "Light") -> Image.Image:
+    def render(theme: str = "Light") -> Image.Image:
         width, height = beatprints_image.s.SCANCODE
         canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
         _label, link = item
+        color = beatprints_image.t.THEMES[theme]
 
         qr = qrcode.QRCode(
             version=None,
@@ -945,7 +946,7 @@ def _provider_rendering(
                 else None
             )
             beatprints_image.scannable = spotify_code or (
-                _apple_music_scannable(platform_link, qr_color)
+                _apple_music_scannable(platform_link)
                 if platform_link[0] == "Apple Music"
                 else _platform_scannable(platform_link, qr_color)
             )

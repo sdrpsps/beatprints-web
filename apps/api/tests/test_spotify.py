@@ -244,18 +244,24 @@ def test_spotify_code_scannable_uses_spotify_image_service_output(monkeypatch) -
     assert image.getpixel((212, 60)) == (50, 47, 48, 255)
 
 
-def test_apple_music_scannable_has_a_color_matched_icon_and_transparent_qr_background() -> (
+def test_apple_music_scannable_uses_the_same_theme_color_rule_as_spotify_code() -> (
     None
 ):
-    image = beatprints_service._apple_music_scannable(
+    scannable = beatprints_service._apple_music_scannable(
         ("Apple Music", "https://music.apple.com/us/album/example/123456789"),
-        (82, 44, 126),
-    )("Light")
+    )
+    image = scannable("Light")
+    dark_image = scannable("Dark")
 
+    light_color = beatprints_service.beatprints_image.t.THEMES["Light"]
+    dark_color = beatprints_service.beatprints_image.t.THEMES["Dark"]
     assert image.mode == "RGBA"
     assert image.size == beatprints_service.beatprints_image.s.SCANCODE
-    assert image.getpixel((20, 60)) == (82, 44, 126, 255)
+    assert image.getpixel((20, 60)) == light_color + (255,)
+    assert dark_image.getpixel((20, 60)) == dark_color + (255,)
     assert image.getpixel((98, 4))[3] == 0
+    colors = image.getcolors(maxcolors=image.width * image.height) or []
+    assert light_color + (255,) in {value for _count, value in colors}
 
 
 def test_cover_qr_color_is_colored_and_has_safe_white_contrast(tmp_path) -> None:

@@ -48,6 +48,9 @@ journey for both **tracks and albums**:
 5. Keep automatic matching, manual-link resolution, error/no-match fallback, disabled generation,
    and confirmation-card rendering equivalent for tracks and albums. Add backend regression tests
    for both item types and both automatic and manual routes whenever this flow changes.
+6. Platform artwork must use the shared poster-theme color rule used by Spotify Code. Do not let
+   Apple Music's symbol or QR code use a separate cover-derived color path; platform-specific
+   differences should be limited to the mark and code format, not their color source.
 
 Apple Music and Deezer-to-Spotify currently implement this contract. Any future cross-platform
 destination should follow the same API and interaction pattern unless the product requirements
