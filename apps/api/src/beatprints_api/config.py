@@ -17,6 +17,8 @@ def _integer(name: str, default: int, minimum: int = 1) -> int:
 class Settings:
     api_key: str | None
     cors_origins: tuple[str, ...]
+    metadata_cache_max_entries: int
+    metadata_cache_ttl_seconds: int
     spotify_client_id: str | None
     spotify_client_secret: str | None
     spotify_market: str
@@ -34,6 +36,8 @@ def load_settings() -> Settings:
     return Settings(
         api_key=os.getenv("API_KEY") or None,
         cors_origins=origins,
+        metadata_cache_max_entries=_integer("METADATA_CACHE_MAX_ENTRIES", 256),
+        metadata_cache_ttl_seconds=_integer("METADATA_CACHE_TTL_SECONDS", 600),
         spotify_client_id=os.getenv("SPOTIFY_CLIENT_ID") or None,
         spotify_client_secret=os.getenv("SPOTIFY_CLIENT_SECRET") or None,
         spotify_market=os.getenv("SPOTIFY_MARKET", "US").upper(),

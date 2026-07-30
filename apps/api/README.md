@@ -94,6 +94,14 @@ docker compose up -d --build
 充足后，才建议提高 `WEB_CONCURRENCY` 或 `MAX_CONCURRENT_JOBS`。每个 Web 进程有各自的
 并发限制，因此实际最大并发约为两者乘积。
 
+歌曲和专辑元数据默认在每个 Web 进程中缓存 600 秒、每类最多 256 条，避免歌词预览与
+海报生成重复请求音乐平台。可使用 `METADATA_CACHE_TTL_SECONDS` 和
+`METADATA_CACHE_MAX_ENTRIES` 调整；多进程之间不共享缓存。
+
+成功生成海报时，响应中的 `Server-Timing` 会分别报告 `queue`、`metadata`、`lyrics`、
+`cover`、`palette`、`render` 和 `read` 耗时，单位为毫秒，可用来区分排队、上游网络和
+本地图像渲染瓶颈。`X-Process-Time` 仍表示整个 HTTP 请求的总耗时。
+
 在 Nginx、Caddy 或云平台负载均衡器后部署时，将其反向代理到容器的 `8000` 端口即可。
 应用已启用代理头处理，平台也可以通过 `PORT` 环境变量修改监听端口。
 

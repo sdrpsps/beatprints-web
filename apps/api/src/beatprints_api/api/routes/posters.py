@@ -1,4 +1,6 @@
 import asyncio
+import logging
+import time
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
@@ -17,6 +19,7 @@ router = APIRouter(
     tags=["Posters"],
     dependencies=[Depends(require_api_key)],
 )
+logger = logging.getLogger(__name__)
 poster_slots = asyncio.Semaphore(settings.max_concurrent_jobs)
 ERROR_RESPONSES = {
     401: {"model": ApiResponse[object], "description": "API Key 缺失或错误。"},
@@ -171,12 +174,28 @@ ALBUM_EXAMPLES = {
 }
 
 
-def _image_response(result: tuple[bytes, str]) -> Response:
-    content, filename = result
+def _image_response(
+    result: tuple[bytes, str] | beatprints_service.PosterResult,
+    queue_ms: float,
+) -> Response:
+    timings = {"queue": queue_ms}
+    if isinstance(result, beatprints_service.PosterResult):
+        content = result.content
+        filename = result.filename
+        timings.update(result.timings_ms)
+    else:
+        content, filename = result
+
+    server_timing = ", ".join(
+        f"{name};dur={duration:.3f}" for name, duration in timings.items()
+    )
     return Response(
         content=content,
         media_type="image/png",
-        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+        headers={
+            "Content-Disposition": f'inline; filename="{filename}"',
+            "Server-Timing": server_timing,
+        },
     )
 
 
@@ -184,8 +203,10 @@ async def _generate(
     generator,
     request: TrackPosterRequest | AlbumPosterRequest,
 ) -> Response:
+    queue_started_at = time.perf_counter()
     try:
         async with poster_slots:
+            queue_ms = (time.perf_counter() - queue_started_at) * 1000
             result = await run_in_threadpool(generator, request)
     except ValueError as exc:
         raise InvalidInputError(str(exc)) from exc
@@ -195,7 +216,24 @@ async def _generate(
         raise UpstreamServiceError(str(exc)) from exc
     except beatprints_service.UpstreamError as exc:
         raise UpstreamServiceError(str(exc)) from exc
-    return _image_response(result)
+
+    timings = (
+        result.timings_ms if isinstance(result, beatprints_service.PosterResult) else {}
+    )
+    logger.info(
+        "Generated %s poster provider=%s qr=%s bytes=%d queue_ms=%.3f timings_ms=%s",
+        "track" if isinstance(request, TrackPosterRequest) else "album",
+        request.provider,
+        request.qr_platform is not None,
+        (
+            len(result.content)
+            if isinstance(result, beatprints_service.PosterResult)
+            else len(result[0])
+        ),
+        queue_ms,
+        {name: round(duration, 3) for name, duration in timings.items()},
+    )
+    return _image_response(result, queue_ms)
 
 
 @router.post(

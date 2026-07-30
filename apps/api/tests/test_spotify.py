@@ -91,6 +91,53 @@ def test_spotify_catalog_id_can_supply_poster_metadata(monkeypatch) -> None:
     assert metadata.link == "https://open.spotify.com/track/spotify-track-id"
 
 
+def test_catalog_metadata_is_cached_without_sharing_mutable_objects(
+    monkeypatch,
+) -> None:
+    beatprints_service.clear_metadata_cache()
+    calls = 0
+
+    def track_metadata(track_id: str) -> dict:
+        nonlocal calls
+        calls += 1
+        return {
+            "title": "Cached Track",
+            "artists": ["Cache Artist"],
+            "album": "Cache Album",
+            "released": "2026",
+            "duration": "03:30",
+            "cover": "https://i.scdn.co/image/cache",
+            "label": "Cache Records",
+            "link": f"https://open.spotify.com/track/{track_id}",
+        }
+
+    monkeypatch.setattr(
+        beatprints_service.spotify_client,
+        "track_metadata",
+        track_metadata,
+    )
+    request = TrackPosterRequest(
+        provider="spotify",
+        catalog_id="metadata-cache-test-track",
+        lyrics="one\ntwo\nthree\nfour",
+    )
+
+    first = beatprints_service._track_metadata(request)
+    second = beatprints_service._track_metadata(request)
+
+    assert calls == 1
+    assert first.title == second.title == "Cached Track"
+    assert first is not second
+    beatprints_service.clear_metadata_cache()
+
+
+def test_multilingual_fonts_are_cached_per_weight() -> None:
+    first = beatprints_service.write.font("Regular")
+    second = beatprints_service.write.font("Regular")
+
+    assert first is second
+
+
 def test_spotify_source_link_is_added_to_platform_qr_codes() -> None:
     request = TrackPosterRequest(
         provider="spotify",

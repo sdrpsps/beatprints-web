@@ -76,7 +76,11 @@ def test_track_returns_png(monkeypatch) -> None:
     monkeypatch.setattr(
         posters.beatprints_service,
         "generate_track",
-        lambda request: (b"\x89PNG\r\n\x1a\n", "poster.png"),
+        lambda request: posters.beatprints_service.PosterResult(
+            b"\x89PNG\r\n\x1a\n",
+            "poster.png",
+            {"metadata": 12.5, "render": 34.25},
+        ),
     )
     response = client.post(
         "/v1/posters/track",
@@ -88,6 +92,9 @@ def test_track_returns_png(monkeypatch) -> None:
     assert response.status_code == 200
     assert response.headers["content-type"] == "image/png"
     assert 'filename="poster.png"' in response.headers["content-disposition"]
+    assert "queue;dur=" in response.headers["server-timing"]
+    assert "metadata;dur=12.500" in response.headers["server-timing"]
+    assert "render;dur=34.250" in response.headers["server-timing"]
     assert response.headers["x-process-time"]
 
 

@@ -34,7 +34,7 @@ def create_app(web_root: Path | None = None) -> FastAPI:
             allow_credentials=False,
             allow_methods=["GET", "POST", "OPTIONS"],
             allow_headers=["Authorization", "Content-Type"],
-            expose_headers=["X-Request-ID", "X-Process-Time"],
+            expose_headers=["X-Request-ID", "X-Process-Time", "Server-Timing"],
         )
 
     register_exception_handlers(app)

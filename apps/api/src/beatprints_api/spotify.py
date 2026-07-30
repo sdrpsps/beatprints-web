@@ -1,3 +1,4 @@
+import atexit
 import re
 import threading
 import time
@@ -30,6 +31,16 @@ class SpotifyClient:
         self._token: str | None = None
         self._token_expires_at = 0.0
         self._token_lock = threading.Lock()
+        self._http = httpx.Client(
+            timeout=httpx.Timeout(15.0, connect=5.0),
+            limits=httpx.Limits(
+                max_connections=20,
+                max_keepalive_connections=10,
+                keepalive_expiry=30.0,
+            ),
+            headers={"User-Agent": "BeatPrints-API/0.1"},
+        )
+        atexit.register(self._http.close)
 
     @property
     def configured(self) -> bool:
@@ -47,7 +58,7 @@ class SpotifyClient:
                 return self._token
 
             try:
-                response = httpx.post(
+                response = self._http.post(
                     self.TOKEN_URL,
                     data={"grant_type": "client_credentials"},
                     auth=(self.client_id or "", self.client_secret or ""),
@@ -96,7 +107,7 @@ class SpotifyClient:
     def _get(self, path: str, params: dict | None = None) -> dict:
         token = self._access_token()
         try:
-            response = httpx.get(
+            response = self._http.get(
                 f"{self.API_URL}{path}",
                 params=params,
                 headers={"Authorization": f"Bearer {token}"},

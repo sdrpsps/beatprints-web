@@ -1,10 +1,15 @@
+import atexit
 import colorsys
+import copy
 import ipaddress
 import random
 import socket
 import tempfile
 import threading
+import time
 from contextlib import contextmanager
+from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
@@ -45,6 +50,17 @@ spotify_client = SpotifyClient(
     settings.spotify_client_secret,
     settings.spotify_market,
 )
+cover_client = httpx.Client(
+    follow_redirects=False,
+    timeout=httpx.Timeout(15.0, connect=5.0),
+    limits=httpx.Limits(
+        max_connections=20,
+        max_keepalive_connections=10,
+        keepalive_expiry=30.0,
+    ),
+    headers={"User-Agent": "BeatPrints-API/0.1"},
+)
+atexit.register(cover_client.close)
 rendering_lock = threading.Lock()
 PLATFORM_LABELS = {
     "spotify": "Spotify",
@@ -56,6 +72,36 @@ PLATFORM_LABELS = {
 
 class UpstreamError(RuntimeError):
     """Raised when a metadata, lyrics, or cover provider fails."""
+
+
+@dataclass(frozen=True)
+class PosterResult:
+    content: bytes
+    filename: str
+    timings_ms: dict[str, float]
+
+
+_uncached_font = write.font
+_uncached_check_glyph = write._check_glyph
+
+
+@lru_cache(maxsize=3)
+def _cached_font(weight: str):
+    return _uncached_font(weight)
+
+
+@lru_cache(maxsize=4096)
+def _cached_check_glyph(font, glyph: str) -> bool:
+    return _uncached_check_glyph(font, glyph)
+
+
+# BeatPrints repeatedly parses the same multilingual fonts and cmap tables while
+# rendering a poster. The rendering lock makes these process-wide objects safe to
+# reuse, and warming them here moves the first-request penalty to process startup.
+write.font = _cached_font
+write._check_glyph = _cached_check_glyph
+for _font_weight in ("Regular", "Bold", "Light"):
+    write.font(_font_weight)
 
 
 def _normalized_label(value: object) -> str:
@@ -89,60 +135,45 @@ def _validate_cover_url(url: str) -> None:
 
 def _download_cover(url: str, destination: Path) -> None:
     try:
-        with httpx.Client(
-            follow_redirects=False,
-            timeout=httpx.Timeout(15.0, connect=5.0),
-            headers={"User-Agent": "BeatPrints-API/0.1"},
-        ) as client:
-            current_url = url
-            for _ in range(6):
-                _validate_cover_url(current_url)
-                with client.stream("GET", current_url) as response:
-                    if response.is_redirect:
-                        location = response.headers.get("location")
-                        if not location:
-                            raise UpstreamError(
-                                "Cover provider returned an empty redirect"
-                            )
-                        current_url = urljoin(current_url, location)
-                        continue
+        current_url = url
+        for _ in range(6):
+            _validate_cover_url(current_url)
+            with cover_client.stream("GET", current_url) as response:
+                if response.is_redirect:
+                    location = response.headers.get("location")
+                    if not location:
+                        raise UpstreamError("Cover provider returned an empty redirect")
+                    current_url = urljoin(current_url, location)
+                    continue
 
-                    response.raise_for_status()
-                    content_type = response.headers.get("content-type", "").split(";")[
-                        0
-                    ]
-                    if content_type not in ALLOWED_COVER_TYPES:
-                        raise ValueError(
-                            "cover_url must return a JPEG, PNG, or WebP image"
-                        )
+                response.raise_for_status()
+                content_type = response.headers.get("content-type", "").split(";")[0]
+                if content_type not in ALLOWED_COVER_TYPES:
+                    raise ValueError("cover_url must return a JPEG, PNG, or WebP image")
 
-                    size = 0
-                    with destination.open("wb") as output:
-                        for chunk in response.iter_bytes():
-                            size += len(chunk)
-                            if size > MAX_COVER_BYTES:
-                                raise ValueError("Cover image exceeds the 15 MB limit")
-                            output.write(chunk)
-                    return
-            raise UpstreamError("Cover provider returned too many redirects")
+                size = 0
+                with destination.open("wb") as output:
+                    for chunk in response.iter_bytes():
+                        size += len(chunk)
+                        if size > MAX_COVER_BYTES:
+                            raise ValueError("Cover image exceeds the 15 MB limit")
+                        output.write(chunk)
+                return
+        raise UpstreamError("Cover provider returned too many redirects")
     except httpx.HTTPError as exc:
         raise UpstreamError(f"Could not download cover image: {exc}") from exc
 
 
-def _track_metadata(request: TrackPosterRequest) -> deez.TrackMetadata:
-    if request.metadata is not None:
-        value = request.metadata
-        return deez.TrackMetadata(
-            title=value.title,
-            artists=value.artists,
-            album=value.album,
-            released=value.released,
-            duration=value.duration,
-            cover=str(value.cover_url),
-            label=value.label,
-        )
+def _metadata_cache_token() -> int:
+    return int(time.monotonic() // settings.metadata_cache_ttl_seconds)
 
-    provider, track_id = _catalog_reference(request, "track")
+
+@lru_cache(maxsize=settings.metadata_cache_max_entries)
+def _cached_track_metadata(
+    provider: str,
+    track_id: int | str,
+    _cache_token: int,
+) -> deez.TrackMetadata:
     if provider == "spotify":
         value = spotify_client.track_metadata(str(track_id))
         metadata = deez.TrackMetadata(
@@ -162,6 +193,49 @@ def _track_metadata(request: TrackPosterRequest) -> deez.TrackMetadata:
     return metadata
 
 
+def _track_metadata(request: TrackPosterRequest) -> deez.TrackMetadata:
+    if request.metadata is not None:
+        value = request.metadata
+        return deez.TrackMetadata(
+            title=value.title,
+            artists=value.artists,
+            album=value.album,
+            released=value.released,
+            duration=value.duration,
+            cover=str(value.cover_url),
+            label=value.label,
+        )
+
+    provider, track_id = _catalog_reference(request, "track")
+    return copy.deepcopy(
+        _cached_track_metadata(provider, track_id, _metadata_cache_token())
+    )
+
+
+@lru_cache(maxsize=settings.metadata_cache_max_entries)
+def _cached_album_metadata(
+    provider: str,
+    album_id: int | str,
+    _cache_token: int,
+) -> deez.AlbumMetadata:
+    if provider == "spotify":
+        value = spotify_client.album_metadata(str(album_id))
+        metadata = deez.AlbumMetadata(
+            title=value["title"],
+            artists=value["artists"],
+            released=value["released"],
+            tracks=value["tracks"],
+            cover=value["cover"],
+            label=_normalized_label(value["label"]),
+        )
+        metadata.link = value["link"]
+        return metadata
+
+    metadata = deez.Deezer().get_album(int(album_id), shuffle=False)
+    metadata.label = _normalized_label(metadata.label)
+    return metadata
+
+
 def _album_metadata(request: AlbumPosterRequest) -> deez.AlbumMetadata:
     if request.metadata is not None:
         value = request.metadata
@@ -175,24 +249,17 @@ def _album_metadata(request: AlbumPosterRequest) -> deez.AlbumMetadata:
         )
 
     provider, album_id = _catalog_reference(request, "album")
-    if provider == "spotify":
-        value = spotify_client.album_metadata(str(album_id))
-        metadata = deez.AlbumMetadata(
-            title=value["title"],
-            artists=value["artists"],
-            released=value["released"],
-            tracks=value["tracks"],
-            cover=value["cover"],
-            label=_normalized_label(value["label"]),
-        )
-        metadata.link = value["link"]
-        if request.shuffle:
-            random.shuffle(metadata.tracks)
-        return metadata
-
-    metadata = deez.Deezer().get_album(int(album_id), shuffle=request.shuffle)
-    metadata.label = _normalized_label(metadata.label)
+    metadata = copy.deepcopy(
+        _cached_album_metadata(provider, album_id, _metadata_cache_token())
+    )
+    if request.shuffle:
+        random.shuffle(metadata.tracks)
     return metadata
+
+
+def clear_metadata_cache() -> None:
+    _cached_track_metadata.cache_clear()
+    _cached_album_metadata.cache_clear()
 
 
 def _catalog_reference(
@@ -407,9 +474,19 @@ def _renderable_lyrics(value: str) -> str:
     return value or " "
 
 
-def generate_track(request: TrackPosterRequest) -> tuple[bytes, str]:
+def _elapsed_ms(started_at: float) -> float:
+    return (time.perf_counter() - started_at) * 1000
+
+
+def generate_track(request: TrackPosterRequest) -> PosterResult:
+    timings: dict[str, float] = {}
+    started_at = time.perf_counter()
     metadata = _track_metadata(request)
+    timings["metadata"] = _elapsed_ms(started_at)
+
+    started_at = time.perf_counter()
     selected_lyrics = _select_lyrics(metadata, request)
+    timings["lyrics"] = _elapsed_ms(started_at)
     provider = request.provider if request.metadata is None else None
     platform_link = _selected_platform_link(
         request.platform_links,
@@ -421,8 +498,16 @@ def generate_track(request: TrackPosterRequest) -> tuple[bytes, str]:
     with tempfile.TemporaryDirectory(prefix="beatprints-") as temp:
         directory = Path(temp)
         cover_path = directory / "cover"
+
+        started_at = time.perf_counter()
         _download_cover(metadata.cover, cover_path)
+        timings["cover"] = _elapsed_ms(started_at)
+
+        started_at = time.perf_counter()
         qr_color = _cover_qr_color(cover_path) if platform_link is not None else None
+        timings["palette"] = _elapsed_ms(started_at)
+
+        started_at = time.perf_counter()
         with _provider_rendering(provider, platform_link, qr_color):
             poster.Poster(str(directory)).track(
                 metadata=metadata,
@@ -431,13 +516,21 @@ def generate_track(request: TrackPosterRequest) -> tuple[bytes, str]:
                 theme=request.theme,
                 pcover=str(cover_path),
             )
-        return _poster_bytes(directory)
+        timings["render"] = _elapsed_ms(started_at)
+
+        started_at = time.perf_counter()
+        content, filename = _poster_bytes(directory)
+        timings["read"] = _elapsed_ms(started_at)
+        return PosterResult(content, filename, timings)
 
 
-def generate_album(request: AlbumPosterRequest) -> tuple[bytes, str]:
+def generate_album(request: AlbumPosterRequest) -> PosterResult:
+    timings: dict[str, float] = {}
+    started_at = time.perf_counter()
     metadata = _album_metadata(request)
     if request.metadata is not None and request.shuffle:
         random.shuffle(metadata.tracks)
+    timings["metadata"] = _elapsed_ms(started_at)
 
     provider = request.provider if request.metadata is None else None
     platform_link = _selected_platform_link(
@@ -450,8 +543,16 @@ def generate_album(request: AlbumPosterRequest) -> tuple[bytes, str]:
     with tempfile.TemporaryDirectory(prefix="beatprints-") as temp:
         directory = Path(temp)
         cover_path = directory / "cover"
+
+        started_at = time.perf_counter()
         _download_cover(metadata.cover, cover_path)
+        timings["cover"] = _elapsed_ms(started_at)
+
+        started_at = time.perf_counter()
         qr_color = _cover_qr_color(cover_path) if platform_link is not None else None
+        timings["palette"] = _elapsed_ms(started_at)
+
+        started_at = time.perf_counter()
         with _provider_rendering(provider, platform_link, qr_color):
             poster.Poster(str(directory)).album(
                 metadata=metadata,
@@ -460,7 +561,12 @@ def generate_album(request: AlbumPosterRequest) -> tuple[bytes, str]:
                 theme=request.theme,
                 pcover=str(cover_path),
             )
-        return _poster_bytes(directory)
+        timings["render"] = _elapsed_ms(started_at)
+
+        started_at = time.perf_counter()
+        content, filename = _poster_bytes(directory)
+        timings["read"] = _elapsed_ms(started_at)
+        return PosterResult(content, filename, timings)
 
 
 def search_deezer(query: str, search_type: str, limit: int) -> list[dict]:
