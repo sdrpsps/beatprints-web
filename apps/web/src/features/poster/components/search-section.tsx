@@ -61,9 +61,6 @@ export function SearchSection({ studio }: { studio: Studio }) {
               {studio.kind === "track" ? zhCN.searchTrack : zhCN.searchAlbum}
             </FieldLabel>
             <InputGroup className="min-h-11">
-              <InputGroupAddon>
-                <SearchIcon aria-hidden="true" />
-              </InputGroupAddon>
               <InputGroupInput
                 id="catalog-search"
                 value={studio.query}
@@ -75,6 +72,9 @@ export function SearchSection({ studio }: { studio: Studio }) {
                 }
                 autoComplete="off"
               />
+              <InputGroupAddon align="inline-start">
+                <SearchIcon aria-hidden="true" />
+              </InputGroupAddon>
               <InputGroupAddon align="inline-end">
                 <InputGroupButton
                   type="submit"
@@ -84,9 +84,7 @@ export function SearchSection({ studio }: { studio: Studio }) {
                 >
                   {studio.searchState === "loading" ? (
                     <Spinner data-icon="inline-start" />
-                  ) : (
-                    <SearchIcon data-icon="inline-start" />
-                  )}
+                  ) : null}
                   {studio.searchState === "loading" ? zhCN.searching : zhCN.search}
                 </InputGroupButton>
               </InputGroupAddon>

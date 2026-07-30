@@ -2,17 +2,82 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BeatPrints — 在线制作音乐海报</title>
     <meta
       name="description"
-      content="从真实歌曲或专辑生成可下载的 BeatPrints 音乐海报。"
+      content="BeatPrints 是免费的在线音乐海报制作工具。搜索单曲或专辑，选择四行歌词、海报主题和二维码平台，生成并下载 PNG 音乐海报。"
     />
-    <meta name="theme-color" content="#f8f8fa" />
-    <title>BeatPrints — 把喜欢的音乐排成一张海报</title>
+    <meta name="application-name" content="BeatPrints" />
+    <meta name="author" content="BeatPrints Contributors" />
+    <meta name="generator" content="BeatPrints" />
+    <meta
+      name="robots"
+      content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
+    />
+    <meta
+      name="googlebot"
+      content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
+    />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="theme-color" content="#f3edf0" />
+    <meta name="color-scheme" content="light" />
+
+    <link id="canonical-url" rel="canonical" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:site_name" content="BeatPrints" />
+    <meta id="open-graph-url" property="og:url" content="" />
+    <meta property="og:title" content="BeatPrints — 在线制作音乐海报" />
+    <meta
+      property="og:description"
+      content="搜索真实单曲或专辑，选择四行歌词、海报主题和二维码平台，生成可下载的 PNG 音乐海报。"
+    />
+
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="BeatPrints — 在线制作音乐海报" />
+    <meta
+      name="twitter:description"
+      content="搜索真实单曲或专辑，选择四行歌词、海报主题和二维码平台，生成可下载的 PNG 音乐海报。"
+    />
+
+    <script>
+      const pageUrl = new URL("/", window.location.href).href
+      document.querySelector("#canonical-url").href = pageUrl
+      document.querySelector("#open-graph-url").content = pageUrl
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "BeatPrints",
+        "alternateName": "BeatPrints 音乐海报制作工具",
+        "description": "搜索真实单曲或专辑，选择四行歌词、海报主题和二维码平台，生成并下载 PNG 音乐海报。",
+        "applicationCategory": "MultimediaApplication",
+        "applicationSubCategory": "Music poster maker",
+        "operatingSystem": "Any",
+        "browserRequirements": "Requires JavaScript",
+        "inLanguage": "zh-CN",
+        "isAccessibleForFree": true,
+        "license": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+        "codeRepository": "https://github.com/sdrpsps/byteshare",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "CNY"
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      BeatPrints 是一款免费的在线音乐海报制作工具，需要启用 JavaScript
+      才能搜索音乐、选择歌词并生成 PNG 海报。
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
