@@ -1,11 +1,11 @@
 # BeatPrints Web
 
-BeatPrints 前端应用，使用 React、TypeScript、Vite、Tailwind CSS v4 和 shadcn/ui
+BeatPrints Web 前端应用，使用 React、TypeScript、Vite、Tailwind CSS v4 和 shadcn/ui
 （Base UI）。
 
 ## 产品流程
 
-BeatPrints 用真实歌曲或专辑的资料、封面与歌词制作可下载的 PNG 海报。核心歌曲流程是：
+BeatPrints Web 用真实歌曲或专辑的资料、封面与歌词制作可下载的 PNG 海报。核心歌曲流程是：
 
 ```text
 查询歌曲 → 选择准确版本 → 选择四行歌词 → 可选的平台二维码 → 配置样式 → 生成并下载
