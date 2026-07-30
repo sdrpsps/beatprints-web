@@ -593,3 +593,14 @@ class AppleMusicMatchData(BaseModel):
     type: Literal["track", "album"]
     album: str | None = None
     cover_url: HttpUrl | None = None
+
+
+class SpotifyMatchData(BaseModel):
+    """由 Deezer 条目自动匹配到的 Spotify 公开链接。"""
+
+    url: HttpUrl
+    title: str
+    artists: list[str]
+    type: Literal["track", "album"]
+    album: str | None = None
+    cover_url: HttpUrl | None = None

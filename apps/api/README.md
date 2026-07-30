@@ -234,6 +234,22 @@ curl "http://localhost:8000/v1/platform-links/apple-music?provider=deezer&catalo
 未指定 `qr_platform` 时不会因为数据源是 Spotify 而自动显示。QQ 音乐和网易云音乐仍需要调用方
 完成跨平台匹配后传入对应链接。
 
+已选 Deezer 条目且目标平台是 Spotify 时，也可以自动匹配：
+
+```bash
+curl "http://localhost:8000/v1/platform-links/spotify?provider=deezer&catalog_id=5416564&type=track"
+```
+
+歌曲优先使用 Deezer 的 ISRC 精确匹配；缺少 ISRC 或找不到精确结果时，服务只会接受标题、艺人和
+时长均达到严格阈值的 Spotify 结果。专辑使用严格的标题和艺人匹配。没有可信结果时返回 404，不会
+静默选择同名作品。手动输入 Spotify URL 后，可调用下面接口读取该链接当前对应的公开资料，用于刷新
+前端确认卡片；它不会改写海报所选的 Deezer 来源资料、歌词或封面。
+
+```bash
+curl --get "http://localhost:8000/v1/platform-links/spotify/resolve" \
+  --data-urlencode "url=https://open.spotify.com/track/7lp5evZr7qEDwlv5PS8b6i"
+```
+
 手动输入 Apple Music URL 时，可用下面接口读取该 URL 当前对应的公开曲目或专辑资料，用于更新
 前端确认卡片：
 

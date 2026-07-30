@@ -30,6 +30,7 @@ from beatprints_api.models.dto import (
     LyricsLine,
     LyricsPreviewData,
     PosterPlatformLinks,
+    SpotifyMatchData,
     TrackPosterRequest,
 )
 from beatprints_api.palette import extract_palette, install_pylette_compatibility_module
@@ -467,6 +468,122 @@ def match_apple_music(
         AlbumPosterRequest(provider=provider, catalog_id=catalog_id)
     )
     return _apple_music_album_match(metadata)
+
+
+def match_deezer_to_spotify(
+    catalog_id: int | str, item_type: str
+) -> SpotifyMatchData:
+    """Conservatively match an exact Deezer item to a Spotify catalog item."""
+
+    if item_type == "track":
+        metadata = _track_metadata(
+            TrackPosterRequest(provider="deezer", catalog_id=catalog_id)
+        )
+        try:
+            source = cover_client.get(f"https://api.deezer.com/track/{catalog_id}")
+            source.raise_for_status()
+            isrc = source.json().get("isrc")
+        except (httpx.HTTPError, ValueError) as exc:
+            raise UpstreamError(f"Deezer ISRC lookup failed: {exc}") from exc
+        candidates = spotify_client.search(
+            f"isrc:{isrc}" if isrc else f"{metadata.title} {_metadata_artists(metadata)}",
+            "track",
+            10,
+        )
+        for candidate in candidates:
+            if isrc and candidate.get("isrc") == isrc:
+                return SpotifyMatchData(
+                    url=candidate["link"],
+                    title=candidate["title"],
+                    artists=candidate["artists"],
+                    album=(candidate.get("album") or {}).get("title"),
+                    cover_url=candidate["cover_url"],
+                    type="track",
+                )
+        for candidate in candidates:
+            title_score = _text_similarity(metadata.title, candidate.get("title"))
+            artist_score = _text_similarity(
+                _metadata_artists(metadata),
+                " ".join(candidate.get("artists") or []),
+            )
+            duration_score = 0.5
+            if _duration_seconds(metadata.duration) and candidate.get("duration_seconds"):
+                duration_score = max(
+                    0.0,
+                    1
+                    - abs(
+                        _duration_seconds(metadata.duration)
+                        - candidate["duration_seconds"]
+                    )
+                    / 15,
+                )
+            if (
+                title_score >= 0.9
+                and artist_score >= 0.75
+                and title_score * 0.6 + artist_score * 0.3 + duration_score * 0.1
+                >= 0.86
+            ):
+                return SpotifyMatchData(
+                    url=candidate["link"],
+                    title=candidate["title"],
+                    artists=candidate["artists"],
+                    album=(candidate.get("album") or {}).get("title"),
+                    cover_url=candidate["cover_url"],
+                    type="track",
+                )
+    else:
+        metadata = _album_metadata(
+            AlbumPosterRequest(provider="deezer", catalog_id=catalog_id)
+        )
+        candidates = spotify_client.search(
+            f"{metadata.title} {_metadata_artists(metadata)}", "album", 10
+        )
+        for candidate in candidates:
+            if (
+                _text_similarity(metadata.title, candidate.get("title")) >= 0.92
+                and _text_similarity(
+                    _metadata_artists(metadata),
+                    " ".join(candidate.get("artists") or []),
+                )
+                >= 0.75
+            ):
+                return SpotifyMatchData(
+                    url=candidate["link"],
+                    title=candidate["title"],
+                    artists=candidate["artists"],
+                    cover_url=candidate["cover_url"],
+                    type="album",
+                )
+    raise AppleMusicNoMatchError("No confident Spotify match was found")
+
+
+def resolve_spotify_url(url: str) -> SpotifyMatchData:
+    """Read current Spotify metadata for a manually supplied Spotify URL."""
+
+    uri = _spotify_uri(url)
+    if uri is None:
+        raise AppleMusicNoMatchError(
+            "URL is not a supported Spotify track or album link"
+        )
+    _prefix, item_type, catalog_id = uri.split(":", maxsplit=2)
+    if item_type == "track":
+        value = spotify_client.track_metadata(catalog_id)
+        return SpotifyMatchData(
+            url=value["link"],
+            title=value["title"],
+            artists=value["artists"],
+            album=value["album"],
+            cover_url=value["cover"],
+            type="track",
+        )
+    value = spotify_client.album_metadata(catalog_id)
+    return SpotifyMatchData(
+        url=value["link"],
+        title=value["title"],
+        artists=value["artists"],
+        cover_url=value["cover"],
+        type="album",
+    )
 
 
 def clear_metadata_cache() -> None:

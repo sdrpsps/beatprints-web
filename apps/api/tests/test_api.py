@@ -304,6 +304,53 @@ def test_apple_music_link_resolve_returns_link_metadata(monkeypatch) -> None:
     assert response.json()["data"]["cover_url"] == "https://example.com/cover.jpg"
 
 
+def test_deezer_track_can_match_spotify(monkeypatch) -> None:
+    monkeypatch.setattr(
+        catalog.beatprints_service,
+        "match_deezer_to_spotify",
+        lambda catalog_id, item_type: {
+            "url": "https://open.spotify.com/track/spotify-track-id",
+            "title": "Example",
+            "artists": ["Artist"],
+            "album": "Album",
+            "cover_url": "https://i.scdn.co/image/example",
+            "type": item_type,
+        },
+    )
+
+    response = client.get(
+        "/v1/platform-links/spotify",
+        params={"provider": "deezer", "catalog_id": "5416564", "type": "track"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["url"] == "https://open.spotify.com/track/spotify-track-id"
+
+
+def test_spotify_link_resolve_returns_link_metadata(monkeypatch) -> None:
+    seen: dict[str, str] = {}
+
+    def resolve(url: str) -> dict:
+        seen["url"] = url
+        return {
+            "url": url,
+            "title": "Manual Spotify match",
+            "artists": ["Artist"],
+            "album": "Album",
+            "cover_url": "https://i.scdn.co/image/example",
+            "type": "track",
+        }
+
+    monkeypatch.setattr(catalog.beatprints_service, "resolve_spotify_url", resolve)
+    url = "https://open.spotify.com/track/7lp5evZr7qEDwlv5PS8b6i"
+
+    response = client.get("/v1/platform-links/spotify/resolve", params={"url": url})
+
+    assert response.status_code == 200
+    assert seen == {"url": url}
+    assert response.json()["data"]["cover_url"] == "https://i.scdn.co/image/example"
+
+
 def test_track_allows_empty_instrumental_text() -> None:
     from beatprints_api.models import TrackPosterRequest
 

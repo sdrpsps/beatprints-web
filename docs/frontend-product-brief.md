@@ -110,6 +110,14 @@ public Apple metadata through `GET /v1/platform-links/apple-music/resolve?url=<a
 and update only the Apple Music confirmation card. The poster's primary metadata, lyrics, and
 cover remain tied to the originally selected Spotify or Deezer catalog result.
 
+For a Deezer source and Spotify QR destination, the frontend should similarly request
+`GET /v1/platform-links/spotify?provider=deezer&catalog_id=<id>&type=<track|album>`. The backend
+first uses the Deezer track ISRC when available, then uses a strict title, artist, and duration
+match; albums use strict title and artist matching. When the automatic result is wrong or absent,
+the listener can enter a Spotify public link and the frontend can read its current public metadata
+through `GET /v1/platform-links/spotify/resolve?url=<spotify-url>`. This refreshes only the Spotify
+confirmation card, not the poster's selected source metadata, lyrics, or cover.
+
 Only one platform is rendered per poster. For Spotify, a canonical Spotify track or album link
 renders Spotify's native Spotify Code, which is scan-ready in the Spotify mobile app. The other
 platforms use a standard QR code whose dark color is extracted from the cover while the QR
@@ -142,10 +150,11 @@ Content-Type: application/json
 }
 ```
 
-The QR fields are omitted when the user does not choose a destination. An Apple Music destination
-includes the returned automatic-match URL under `platform_links`; QQ Music and NetEase Music
-destinations include a caller-supplied matching URL. If an Apple Music match cannot be confirmed,
-show a clear no-match state and do not allow generation with Apple Music selected.
+The QR fields are omitted when the user does not choose a destination. Apple Music and Deezer-to-
+Spotify destinations include their returned automatic-match URLs under `platform_links`; QQ Music
+and NetEase Music destinations include a caller-supplied matching URL. If an automatic Apple Music
+or Spotify match cannot be confirmed, show a clear no-match state and offer manual link entry;
+do not allow generation until that URL is valid.
 
 Generation is server-side and concurrency-limited. The UI needs an honest pending state and
 must prevent accidental duplicate submissions without implying fine-grained progress the API

@@ -7,7 +7,9 @@ import {
   fetchLyrics,
   generatePoster,
   matchAppleMusic,
+  matchSpotifyFromDeezer,
   resolveAppleMusicUrl,
+  resolveSpotifyUrl,
   searchCatalog,
 } from "@/features/poster/api"
 import type {
@@ -139,6 +141,13 @@ export function usePosterStudio() {
   >("idle")
   const [appleMusicManualMatch, setAppleMusicManualMatch] = useState<AppleMusicMatch>()
   const [appleMusicManualError, setAppleMusicManualError] = useState<string>()
+  const [spotifyMatchState, setSpotifyMatchState] = useState<"idle" | "loading" | "success" | "error">("idle")
+  const [spotifyMatch, setSpotifyMatch] = useState<AppleMusicMatch>()
+  const [spotifyMatchError, setSpotifyMatchError] = useState<string>()
+  const [spotifyLinkMode, setSpotifyLinkMode] = useState<"automatic" | "manual">("automatic")
+  const [spotifyManualState, setSpotifyManualState] = useState<"idle" | "loading" | "success" | "error">("idle")
+  const [spotifyManualMatch, setSpotifyManualMatch] = useState<AppleMusicMatch>()
+  const [spotifyManualError, setSpotifyManualError] = useState<string>()
   const [indexing, setIndexingState] = useState(true)
   const [shuffle, setShuffleState] = useState(false)
   const [generationState, setGenerationState] = useState<
@@ -210,6 +219,13 @@ export function usePosterStudio() {
     setAppleMusicManualState("idle")
     setAppleMusicManualMatch(undefined)
     setAppleMusicManualError(undefined)
+    setSpotifyMatchState("idle")
+    setSpotifyMatch(undefined)
+    setSpotifyMatchError(undefined)
+    setSpotifyLinkMode("automatic")
+    setSpotifyManualState("idle")
+    setSpotifyManualMatch(undefined)
+    setSpotifyManualError(undefined)
   }
 
   function resetSelection() {
@@ -355,6 +371,10 @@ export function usePosterStudio() {
     setAppleMusicManualState("idle")
     setAppleMusicManualMatch(undefined)
     setAppleMusicManualError(undefined)
+    setSpotifyMatchState("idle")
+    setSpotifyMatch(undefined)
+    setSpotifyMatchError(undefined)
+    setSpotifyLinkMode("automatic")
     markOutputStale()
     if (value === "apple_music" && selected) {
       const controller = new AbortController()
@@ -375,6 +395,23 @@ export function usePosterStudio() {
           )
         })
     }
+    if (value === "spotify" && selected?.provider === "deezer") {
+      const controller = new AbortController()
+      appleMusicRequest.current = controller
+      setSpotifyMatchState("loading")
+      void matchSpotifyFromDeezer(selected.id, kind, controller.signal)
+        .then((match) => {
+          if (controller.signal.aborted) return
+          setPlatformUrlState(match.url)
+          setSpotifyMatch(match)
+          setSpotifyMatchState("success")
+        })
+        .catch((error: unknown) => {
+          if (controller.signal.aborted) return
+          setSpotifyMatchState("error")
+          setSpotifyMatchError(friendlyError(error, t("poster.errors.spotifyMatchError"), t).message)
+        })
+    }
   }
 
   function changePlatformUrl(value: string) {
@@ -383,6 +420,12 @@ export function usePosterStudio() {
       setAppleMusicManualState("idle")
       setAppleMusicManualMatch(undefined)
       setAppleMusicManualError(undefined)
+    }
+    if (qrPlatform === "spotify" && selected?.provider === "deezer" && spotifyLinkMode === "manual") {
+      setSpotifyMatchError(undefined)
+      setSpotifyManualState("idle")
+      setSpotifyManualMatch(undefined)
+      setSpotifyManualError(undefined)
     }
     markOutputStale()
   }
@@ -399,6 +442,44 @@ export function usePosterStudio() {
     setAppleMusicManualMatch(undefined)
     setAppleMusicManualError(undefined)
     markOutputStale()
+  }
+
+  function changeSpotifyLinkMode(value: "automatic" | "manual") {
+    if (value === spotifyLinkMode) return
+    appleMusicRequest.current?.abort()
+    setSpotifyLinkMode(value)
+    setSpotifyMatchState("idle")
+    setSpotifyMatch(undefined)
+    setSpotifyMatchError(undefined)
+    setPlatformUrlState("")
+    setSpotifyManualState("idle")
+    setSpotifyManualMatch(undefined)
+    setSpotifyManualError(undefined)
+    markOutputStale()
+  }
+
+  async function resolveManualSpotifyUrl() {
+    const error = platformUrlError("spotify", platformUrl, t)
+    if (error) {
+      setSpotifyManualState("error")
+      setSpotifyManualError(error)
+      return
+    }
+    const controller = new AbortController()
+    appleMusicRequest.current?.abort()
+    appleMusicRequest.current = controller
+    setSpotifyManualState("loading")
+    setSpotifyManualError(undefined)
+    try {
+      const match = await resolveSpotifyUrl(platformUrl.trim(), controller.signal)
+      if (controller.signal.aborted) return
+      setSpotifyManualMatch(match)
+      setSpotifyManualState("success")
+    } catch (error) {
+      if (controller.signal.aborted) return
+      setSpotifyManualState("error")
+      setSpotifyManualError(friendlyError(error, t("poster.errors.spotifyMatchError"), t).message)
+    }
   }
 
   async function resolveManualAppleMusicUrl() {
@@ -453,6 +534,8 @@ export function usePosterStudio() {
   const currentPlatformError =
     qrPlatform === "apple_music" && appleMusicLinkMode === "automatic"
       ? appleMusicError
+      : qrPlatform === "spotify" && selected?.provider === "deezer" && spotifyLinkMode === "automatic"
+        ? spotifyMatchError
       : platformNeedsUrl && qrPlatform
       ? platformUrlError(qrPlatform, platformUrl, t)
       : undefined
@@ -477,6 +560,7 @@ export function usePosterStudio() {
     (qrPlatform !== "apple_music" ||
       appleMusicLinkMode === "manual" ||
       appleMusicState === "success") &&
+    (qrPlatform !== "spotify" || selected?.provider !== "deezer" || spotifyLinkMode === "manual" || spotifyMatchState === "success") &&
     generationState !== "loading"
 
   async function generate() {
@@ -584,6 +668,14 @@ export function usePosterStudio() {
     appleMusicManualMatch,
     appleMusicManualError,
     resolveManualAppleMusicUrl,
+    spotifyMatchState,
+    spotifyMatch,
+    spotifyLinkMode,
+    setSpotifyLinkMode: changeSpotifyLinkMode,
+    spotifyManualState,
+    spotifyManualMatch,
+    spotifyManualError,
+    resolveManualSpotifyUrl,
     indexing,
     setIndexing: changeIndexing,
     shuffle,

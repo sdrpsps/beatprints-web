@@ -79,14 +79,106 @@ export function PlatformSection({ studio }: { studio: Studio }) {
         studio.qrPlatform === "apple_music" &&
         studio.appleMusicLinkMode === "automatic" ? (
           <AppleMusicMatch studio={studio} />
+        ) : studio.qrPlatform === "spotify" && studio.selected.provider === "deezer" && studio.spotifyLinkMode === "automatic" ? (
+          <SpotifyMatch studio={studio} />
         ) : studio.qrPlatform === "apple_music" ? (
           <ManualAppleMusicLink studio={studio} />
+        ) : studio.qrPlatform === "spotify" && studio.selected.provider === "deezer" ? (
+          <ManualSpotifyLink studio={studio} />
         ) : (
           <PlatformUrlField studio={studio} />
         )
       ) : null}
     </section>
   )
+}
+
+function ManualSpotifyLink({ studio }: { studio: Studio }) {
+  const { t } = useTranslation()
+  const error = studio.currentPlatformError ?? studio.spotifyManualError
+
+  return (
+    <>
+      <Field data-invalid={Boolean(error) || undefined}>
+        <FieldLabel htmlFor="spotify-url">
+          Spotify {t("poster.platformLinkSuffix")}
+        </FieldLabel>
+        <InputGroup>
+          <InputGroupAddon>
+            <ExternalLinkIcon aria-hidden="true" />
+          </InputGroupAddon>
+          <InputGroupInput
+            id="spotify-url"
+            type="url"
+            inputMode="url"
+            value={studio.platformUrl}
+            aria-invalid={Boolean(error)}
+            placeholder={t("poster.platformUrlPlaceholder")}
+            onChange={(event) => studio.setPlatformUrl(event.target.value)}
+          />
+        </InputGroup>
+        <FieldDescription>{t("poster.spotifyManualHelp")}</FieldDescription>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={studio.spotifyManualState === "loading"}
+          onClick={() => void studio.resolveManualSpotifyUrl()}
+        >
+          {studio.spotifyManualState === "loading" ? (
+            <Spinner data-icon="inline-start" aria-hidden="true" />
+          ) : null}
+          {t("poster.fetchSpotifyInfo")}
+        </Button>
+        {error ? <FieldError>{error}</FieldError> : null}
+      </Field>
+      {studio.spotifyManualState === "success" && studio.spotifyManualMatch ? (
+        <AppleMusicConfirmationCard
+          match={studio.spotifyManualMatch}
+          source={studio.selected!}
+        />
+      ) : null}
+    </>
+  )
+}
+
+function SpotifyMatch({ studio }: { studio: Studio }) {
+  const { t } = useTranslation()
+  if (studio.spotifyMatchState === "loading") {
+    return (
+      <Alert>
+        <Spinner aria-hidden="true" />
+        <AlertTitle>{t("poster.spotifyMatching")}</AlertTitle>
+      </Alert>
+    )
+  }
+  if (studio.spotifyMatchState === "success" && studio.spotifyMatch) {
+    return (
+      <AppleMusicConfirmationCard
+        match={studio.spotifyMatch}
+        source={studio.selected!}
+        manualAction={() => studio.setSpotifyLinkMode("manual")}
+        manualLabel={t("poster.manualSpotifyLink")}
+      />
+    )
+  }
+  if (studio.spotifyMatchState === "error") {
+    return (
+      <Alert variant="destructive">
+        <Music2Icon aria-hidden="true" />
+        <AlertTitle>{t("poster.spotifyNotMatched")}</AlertTitle>
+        <AlertDescription>{studio.currentPlatformError}</AlertDescription>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => studio.setSpotifyLinkMode("manual")}
+        >
+          {t("poster.manualSpotifyLink")}
+        </Button>
+      </Alert>
+    )
+  }
+  return null
 }
 
 function AppleMusicMatch({ studio }: { studio: Studio }) {
@@ -108,6 +200,7 @@ function AppleMusicMatch({ studio }: { studio: Studio }) {
         match={studio.appleMusicMatch}
         source={studio.selected!}
         manualAction={() => studio.setAppleMusicLinkMode("manual")}
+        manualLabel={t("poster.manualAppleMusicLink")}
       />
     )
   }
@@ -183,10 +276,12 @@ function AppleMusicConfirmationCard({
   match,
   source,
   manualAction,
+  manualLabel,
 }: {
   match: NonNullable<Studio["appleMusicMatch"]>
   source: NonNullable<Studio["selected"]>
   manualAction?: () => void
+  manualLabel?: string
 }) {
   const { t } = useTranslation()
   return (
@@ -210,7 +305,7 @@ function AppleMusicConfirmationCard({
         </Button>
         {manualAction ? (
           <Button variant="ghost" size="sm" onClick={manualAction}>
-            {t("poster.manualAppleMusicLink")}
+            {manualLabel}
           </Button>
         ) : null}
       </ItemActions>

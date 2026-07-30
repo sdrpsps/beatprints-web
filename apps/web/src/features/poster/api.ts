@@ -111,6 +111,27 @@ export async function resolveAppleMusicUrl(url: string, signal?: AbortSignal) {
   )
 }
 
+export async function matchSpotifyFromDeezer(
+  catalogId: number | string,
+  kind: PosterKind,
+  signal?: AbortSignal,
+) {
+  const params = new URLSearchParams({
+    provider: "deezer",
+    catalog_id: String(catalogId),
+    type: kind,
+  })
+  return getJson<AppleMusicMatch>(`/v1/platform-links/spotify?${params}`, signal)
+}
+
+export async function resolveSpotifyUrl(url: string, signal?: AbortSignal) {
+  const params = new URLSearchParams({ url })
+  return getJson<AppleMusicMatch>(
+    `/v1/platform-links/spotify/resolve?${params}`,
+    signal,
+  )
+}
+
 function responseFilename(response: Response) {
   const disposition = response.headers.get("Content-Disposition") ?? ""
   const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i)
