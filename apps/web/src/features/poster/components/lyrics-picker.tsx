@@ -43,8 +43,8 @@ export function LyricsPicker({ studio }: { studio: Studio }) {
           </Badge>
         </div>
       </div>
-      <ScrollArea className="lyrics-scroll h-[360px] rounded-lg border">
-        <FieldGroup className="py-3 pr-5 pl-3">
+      <ScrollArea className="editorial-scroll lyrics-scroll h-[360px] overflow-hidden rounded-lg border bg-card/20">
+        <FieldGroup className="p-3 pr-4">
           {studio.lyrics.map((line) => {
             const checked = studio.selectedLines.includes(line.index)
             const value = studio.lyricEdits[line.index] ?? line.text

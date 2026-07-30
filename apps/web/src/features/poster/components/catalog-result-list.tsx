@@ -74,12 +74,12 @@ export function CatalogResultList({
   return (
     <ScrollArea
       className={cn(
-        "result-scroll [&_[data-slot=scroll-area-viewport]]:overscroll-contain",
+        "editorial-scroll result-scroll overflow-hidden rounded-lg border bg-card/25 [&_[data-slot=scroll-area-viewport]]:overscroll-contain",
         results.length > 4 && "h-[400px]",
       )}
     >
       <ItemGroup
-        className={cn(results.length > 4 && "pr-3")}
+        className="gap-2.5 p-2.5 pr-4"
         aria-label={t("poster.searchResults")}
       >
         {results.map((result) => (

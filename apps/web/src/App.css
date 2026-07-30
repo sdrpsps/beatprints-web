@@ -1,8 +1,8 @@
 #studio [data-slot="scroll-area-scrollbar"] {
-  width: 8px;
-  padding: 1px;
+  width: 10px;
+  padding: 2px;
   border: 0;
-  background: transparent;
+  background: color-mix(in oklab, var(--muted) 58%, transparent);
 }
 
 #studio [data-slot="scroll-area-thumb"] {
@@ -10,6 +10,18 @@
   background: color-mix(
     in oklab,
     var(--muted-foreground) 42%,
+    transparent
+  );
+}
+
+#studio .editorial-scroll [data-slot="scroll-area-scrollbar"] {
+  border-left: 1px solid var(--border);
+}
+
+#studio .editorial-scroll [data-slot="scroll-area-thumb"] {
+  background: color-mix(
+    in oklab,
+    var(--muted-foreground) 52%,
     transparent
   );
 }

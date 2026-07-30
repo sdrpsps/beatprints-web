@@ -123,7 +123,7 @@ function OutputActions({ studio }: { studio: Studio }) {
         <RotateCcwIcon data-icon="inline-start" />
         {t("poster.regenerate")}
       </Button>
-      <Button variant="ghost" size="sm" onClick={studio.resetSelection}>
+      <Button variant="ghost" size="lg" onClick={studio.resetSelection}>
         {t("poster.startOver")}
       </Button>
     </div>
