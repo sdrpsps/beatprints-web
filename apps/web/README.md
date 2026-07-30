@@ -14,8 +14,8 @@ BeatPrints 用真实歌曲或专辑的资料、封面与歌词制作可下载的
 搜索结果选定后，前端必须保留并提交原始 `provider + id`，不能重新提交搜索词让后端选择
 第一条结果。元数据来源和海报上的可选平台二维码是两个不同概念。
 
-当前后端尚未提供歌词预览接口，因此“展示完整歌词并选择四行”是正式开发该步骤前必须补齐
-的 API 能力。完整的产品流程、接口映射、状态与已知缺口见
+前端通过 `GET /v1/lyrics` 读取所选 `provider + catalog_id` 的规范化歌词行，默认选择
+前四行，并允许用户任选四行或手动填写。完整的产品流程、接口映射与状态见
 [`docs/frontend-product-brief.md`](../../docs/frontend-product-brief.md)。
 
 ## 开发
@@ -27,6 +27,9 @@ pnpm --filter @beatprints/web dev
 pnpm --filter @beatprints/web lint
 pnpm --filter @beatprints/web build
 ```
+
+开发服务器会将 `/v1` 与 `/health` 代理到 `http://localhost:8000`。生产环境默认使用同源
+API；如果 Web 与 API 分开部署，可在构建时设置 `VITE_API_BASE_URL`。
 
 ## UI 开发路径
 

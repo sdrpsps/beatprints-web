@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 
+import pytest
 from fastapi.testclient import TestClient
 
 from beatprints_api.api import dependencies
@@ -156,6 +157,79 @@ def test_search_returns_rich_frontend_data(monkeypatch) -> None:
     assert "track_count" not in result
 
 
+def test_lyrics_preview_preserves_catalog_reference(monkeypatch) -> None:
+    monkeypatch.setattr(
+        catalog.beatprints_service,
+        "preview_lyrics",
+        lambda provider, catalog_id: {
+            "provider": provider,
+            "catalog_id": catalog_id,
+            "instrumental": False,
+            "lines": [
+                {"index": 1, "text": "First line"},
+                {"index": 2, "text": "Second line"},
+                {"index": 3, "text": "Third line"},
+                {"index": 4, "text": "Fourth line"},
+            ],
+        },
+    )
+
+    response = client.get(
+        "/v1/lyrics",
+        params={"provider": "deezer", "catalog_id": "5416564"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"] == {
+        "provider": "deezer",
+        "catalog_id": "5416564",
+        "instrumental": False,
+        "lines": [
+            {"index": 1, "text": "First line"},
+            {"index": 2, "text": "Second line"},
+            {"index": 3, "text": "Third line"},
+            {"index": 4, "text": "Fourth line"},
+        ],
+    }
+
+
+def test_track_allows_empty_instrumental_text() -> None:
+    from beatprints_api.models import TrackPosterRequest
+
+    request = TrackPosterRequest(
+        provider="deezer",
+        catalog_id=5416564,
+        instrumental_text="",
+    )
+
+    assert request.instrumental_text == ""
+
+
+def test_empty_instrumental_text_is_safe_for_upstream_renderer() -> None:
+    from beatprints_api.services.beatprints import _renderable_lyrics
+
+    assert _renderable_lyrics("") == " "
+    assert _renderable_lyrics("visible") == "visible"
+
+
+def test_track_rejects_more_than_four_poster_text_lines() -> None:
+    from beatprints_api.models import TrackPosterRequest
+
+    with pytest.raises(ValueError, match="at most four lines"):
+        TrackPosterRequest(
+            provider="deezer",
+            catalog_id=1,
+            lyrics="one\ntwo\nthree\nfour\nfive",
+        )
+
+    with pytest.raises(ValueError, match="at most four lines"):
+        TrackPosterRequest(
+            provider="deezer",
+            catalog_id=1,
+            instrumental_text="one\ntwo\nthree\nfour\nfive",
+        )
+
+
 def test_explicit_spotify_search_reports_missing_configuration(monkeypatch) -> None:
     def not_configured(*args) -> list[dict]:
         raise SpotifyNotConfiguredError("Spotify search is not configured")
@@ -233,6 +307,7 @@ def test_not_found_uses_unified_response() -> None:
 def test_openapi_includes_descriptions_and_request_examples() -> None:
     schema = app.openapi()
     search = schema["paths"]["/v1/search"]["get"]
+    lyrics = schema["paths"]["/v1/lyrics"]["get"]
     track = schema["paths"]["/v1/posters/track"]["post"]
     album = schema["paths"]["/v1/posters/album"]["post"]
 
@@ -244,6 +319,7 @@ def test_openapi_includes_descriptions_and_request_examples() -> None:
     )
     assert set(provider["schema"]["enum"]) == {"deezer", "spotify", "all"}
     assert "503" in search["responses"]
+    assert lyrics["responses"]["200"]["content"]["application/json"]["schema"]
     assert track["requestBody"]["content"]["application/json"]["schema"].get(
         "description"
     )

@@ -102,6 +102,15 @@ docker compose up -d --build
 服务会用 `provider` 指定的平台获取元数据和封面，并用 LRClib 获取歌词。默认平台是
 Spotify；没有指定 `lyrics_range` 时使用前四行非空歌词。
 
+前端歌词选择器可以先读取所选歌曲的规范化歌词：
+
+```bash
+curl "http://localhost:8000/v1/lyrics?provider=deezer&catalog_id=5416564"
+```
+
+响应中的 `lines` 按原歌词顺序包含一开始编号的非空行；`instrumental=true` 表示纯音乐。
+界面选择完成后应将最终四行作为 `lyrics` 提交，确保生成内容与选择一致。
+
 ```bash
 curl -X POST http://localhost:8000/v1/posters/track \
   -H 'Content-Type: application/json' \

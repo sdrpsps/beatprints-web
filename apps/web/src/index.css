@@ -49,30 +49,34 @@
 }
 
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
+    --background: oklch(0.988 0.003 270);
+    --foreground: oklch(0.17 0.018 270);
+    --card: oklch(0.998 0.002 270);
+    --card-foreground: oklch(0.17 0.018 270);
+    --popover: oklch(0.998 0.002 270);
+    --popover-foreground: oklch(0.17 0.018 270);
+    --primary: oklch(0.19 0.024 270);
+    --primary-foreground: oklch(0.985 0.003 270);
+    --secondary: oklch(0.948 0.008 270);
+    --secondary-foreground: oklch(0.23 0.02 270);
+    --muted: oklch(0.958 0.006 270);
+    --muted-foreground: oklch(0.49 0.018 270);
+    --accent: oklch(0.945 0.013 274);
+    --accent-foreground: oklch(0.23 0.02 270);
     --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
+    --border: oklch(0.885 0.01 270);
+    --input: oklch(0.86 0.012 270);
+    --ring: oklch(0.56 0.12 282);
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
+    --radius: 0.5rem;
+    --font-utility: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    --registration: oklch(0.52 0.19 282);
+    --stage: oklch(0.945 0.008 270);
+    --stage-mark: oklch(0.69 0.014 270);
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.145 0 0);
     --sidebar-primary: oklch(0.205 0 0);
@@ -123,8 +127,28 @@
     }
   body {
     @apply bg-background text-foreground;
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+    font-feature-settings: "kern", "liga", "ss01";
+    text-rendering: optimizeLegibility;
     }
   html {
     @apply font-sans;
+    scroll-behavior: smooth;
     }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+    }
+  ::selection {
+    color: var(--primary-foreground);
+    background: var(--registration);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }

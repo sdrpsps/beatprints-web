@@ -331,12 +331,13 @@ class TrackPosterRequest(PosterSource):
     instrumental_text: Annotated[
         str,
         Field(
-            min_length=1,
             max_length=200,
-            description="检测到纯音乐时显示的替代文字。",
-            examples=["It's an instrumental track :>"],
+            description=(
+                "检测到纯音乐时显示的可选短句。空字符串表示不显示歌词区域文字。"
+            ),
+            examples=["", "献给没有歌词的夜晚"],
         ),
-    ] = "It's an instrumental track :>"
+    ] = ""
     accent: Annotated[
         bool,
         Field(
@@ -349,6 +350,10 @@ class TrackPosterRequest(PosterSource):
     @model_validator(mode="after")
     def check_source(self) -> "TrackPosterRequest":
         self.validate_source(self.metadata)
+        if self.lyrics is not None and len(self.lyrics.splitlines()) > 4:
+            raise ValueError("lyrics must contain at most four lines")
+        if len(self.instrumental_text.splitlines()) > 4:
+            raise ValueError("instrumental_text must contain at most four lines")
         return self
 
 
@@ -535,3 +540,45 @@ class SearchResult(BaseModel):
             examples=["USWB19901645"],
         ),
     ] = None
+
+
+class LyricsLine(BaseModel):
+    """前端歌词选择器中的一条规范化非空歌词。"""
+
+    index: Annotated[
+        int,
+        Field(
+            ge=1,
+            description="规范化后的歌词行号，从 1 开始。",
+            examples=[1],
+        ),
+    ]
+    text: Annotated[
+        str,
+        Field(
+            min_length=1,
+            max_length=1000,
+            description="去除首尾空白后的歌词文本。",
+            examples=["There was a time"],
+        ),
+    ]
+
+
+class LyricsPreviewData(BaseModel):
+    """供前端选择四行歌词使用的预览结果。"""
+
+    provider: CatalogProvider
+    catalog_id: int | str
+    instrumental: Annotated[
+        bool,
+        Field(description="LRClib 是否将当前歌曲标记为纯音乐。"),
+    ]
+    lines: Annotated[
+        list[LyricsLine],
+        Field(
+            description=(
+                "按原歌词顺序返回的非空歌词。纯音乐时为空；"
+                "前端默认选中前四行，但允许任选四行。"
+            ),
+        ),
+    ]

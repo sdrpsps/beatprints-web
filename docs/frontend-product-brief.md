@@ -71,16 +71,21 @@ The generation endpoint currently supports:
 - neither field: the backend selects the first four non-empty LRClib lines;
 - instrumental recordings: `instrumental_text` is rendered instead.
 
-Current API gap: there is no read endpoint that returns LRClib lyrics or normalized line
-indices to the frontend. Therefore a true preview-and-select interaction cannot yet be
-implemented from the public API alone. Before building the lyric picker, add a backend
-lyrics-preview endpoint or another server-mediated way to return normalized lyric lines for a
-selected `provider + catalog_id`. Once available, the frontend should submit the four selected
-lines as `lyrics` so the generated result exactly matches the preview.
+The frontend reads normalized lyrics for the exact selected recording with:
 
-Whether four non-contiguous lines are allowed is a product decision. The current
-`lyrics_range` model represents a contiguous interval, while explicit `lyrics` can represent
-any four chosen lines.
+```http
+GET /v1/lyrics?provider=<deezer|spotify>&catalog_id=<selected-result-id>
+```
+
+The endpoint returns ordered, non-empty lyric lines with stable one-based indices and an
+`instrumental` flag. The frontend defaults to the first four lines, allows any four lines to be
+selected, and submits their final text as `lyrics` so the generated result exactly matches the
+selection. If lyrics are unavailable, the user can enter four lines manually. Instrumental
+recordings default to no lyric-area text and may use an optional custom short line.
+
+Four non-contiguous lines are allowed. The frontend submits explicit `lyrics`; the older
+`lyrics_range` model remains available to direct API consumers that prefer a contiguous
+interval.
 
 ### 4. Optionally choose a poster platform
 

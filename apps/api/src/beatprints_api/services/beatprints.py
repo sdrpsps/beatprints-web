@@ -17,6 +17,8 @@ from qrcode.constants import ERROR_CORRECT_M
 from beatprints_api.config import settings
 from beatprints_api.models.dto import (
     AlbumPosterRequest,
+    LyricsLine,
+    LyricsPreviewData,
     PosterPlatformLinks,
     TrackPosterRequest,
 )
@@ -25,7 +27,14 @@ from beatprints_api.spotify import SpotifyClient
 
 install_pylette_compatibility_module()
 
-from BeatPrints import deez, image as beatprints_image, lyrics, poster, write
+from BeatPrints import (
+    deez,
+    errors as beatprints_errors,
+    image as beatprints_image,
+    lyrics,
+    poster,
+    write,
+)
 
 beatprints_image.get_palette = extract_palette
 
@@ -346,24 +355,56 @@ def _provider_rendering(
             beatprints_image.scannable = original_scannable
 
 
-def _select_lyrics(metadata: deez.TrackMetadata, request: TrackPosterRequest) -> str:
-    if request.lyrics is not None:
-        return request.lyrics.strip()
-
-    lyric_result = lyrics.Lyrics(metadata).get_lyrics()
-    if lyric_result.check_instrumental(metadata):
-        return request.instrumental_text
-    if request.lyrics_range is not None:
-        return lyric_result.select_lines(request.lyrics_range)
-
+def _fetch_lyrics(metadata: deez.TrackMetadata):
+    try:
+        lyric_result = lyrics.Lyrics(metadata).get_lyrics()
+        instrumental = lyric_result.check_instrumental(metadata)
+    except beatprints_errors.NoLyricsAvailable as exc:
+        raise UpstreamError("No lyrics were found for this recording") from exc
+    except Exception as exc:
+        raise UpstreamError("Lyrics provider request failed") from exc
     nonempty_lines = [
         line.strip()
         for line in (lyric_result.lyrics or "").splitlines()
         if line.strip()
     ]
+    return lyric_result, instrumental, nonempty_lines
+
+
+def preview_lyrics(provider: str, catalog_id: int | str) -> LyricsPreviewData:
+    request = TrackPosterRequest(provider=provider, catalog_id=catalog_id)
+    metadata = _track_metadata(request)
+    _lyric_result, instrumental, lines = _fetch_lyrics(metadata)
+    return LyricsPreviewData(
+        provider=provider,
+        catalog_id=catalog_id,
+        instrumental=instrumental,
+        lines=[
+            LyricsLine(index=index, text=line)
+            for index, line in enumerate(lines, start=1)
+        ],
+    )
+
+
+def _select_lyrics(metadata: deez.TrackMetadata, request: TrackPosterRequest) -> str:
+    if request.lyrics is not None:
+        return request.lyrics.strip()
+
+    lyric_result, instrumental, nonempty_lines = _fetch_lyrics(metadata)
+    if instrumental:
+        return request.instrumental_text.strip()
+    if request.lyrics_range is not None:
+        return lyric_result.select_lines(request.lyrics_range)
+
     if len(nonempty_lines) < 4:
         raise UpstreamError("Fewer than four non-empty lyric lines were available")
     return "\n".join(nonempty_lines[:4])
+
+
+def _renderable_lyrics(value: str) -> str:
+    # BeatPrints 0.1.0 indexes the first glyph even for an empty string.
+    # A space is visually empty while keeping the upstream renderer safe.
+    return value or " "
 
 
 def generate_track(request: TrackPosterRequest) -> tuple[bytes, str]:
@@ -385,7 +426,7 @@ def generate_track(request: TrackPosterRequest) -> tuple[bytes, str]:
         with _provider_rendering(provider, platform_link, qr_color):
             poster.Poster(str(directory)).track(
                 metadata=metadata,
-                lyrics=selected_lyrics,
+                lyrics=_renderable_lyrics(selected_lyrics),
                 accent=request.accent,
                 theme=request.theme,
                 pcover=str(cover_path),
@@ -426,8 +467,6 @@ def search_deezer(query: str, search_type: str, limit: int) -> list[dict]:
     client = deezer.Client()
     search_fn = client.search if search_type == "track" else client.search_albums
     results = search_fn(query)[:limit]
-    if not results:
-        raise UpstreamError(f"No matching {search_type} found")
 
     formatted = []
     for item in results:

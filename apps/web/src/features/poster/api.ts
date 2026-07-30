@@ -1,0 +1,110 @@
+import type {
+  CatalogProvider,
+  LyricsPreview,
+  PosterKind,
+  PosterRequest,
+  SearchProvider,
+  SearchResult,
+} from "@/features/poster/types"
+
+type ApiEnvelope<T> = {
+  code: number
+  data: T
+  message: string
+}
+
+const configuredBase = import.meta.env.VITE_API_BASE_URL?.trim()
+const API_BASE = configuredBase?.replace(/\/$/, "") ?? ""
+
+export class ApiError extends Error {
+  status: number
+  requestId?: string
+
+  constructor(message: string, status: number, requestId?: string) {
+    super(message)
+    this.name = "ApiError"
+    this.status = status
+    this.requestId = requestId
+  }
+}
+
+function endpoint(path: string) {
+  return `${API_BASE}${path}`
+}
+
+async function readError(response: Response) {
+  const requestId = response.headers.get("X-Request-ID") ?? undefined
+  try {
+    const body = (await response.json()) as Partial<ApiEnvelope<unknown>>
+    return new ApiError(
+      body.message || `请求失败（${response.status}）`,
+      response.status,
+      requestId,
+    )
+  } catch {
+    return new ApiError(`请求失败（${response.status}）`, response.status, requestId)
+  }
+}
+
+async function getJson<T>(path: string, signal?: AbortSignal) {
+  const response = await fetch(endpoint(path), { signal })
+  if (!response.ok) {
+    throw await readError(response)
+  }
+  const body = (await response.json()) as ApiEnvelope<T>
+  return body.data
+}
+
+export async function searchCatalog(
+  query: string,
+  kind: PosterKind,
+  provider: SearchProvider,
+  signal?: AbortSignal,
+) {
+  const params = new URLSearchParams({
+    query,
+    type: kind,
+    provider,
+    limit: "8",
+  })
+  return getJson<SearchResult[]>(`/v1/search?${params}`, signal)
+}
+
+export async function fetchLyrics(
+  provider: CatalogProvider,
+  catalogId: number | string,
+  signal?: AbortSignal,
+) {
+  const params = new URLSearchParams({
+    provider,
+    catalog_id: String(catalogId),
+  })
+  return getJson<LyricsPreview>(`/v1/lyrics?${params}`, signal)
+}
+
+function responseFilename(response: Response) {
+  const disposition = response.headers.get("Content-Disposition") ?? ""
+  const match = disposition.match(/filename="?([^";]+)"?/i)
+  return match?.[1] ?? "beatprints-poster.png"
+}
+
+export async function generatePoster(
+  kind: PosterKind,
+  request: PosterRequest,
+  signal?: AbortSignal,
+) {
+  const response = await fetch(endpoint(`/v1/posters/${kind}`), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+    signal,
+  })
+  if (!response.ok) {
+    throw await readError(response)
+  }
+  return {
+    blob: await response.blob(),
+    filename: responseFilename(response),
+    processTime: response.headers.get("X-Process-Time") ?? undefined,
+  }
+}

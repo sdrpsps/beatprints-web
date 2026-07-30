@@ -7,6 +7,8 @@ from beatprints_api.api.dependencies import require_api_key
 from beatprints_api.exceptions import UpstreamServiceError
 from beatprints_api.models import (
     ApiResponse,
+    CatalogProvider,
+    LyricsPreviewData,
     SearchProvider,
     SearchResult,
     ThemesData,
@@ -119,3 +121,43 @@ async def search(
         data=[SearchResult.model_validate(item) for item in results],
         message="success",
     )
+
+
+@router.get(
+    "/lyrics",
+    summary="预览歌曲歌词",
+    description=(
+        "按搜索结果中未改变的 provider + id 获取 LRClib 歌词，"
+        "返回规范化非空行供前端任选四行。纯音乐返回 instrumental=true 和空行列表。"
+    ),
+    response_model=ApiResponse[LyricsPreviewData],
+    response_model_exclude_none=True,
+    responses=ERROR_RESPONSES,
+)
+async def preview_lyrics(
+    provider: Annotated[
+        CatalogProvider,
+        Query(description="所选歌曲的元数据来源，必须与搜索结果一致。"),
+    ],
+    catalog_id: Annotated[
+        str,
+        Query(
+            min_length=1,
+            description="所选歌曲在 provider 中的 ID，来自 /v1/search。",
+        ),
+    ],
+) -> ApiResponse[LyricsPreviewData]:
+    try:
+        result = await run_in_threadpool(
+            beatprints_service.preview_lyrics,
+            provider,
+            catalog_id,
+        )
+    except SpotifyNotConfiguredError as exc:
+        raise UpstreamServiceError(str(exc), unavailable=True) from exc
+    except beatprints_service.UpstreamError as exc:
+        raise UpstreamServiceError(str(exc)) from exc
+    except Exception as exc:
+        raise UpstreamServiceError("Lyrics request failed") from exc
+
+    return ApiResponse(code=0, data=result, message="success")
