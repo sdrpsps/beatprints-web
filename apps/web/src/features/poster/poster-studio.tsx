@@ -1,4 +1,5 @@
 import { Disc3Icon, Music2Icon } from "lucide-react"
+import { useLayoutEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Separator } from "@/components/ui/separator"
@@ -10,7 +11,6 @@ import { OutputStage } from "@/features/poster/components/output-stage"
 import { PlatformSection } from "@/features/poster/components/platform-section"
 import { SearchSection } from "@/features/poster/components/search-section"
 import type { Studio } from "@/features/poster/components/studio-shared"
-import type { PosterKind } from "@/features/poster/types"
 import { usePosterStudio } from "@/features/poster/use-poster-studio"
 
 function Editor({ studio }: { studio: Studio }) {
@@ -37,6 +37,26 @@ function StudioContent({ studio }: { studio: Studio }) {
 export function PosterStudio() {
   const { t } = useTranslation()
   const studio = usePosterStudio()
+  const pendingScrollY = useRef<number | undefined>(undefined)
+
+  useLayoutEffect(() => {
+    if (pendingScrollY.current === undefined) return
+
+    window.scrollTo({
+      top: pendingScrollY.current,
+      behavior: "instant",
+    })
+    pendingScrollY.current = undefined
+  }, [studio.kind])
+
+  const changePosterKind = (value: string) => {
+    if (value !== "track" && value !== "album") return
+    if (value === studio.kind) return
+
+    pendingScrollY.current = window.scrollY
+    studio.setKind(value)
+  }
+
   return (
     <section
       id="studio"
@@ -62,7 +82,7 @@ export function PosterStudio() {
       <Separator />
       <Tabs
         value={studio.kind}
-        onValueChange={(value) => studio.setKind(value as PosterKind)}
+        onValueChange={changePosterKind}
       >
         <TabsList
           className="mt-5 mb-6"
