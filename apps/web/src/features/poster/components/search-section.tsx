@@ -1,5 +1,6 @@
 import type { FormEvent } from "react"
 import { AlertCircleIcon, SearchIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Field, FieldGroup, FieldLabel, FieldTitle } from "@/components/ui/field"
@@ -23,7 +24,6 @@ import {
   studioSectionClass,
   type Studio,
 } from "@/features/poster/components/studio-shared"
-import { zhCN } from "@/features/poster/copy"
 import type { CatalogProvider } from "@/features/poster/types"
 import { cn } from "@/lib/utils"
 
@@ -33,6 +33,7 @@ const providerItems = [
 ] satisfies { value: CatalogProvider; label: string }[]
 
 export function SearchSection({ studio }: { studio: Studio }) {
+  const { t } = useTranslation()
   const onSubmit = (event: FormEvent) => {
     event.preventDefault()
     void studio.search()
@@ -47,18 +48,20 @@ export function SearchSection({ studio }: { studio: Studio }) {
     >
       <SectionHeading
         number="01"
-        title={zhCN.selectWork}
+        title={t("poster.selectWork")}
         description={
           studio.kind === "track"
-            ? "输入歌名、歌手或专辑，找到准确的录音版本。"
-            : "输入专辑名或歌手，确认发行版本。"
+            ? t("poster.searchTrackDescription")
+            : t("poster.searchAlbumDescription")
         }
       />
       <form onSubmit={onSubmit}>
         <FieldGroup>
           <Field>
             <FieldLabel htmlFor="catalog-search" className="sr-only">
-              {studio.kind === "track" ? zhCN.searchTrack : zhCN.searchAlbum}
+              {studio.kind === "track"
+                ? t("poster.searchTrack")
+                : t("poster.searchAlbum")}
             </FieldLabel>
             <InputGroup className="min-h-11">
               <InputGroupInput
@@ -67,8 +70,8 @@ export function SearchSection({ studio }: { studio: Studio }) {
                 onChange={(event) => studio.setQuery(event.target.value)}
                 placeholder={
                   studio.kind === "track"
-                    ? "例如：Best Things in Life The Dreamliners"
-                    : "例如：Summer Breeze Piper"
+                    ? t("poster.searchTrackPlaceholder")
+                    : t("poster.searchAlbumPlaceholder")
                 }
                 autoComplete="off"
               />
@@ -85,7 +88,9 @@ export function SearchSection({ studio }: { studio: Studio }) {
                   {studio.searchState === "loading" ? (
                     <Spinner data-icon="inline-start" />
                   ) : null}
-                  {studio.searchState === "loading" ? zhCN.searching : zhCN.search}
+                  {studio.searchState === "loading"
+                    ? t("poster.searching")
+                    : t("poster.search")}
                 </InputGroupButton>
               </InputGroupAddon>
             </InputGroup>
@@ -101,9 +106,10 @@ export function SearchSection({ studio }: { studio: Studio }) {
 }
 
 function SourceFilter({ studio }: { studio: Studio }) {
+  const { t } = useTranslation()
   return (
     <Field orientation="horizontal" className="justify-end">
-      <FieldTitle>{zhCN.source}</FieldTitle>
+      <FieldTitle>{t("poster.source")}</FieldTitle>
       <ToggleGroup
         value={[studio.provider]}
         onValueChange={(values) => {
@@ -112,7 +118,7 @@ function SourceFilter({ studio }: { studio: Studio }) {
         }}
         variant="outline"
         size="sm"
-        aria-label="搜索来源"
+        aria-label={t("poster.source")}
       >
         {providerItems.map((item) => (
           <ToggleGroupItem key={item.value} value={item.value}>
@@ -125,12 +131,13 @@ function SourceFilter({ studio }: { studio: Studio }) {
 }
 
 function SearchFeedback({ studio }: { studio: Studio }) {
+  const { t } = useTranslation()
   if (studio.searchState === "loading") return <SearchSkeleton />
   if (studio.searchState === "error") {
     return (
       <Alert variant="destructive">
         <AlertCircleIcon />
-        <AlertTitle>没有完成搜索</AlertTitle>
+        <AlertTitle>{t("poster.searchFailed")}</AlertTitle>
         <AlertDescription>{studio.searchError}</AlertDescription>
       </Alert>
     )

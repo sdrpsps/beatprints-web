@@ -1,4 +1,5 @@
 import { ExternalLinkIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import {
   Field,
@@ -19,35 +20,29 @@ import {
   studioSectionClass,
   type Studio,
 } from "@/features/poster/components/studio-shared"
-import { zhCN } from "@/features/poster/copy"
 import type { PosterPlatform } from "@/features/poster/types"
 
-const platformItems = [
-  { value: "none", label: "不添加" },
-  { value: "spotify", label: "Spotify" },
-  { value: "apple_music", label: "Apple Music" },
-  { value: "qq_music", label: "QQ 音乐" },
-  { value: "netease_music", label: "网易云音乐" },
-] as const
-
-const platformLabels: Record<PosterPlatform, string> = {
-  spotify: "Spotify",
-  apple_music: "Apple Music",
-  qq_music: "QQ 音乐",
-  netease_music: "网易云音乐",
-}
-
 export function PlatformSection({ studio }: { studio: Studio }) {
+  const { t } = useTranslation()
   if (!studio.selected) return null
+
+  const platformItems = [
+    { value: "none", label: t("poster.platformNone") },
+    { value: "spotify", label: "Spotify" },
+    { value: "apple_music", label: "Apple Music" },
+    { value: "qq_music", label: t("poster.qqMusic") },
+    { value: "netease_music", label: t("poster.neteaseMusic") },
+  ] as const
+
   return (
     <section className={studioSectionClass}>
       <SectionHeading
         number={studio.kind === "track" ? "03" : "02"}
-        title={zhCN.platform}
-        description="可选。只添加一个二维码目的地；不选择就不会显示平台标识。"
+        title={t("poster.platform")}
+        description={t("poster.platformHelp")}
       />
       <FieldSet>
-        <FieldLegend className="sr-only">二维码平台</FieldLegend>
+        <FieldLegend className="sr-only">{t("poster.qrPlatformLabel")}</FieldLegend>
         <ToggleGroup
           value={[studio.qrPlatform || "none"]}
           onValueChange={(values) => {
@@ -76,11 +71,20 @@ export function PlatformSection({ studio }: { studio: Studio }) {
 }
 
 function PlatformUrlField({ studio }: { studio: Studio }) {
+  const { t } = useTranslation()
   const platform = studio.qrPlatform as PosterPlatform
+
+  const platformLabels: Record<PosterPlatform, string> = {
+    spotify: "Spotify",
+    apple_music: "Apple Music",
+    qq_music: t("poster.qqMusic"),
+    netease_music: t("poster.neteaseMusic"),
+  }
+
   return (
     <Field data-invalid={Boolean(studio.currentPlatformError) || undefined}>
       <FieldLabel htmlFor="platform-url">
-        {platformLabels[platform]} 链接
+        {platformLabels[platform]} {t("poster.platformLinkSuffix")}
       </FieldLabel>
       <InputGroup>
         <InputGroupAddon>
@@ -92,12 +96,12 @@ function PlatformUrlField({ studio }: { studio: Studio }) {
           inputMode="url"
           value={studio.platformUrl}
           aria-invalid={Boolean(studio.currentPlatformError)}
-          placeholder="粘贴歌曲或专辑的公开链接"
+          placeholder={t("poster.platformUrlPlaceholder")}
           onChange={(event) => studio.setPlatformUrl(event.target.value)}
         />
       </InputGroup>
       <FieldDescription>
-        首版需要手动提供；后续会接入跨平台自动匹配。
+        {t("poster.platformUrlHelp")}
       </FieldDescription>
       {studio.currentPlatformError ? (
         <FieldError>{studio.currentPlatformError}</FieldError>

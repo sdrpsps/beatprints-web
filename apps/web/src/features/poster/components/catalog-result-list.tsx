@@ -1,4 +1,5 @@
 import { CheckIcon, Disc3Icon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import { Badge } from "@/components/ui/badge"
 import {
@@ -24,8 +25,9 @@ import type { SearchResult } from "@/features/poster/types"
 import { cn } from "@/lib/utils"
 
 export function SearchSkeleton() {
+  const { t } = useTranslation()
   return (
-    <div className="flex flex-col gap-2.5" aria-label="正在加载搜索结果">
+    <div className="flex flex-col gap-2.5" aria-label={t("poster.loadingSearchResults")}>
       {[0, 1, 2].map((value) => (
         <div
           className="flex items-center gap-3 rounded-lg border p-2.5"
@@ -51,6 +53,8 @@ export function CatalogResultList({
   selected?: SearchResult
   onSelect: (result: SearchResult) => void
 }) {
+  const { t } = useTranslation()
+
   if (results.length === 0) {
     return (
       <Empty>
@@ -58,9 +62,9 @@ export function CatalogResultList({
           <EmptyMedia variant="icon">
             <Disc3Icon />
           </EmptyMedia>
-          <EmptyTitle>没有找到匹配的作品</EmptyTitle>
+          <EmptyTitle>{t("poster.noResultsTitle")}</EmptyTitle>
           <EmptyDescription>
-            试试“歌名 + 歌手”，或切换搜索来源。
+            {t("poster.noResultsDescription")}
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -76,7 +80,7 @@ export function CatalogResultList({
     >
       <ItemGroup
         className={cn(results.length > 4 && "pr-3")}
-        aria-label="搜索结果"
+        aria-label={t("poster.searchResults")}
       >
         {results.map((result) => (
           <CatalogResult
@@ -103,11 +107,12 @@ function CatalogResult({
   selected: boolean
   onSelect: (result: SearchResult) => void
 }) {
+  const { t } = useTranslation()
   const details = [
     result.album?.title,
     result.release_year,
     result.duration,
-    result.track_count ? `${result.track_count} 首` : undefined,
+    result.track_count ? `${result.track_count} ${t("poster.trackCountUnit")}` : undefined,
   ]
     .filter(Boolean)
     .join(" · ")

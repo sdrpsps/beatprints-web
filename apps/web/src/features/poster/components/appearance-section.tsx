@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import {
   Field,
   FieldDescription,
@@ -19,34 +20,25 @@ import {
   studioSectionClass,
   type Studio,
 } from "@/features/poster/components/studio-shared"
-import { zhCN } from "@/features/poster/copy"
 import type { Theme } from "@/features/poster/types"
 
-const themeItems = [
-  { value: "Light", label: "Light · 明亮" },
-  { value: "Dark", label: "Dark · 深色" },
-  { value: "Catppuccin", label: "Catppuccin" },
-  { value: "Gruvbox", label: "Gruvbox" },
-  { value: "Nord", label: "Nord" },
-  { value: "RosePine", label: "Rosé Pine" },
-  { value: "Everforest", label: "Everforest" },
-] satisfies { value: Theme; label: string }[]
-
 export function AppearanceSection({ studio }: { studio: Studio }) {
+  const { t } = useTranslation()
   if (!studio.selected) return null
+
   return (
     <section className={studioSectionClass}>
       <SectionHeading
         number={studio.kind === "track" ? "04" : "03"}
-        title={zhCN.appearance}
-        description="选择生成器支持的主题，并决定是否使用封面提取的底部强调色。"
+        title={t("poster.appearance")}
+        description={t("poster.appearanceHelp")}
       />
       <FieldGroup>
         <ThemeField studio={studio} />
         <OptionSwitch
           id="accent"
-          title="封面强调色"
-          description="在海报底部加入从封面提取的色彩。"
+          title={t("poster.accentTitle")}
+          description={t("poster.accentDescription")}
           checked={studio.accent}
           onChange={studio.setAccent}
         />
@@ -54,15 +46,15 @@ export function AppearanceSection({ studio }: { studio: Studio }) {
           <>
             <OptionSwitch
               id="indexing"
-              title="显示曲目编号"
-              description="在曲目名称前显示 1.、2. 等序号。"
+              title={t("poster.indexingTitle")}
+              description={t("poster.indexingDescription")}
               checked={studio.indexing}
               onChange={studio.setIndexing}
             />
             <OptionSwitch
               id="shuffle"
-              title="随机曲序"
-              description="每次生成前重新排列曲目，成品顺序可能不同。"
+              title={t("poster.shuffleTitle")}
+              description={t("poster.shuffleDescription")}
               checked={studio.shuffle}
               onChange={studio.setShuffle}
             />
@@ -74,9 +66,21 @@ export function AppearanceSection({ studio }: { studio: Studio }) {
 }
 
 function ThemeField({ studio }: { studio: Studio }) {
+  const { t } = useTranslation()
+
+  const themeItems = [
+    { value: "Light", label: t("poster.themeLight") },
+    { value: "Dark", label: t("poster.themeDark") },
+    { value: "Catppuccin", label: "Catppuccin" },
+    { value: "Gruvbox", label: "Gruvbox" },
+    { value: "Nord", label: "Nord" },
+    { value: "RosePine", label: "Rosé Pine" },
+    { value: "Everforest", label: "Everforest" },
+  ] satisfies { value: Theme; label: string }[]
+
   return (
     <Field orientation="responsive">
-      <FieldTitle>海报主题</FieldTitle>
+      <FieldTitle>{t("poster.posterTheme")}</FieldTitle>
       <Select
         items={themeItems}
         value={studio.theme}

@@ -1,12 +1,14 @@
 import { Code2Icon, ExternalLinkIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 export function SiteFooter() {
+  const { t } = useTranslation()
   return (
     <footer className="mx-auto flex min-h-[190px] w-[calc(100%-40px)] max-w-[1440px] items-start justify-between gap-8 border-t py-[42px] max-sm:w-[calc(100%-28px)] max-sm:flex-col">
       <div>
-        <strong className="text-[15px]">BeatPrints</strong>
+        <strong className="text-[15px]">{t("poster.brand")}</strong>
         <p className="mt-[7px] text-xs text-muted-foreground">
-          为非商业音乐收藏与个人表达而制作。
+          {t("app.footerDisclaimer")}
         </p>
       </div>
       <div className="flex items-center gap-[22px] max-sm:flex-col max-sm:items-start max-sm:gap-3">
@@ -17,7 +19,7 @@ export function SiteFooter() {
           rel="noreferrer"
         >
           <Code2Icon aria-hidden="true" />
-          项目源码
+          {t("app.footerSourceCode")}
         </a>
         <a
           className="inline-flex items-center gap-[7px] text-[13px] text-muted-foreground no-underline transition-colors duration-150 hover:text-foreground motion-reduce:transition-none [&_svg]:size-3.5"
@@ -26,7 +28,7 @@ export function SiteFooter() {
           rel="noreferrer"
         >
           <ExternalLinkIcon aria-hidden="true" />
-          上游生成器
+          {t("app.footerUpstreamGenerator")}
         </a>
         <a
           className="inline-flex items-center gap-[7px] text-[13px] text-muted-foreground no-underline transition-colors duration-150 hover:text-foreground motion-reduce:transition-none"

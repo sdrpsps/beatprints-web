@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react"
+import { useTranslation } from "react-i18next"
 import {
   ArrowDownToLineIcon,
   Disc3Icon,
@@ -10,10 +11,10 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import type { Studio } from "@/features/poster/components/studio-shared"
-import { zhCN } from "@/features/poster/copy"
 import { cn } from "@/lib/utils"
 
 export function OutputStage({ studio }: { studio: Studio }) {
+  const { t } = useTranslation()
   const stageRef = useRef<HTMLDivElement>(null)
   const elapsedSeconds = studio.output?.processTime
     ? `${(Number(studio.output.processTime) / 1000).toFixed(2)}s`
@@ -28,7 +29,7 @@ export function OutputStage({ studio }: { studio: Studio }) {
   return (
     <aside
       className="sticky top-6 max-[960px]:static max-[960px]:order-2"
-      aria-label="海报输出"
+      aria-label={t("poster.outputAriaLabel")}
     >
       <div className="flex justify-between gap-5 pb-2.5 font-[var(--font-utility)] text-[10px] font-semibold tracking-[0.14em] text-muted-foreground">
         <span>OUTPUT / PNG</span>
@@ -37,9 +38,9 @@ export function OutputStage({ studio }: { studio: Studio }) {
       {studio.outputStale ? (
         <Alert className="output-stale-alert">
           <TriangleAlertIcon />
-          <AlertTitle>设置已更改</AlertTitle>
+          <AlertTitle>{t("poster.settingsChanged")}</AlertTitle>
           <AlertDescription>
-            当前保留的是上一次生成结果。重新生成后才会应用新设置。
+            {t("poster.staleOutputNotice")}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -56,7 +57,7 @@ export function OutputStage({ studio }: { studio: Studio }) {
           <img
             className="poster-output block max-h-[80vh] max-w-full object-contain shadow-[0_24px_70px_rgba(5,6,10,0.28)] motion-reduce:animate-none"
             src={studio.output.url}
-            alt={`${studio.output.title}海报成品`}
+            alt={t("poster.posterAlt", { title: studio.output.title })}
           />
         ) : null}
         {!studio.output && studio.generationState !== "loading" ? (
@@ -66,10 +67,10 @@ export function OutputStage({ studio }: { studio: Studio }) {
           <div className="absolute inset-0 z-2 m-auto flex max-w-[280px] flex-col items-center justify-center gap-2 bg-[color-mix(in_srgb,var(--stage)_88%,transparent)] p-6 text-center text-muted-foreground backdrop-blur-[5px]">
             <Spinner />
             <strong className="mt-1.5 text-sm text-foreground">
-              正在生成海报
+              {t("poster.generating")}
             </strong>
             <span className="text-xs leading-[1.55]">
-              保留当前结果，完成后会自动替换。
+              {t("poster.generatingNotice")}
             </span>
           </div>
         ) : null}
@@ -80,9 +81,10 @@ export function OutputStage({ studio }: { studio: Studio }) {
 }
 
 function EmptyOutputState({ studio }: { studio: Studio }) {
+  const { t } = useTranslation()
   const selectedLabel = studio.selected
     ? `${studio.selected.title} · ${studio.selected.artists.join("、")}`
-    : "选择作品并完成左侧设置"
+    : t("poster.emptyOutputDescription")
 
   return (
     <div className="flex max-w-[280px] flex-col items-center gap-2.5 px-6 text-center text-muted-foreground/55">
@@ -91,7 +93,7 @@ function EmptyOutputState({ studio }: { studio: Studio }) {
         aria-hidden="true"
       />
       <strong className="text-[13px] font-medium text-foreground/45">
-        海报将在这里生成
+        {t("poster.emptyOutputTitle")}
       </strong>
       <span className="line-clamp-2 text-xs leading-[1.55]">
         {selectedLabel}
@@ -101,6 +103,7 @@ function EmptyOutputState({ studio }: { studio: Studio }) {
 }
 
 function OutputActions({ studio }: { studio: Studio }) {
+  const { t } = useTranslation()
   return (
     <div className="flex flex-wrap gap-2 pt-3.5 max-sm:[&>*]:flex-[1_1_100%]">
       <a
@@ -109,7 +112,7 @@ function OutputActions({ studio }: { studio: Studio }) {
         download={studio.output?.filename}
       >
         <ArrowDownToLineIcon data-icon="inline-start" />
-        {zhCN.download}
+        {t("poster.download")}
       </a>
       <Button
         variant="outline"
@@ -118,10 +121,10 @@ function OutputActions({ studio }: { studio: Studio }) {
         onClick={() => void studio.generate()}
       >
         <RotateCcwIcon data-icon="inline-start" />
-        {zhCN.regenerate}
+        {t("poster.regenerate")}
       </Button>
       <Button variant="ghost" size="sm" onClick={studio.resetSelection}>
-        {zhCN.startOver}
+        {t("poster.startOver")}
       </Button>
     </div>
   )

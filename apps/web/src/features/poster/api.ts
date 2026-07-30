@@ -1,3 +1,5 @@
+import i18next from "i18next"
+
 import type {
   CatalogProvider,
   LyricsPreview,
@@ -34,15 +36,16 @@ function endpoint(path: string) {
 
 async function readError(response: Response) {
   const requestId = response.headers.get("X-Request-ID") ?? undefined
+  const defaultMessage = i18next.t("poster.requestFailed", { status: response.status })
   try {
     const body = (await response.json()) as Partial<ApiEnvelope<unknown>>
     return new ApiError(
-      body.message || `请求失败（${response.status}）`,
+      body.message || defaultMessage,
       response.status,
       requestId,
     )
   } catch {
-    return new ApiError(`请求失败（${response.status}）`, response.status, requestId)
+    return new ApiError(defaultMessage, response.status, requestId)
   }
 }
 

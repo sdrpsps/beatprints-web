@@ -1,4 +1,5 @@
 import { AlertCircleIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
@@ -16,9 +17,9 @@ import {
   studioSectionClass,
   type Studio,
 } from "@/features/poster/components/studio-shared"
-import { zhCN } from "@/features/poster/copy"
 
 export function LyricsSection({ studio }: { studio: Studio }) {
+  const { t } = useTranslation()
   if (studio.kind !== "track" || !studio.selected) return null
   const isManual = studio.lyricsMode === "manual"
 
@@ -26,11 +27,11 @@ export function LyricsSection({ studio }: { studio: Studio }) {
     <section className={studioSectionClass}>
       <SectionHeading
         number="02"
-        title={studio.instrumental ? "纯音乐文字" : zhCN.lyrics}
+        title={studio.instrumental ? t("poster.instrumentalTitle") : t("poster.lyrics")}
         description={
           studio.instrumental
-            ? "默认不显示文字，也可以填写最多四行、合计不超过 200 字的短句。"
-            : zhCN.lyricsHelp
+            ? t("poster.instrumentalHelp")
+            : t("poster.lyricsHelp")
         }
       />
       <LyricsStatus studio={studio} />
@@ -46,8 +47,12 @@ export function LyricsSection({ studio }: { studio: Studio }) {
           variant="outline"
           size="sm"
         >
-          <ToggleGroupItem value="catalog">{zhCN.catalogLyrics}</ToggleGroupItem>
-          <ToggleGroupItem value="manual">{zhCN.manualLyrics}</ToggleGroupItem>
+          <ToggleGroupItem value="catalog">
+            {t("poster.catalogLyrics")}
+          </ToggleGroupItem>
+          <ToggleGroupItem value="manual">
+            {t("poster.manualLyrics")}
+          </ToggleGroupItem>
         </ToggleGroup>
       ) : null}
       {!studio.instrumental && !isManual && studio.lyrics.length > 0 ? (
@@ -62,11 +67,12 @@ export function LyricsSection({ studio }: { studio: Studio }) {
 }
 
 function LyricsStatus({ studio }: { studio: Studio }) {
+  const { t } = useTranslation()
   if (studio.lyricsState === "loading") {
     return (
       <div className="flex min-h-[88px] items-center justify-center gap-[9px] text-[13px] text-muted-foreground">
         <Spinner />
-        <span>正在匹配歌词…</span>
+        <span>{t("poster.matchingLyrics")}</span>
       </div>
     )
   }
@@ -74,48 +80,55 @@ function LyricsStatus({ studio }: { studio: Studio }) {
   return (
     <Alert>
       <AlertCircleIcon />
-      <AlertTitle>改为手动填写</AlertTitle>
+      <AlertTitle>{t("poster.switchToManual")}</AlertTitle>
       <AlertDescription>{studio.lyricsError}</AlertDescription>
     </Alert>
   )
 }
 
 function InstrumentalField({ studio }: { studio: Studio }) {
+  const { t } = useTranslation()
   return (
     <Field>
-      <FieldLabel htmlFor="instrumental-text">可选短句</FieldLabel>
+      <FieldLabel htmlFor="instrumental-text">
+        {t("poster.instrumentalFieldLabel")}
+      </FieldLabel>
       <Textarea
         id="instrumental-text"
         value={studio.instrumentalText}
         maxLength={200}
-        placeholder="留空则海报不显示歌词文字"
+        placeholder={t("poster.instrumentalPlaceholder")}
         onChange={(event) => studio.setInstrumentalText(event.target.value)}
       />
       <FieldDescription>
-        {studio.instrumentalLineCount} / 4 行 · {studio.instrumentalText.length}{" "}
-        / 200 字
+        {studio.instrumentalLineCount} / 4 · {studio.instrumentalText.length} / 200
       </FieldDescription>
     </Field>
   )
 }
 
 function ManualLyricsField({ studio }: { studio: Studio }) {
+  const { t } = useTranslation()
   const invalid = studio.manualLineCount !== 4
   return (
     <Field data-invalid={invalid || undefined}>
-      <FieldLabel htmlFor="manual-lyrics">海报文字</FieldLabel>
+      <FieldLabel htmlFor="manual-lyrics">
+        {t("poster.manualLyricsLabel")}
+      </FieldLabel>
       <Textarea
         id="manual-lyrics"
         value={studio.manualLyrics}
         maxLength={2000}
         aria-invalid={invalid}
-        placeholder={"第一行\n第二行\n第三行\n第四行"}
+        placeholder={t("poster.manualLyricsPlaceholder")}
         onChange={(event) => studio.setManualLyrics(event.target.value)}
       />
       <FieldDescription>
-        最多四行，空行会被忽略。当前 {studio.manualLineCount} / 4 行。
+        {t("poster.manualLyricsHelp", { count: studio.manualLineCount })}
       </FieldDescription>
-      {invalid ? <FieldError>需要正好四行非空文字。</FieldError> : null}
+      {invalid ? (
+        <FieldError>{t("poster.manualLyricsError")}</FieldError>
+      ) : null}
     </Field>
   )
 }

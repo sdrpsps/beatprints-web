@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { CheckIcon, ListXIcon, PencilIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,12 +18,13 @@ import { toast } from "@/components/ui/toast"
 import type { Studio } from "@/features/poster/components/studio-shared"
 
 export function LyricsPicker({ studio }: { studio: Studio }) {
+  const { t } = useTranslation()
   const [editingLine, setEditingLine] = useState<number>()
 
   return (
     <FieldSet>
       <div className="flex items-center justify-between gap-4">
-        <FieldLegend variant="label">整首歌词</FieldLegend>
+        <FieldLegend variant="label">{t("poster.fullLyrics")}</FieldLegend>
         <div className="flex flex-wrap justify-end gap-1.5">
           <Button
             type="button"
@@ -32,12 +34,12 @@ export function LyricsPicker({ studio }: { studio: Studio }) {
             onClick={studio.clearLyricSelection}
           >
             <ListXIcon data-icon="inline-start" />
-            取消全选
+            {t("poster.clearLyricSelection")}
           </Button>
           <Badge
             variant={studio.selectedLines.length === 4 ? "default" : "secondary"}
           >
-            已选 {studio.selectedLines.length} / 4
+            {t("poster.selectedLyricsCount", { count: studio.selectedLines.length })}
           </Badge>
         </div>
       </div>
@@ -63,8 +65,8 @@ export function LyricsPicker({ studio }: { studio: Studio }) {
                     if (!accepted) {
                       toast.add({
                         type: "warning",
-                        title: "最多选择四行歌词",
-                        description: "请先取消一行，再选择新的歌词。",
+                        title: t("poster.maxLyricsToastTitle"),
+                        description: t("poster.maxLyricsToastDesc"),
                       })
                     }
                   }}
@@ -76,7 +78,7 @@ export function LyricsPicker({ studio }: { studio: Studio }) {
                   <Input
                     className="flex-1"
                     value={value}
-                    aria-label={`编辑第 ${line.index} 行歌词`}
+                    aria-label={t("poster.editLineAriaLabel", { index: line.index })}
                     onChange={(event) =>
                       studio.editLyric(line.index, event.target.value)
                     }
@@ -96,10 +98,14 @@ export function LyricsPicker({ studio }: { studio: Studio }) {
                   size="icon-xs"
                   aria-label={
                     editingLine === line.index
-                      ? `完成编辑第 ${line.index} 行歌词`
-                      : `编辑第 ${line.index} 行歌词`
+                      ? t("poster.finishEditLineAriaLabel", { index: line.index })
+                      : t("poster.editLineAriaLabel", { index: line.index })
                   }
-                  title={editingLine === line.index ? "完成编辑" : "编辑这一行"}
+                  title={
+                    editingLine === line.index
+                      ? t("poster.finishEditTitle")
+                      : t("poster.editLineTitle")
+                  }
                   onClick={() =>
                     setEditingLine((current) =>
                       current === line.index ? undefined : line.index,

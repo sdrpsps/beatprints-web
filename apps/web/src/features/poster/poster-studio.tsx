@@ -1,4 +1,5 @@
 import { Disc3Icon, Music2Icon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -9,7 +10,6 @@ import { OutputStage } from "@/features/poster/components/output-stage"
 import { PlatformSection } from "@/features/poster/components/platform-section"
 import { SearchSection } from "@/features/poster/components/search-section"
 import type { Studio } from "@/features/poster/components/studio-shared"
-import { zhCN } from "@/features/poster/copy"
 import type { PosterKind } from "@/features/poster/types"
 import { usePosterStudio } from "@/features/poster/use-poster-studio"
 
@@ -35,6 +35,7 @@ function StudioContent({ studio }: { studio: Studio }) {
 }
 
 export function PosterStudio() {
+  const { t } = useTranslation()
   const studio = usePosterStudio()
   return (
     <section
@@ -45,17 +46,17 @@ export function PosterStudio() {
       <div className="flex items-end justify-between gap-8 pb-7 max-sm:flex-col max-sm:items-start">
         <div>
           <span className="font-[var(--font-utility)] text-[10px] font-semibold tracking-[0.14em] text-muted-foreground">
-            COMPOSE / PRINT / KEEP
+            {t("app.studioSectionBadge")}
           </span>
           <h2
             className="mt-[7px] mb-0 text-[clamp(42px,5vw,72px)] leading-[0.95] font-[670] tracking-[-0.055em] [font-variation-settings:'wdth'_86]"
             id="studio-title"
           >
-            开始制作
+            {t("app.startCreating")}
           </h2>
         </div>
         <p className="m-0 max-w-[360px] text-right text-[13px] text-muted-foreground max-sm:text-left">
-          无需登录。生成结果只存在于这次浏览器会话中。
+          {t("app.sessionNotice")}
         </p>
       </div>
       <Separator />
@@ -63,14 +64,18 @@ export function PosterStudio() {
         value={studio.kind}
         onValueChange={(value) => studio.setKind(value as PosterKind)}
       >
-        <TabsList className="mt-5 mb-6" variant="line" aria-label="海报类型">
+        <TabsList
+          className="mt-5 mb-6"
+          variant="line"
+          aria-label={t("app.posterTypeLabel")}
+        >
           <TabsTrigger value="track">
             <Music2Icon data-icon="inline-start" />
-            {zhCN.track}
+            {t("poster.track")}
           </TabsTrigger>
           <TabsTrigger value="album">
             <Disc3Icon data-icon="inline-start" />
-            {zhCN.album}
+            {t("poster.album")}
           </TabsTrigger>
         </TabsList>
         <TabsContent value="track">

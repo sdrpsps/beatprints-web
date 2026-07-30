@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import {
   ApiError,
@@ -36,15 +37,19 @@ function loadPreferences(): PosterPreferences {
   }
 }
 
-function friendlyError(error: unknown, fallback: string) {
+function friendlyError(
+  error: unknown,
+  fallback: string,
+  t: (key: string) => string,
+) {
   if (!(error instanceof ApiError)) {
     return { message: fallback }
   }
   const messages: Record<number, string> = {
-    401: "当前服务配置有误，无法访问公开接口。",
-    422: "提交的内容不完整，请检查后再试。",
-    502: "音乐服务暂时没有返回可用内容，可以重试或手动填写。",
-    503: "所选音乐来源暂时不可用，请切换来源后重试。",
+    401: t("poster.errors.error401"),
+    422: t("poster.errors.error422"),
+    502: t("poster.errors.error502"),
+    503: t("poster.errors.error503"),
   }
   return {
     message: messages[error.status] ?? error.message ?? fallback,
@@ -66,15 +71,16 @@ function limitLines(value: string, maximum = 4) {
 export function platformUrlError(
   platform: PosterPlatform,
   value: string,
+  t: (key: string) => string,
 ): string | undefined {
   let url: URL
   try {
     url = new URL(value)
   } catch {
-    return "请输入完整的平台链接。"
+    return t("poster.errors.urlErrorInvalid")
   }
   if (!["http:", "https:"].includes(url.protocol)) {
-    return "链接必须以 http:// 或 https:// 开头。"
+    return t("poster.errors.urlErrorProtocol")
   }
   const host = url.hostname.toLowerCase()
   const domains: Record<PosterPlatform, string[]> = {
@@ -84,11 +90,12 @@ export function platformUrlError(
     netease_music: ["music.163.com", "163.com"],
   }
   if (!domains[platform].some((domain) => host === domain || host.endsWith(`.${domain}`))) {
-    return "这个链接似乎不属于所选平台。"
+    return t("poster.errors.urlErrorDomain")
   }
 }
 
 export function usePosterStudio() {
+  const { t } = useTranslation()
   const initial = useMemo(loadPreferences, [])
   const [kind, setKindState] = useState<PosterKind>(initial.kind)
   const [theme, setThemeState] = useState<Theme>(initial.theme)
@@ -214,7 +221,9 @@ export function usePosterStudio() {
       if (controller.signal.aborted) return
       setSearchResults([])
       setSearchState("error")
-      setSearchError(friendlyError(error, "搜索失败，请稍后重试。").message)
+      setSearchError(
+        friendlyError(error, t("poster.errors.searchErrorDefault"), t).message,
+      )
     }
   }
 
@@ -259,7 +268,7 @@ export function usePosterStudio() {
       setLyricsMode("manual")
       setLyricsState("error")
       setLyricsError(
-        friendlyError(error, "没有读取到歌词，请手动填写四行文字。").message,
+        friendlyError(error, t("poster.errors.lyricsErrorDefault"), t).message,
       )
     }
   }
@@ -343,7 +352,7 @@ export function usePosterStudio() {
     !(qrPlatform === "spotify" && selected?.provider === "spotify")
   const currentPlatformError =
     platformNeedsUrl && qrPlatform
-      ? platformUrlError(qrPlatform, platformUrl)
+      ? platformUrlError(qrPlatform, platformUrl, t)
       : undefined
   const manualLineCount = nonemptyLines(manualLyrics).length
   const instrumentalLineCount = nonemptyLines(instrumentalText).length
@@ -416,7 +425,7 @@ export function usePosterStudio() {
       if (controller.signal.aborted) return
       setGenerationState("error")
       setGenerationError(
-        friendlyError(error, "海报生成失败，请检查内容后重试。"),
+        friendlyError(error, t("poster.errors.generationErrorDefault"), t),
       )
     }
   }

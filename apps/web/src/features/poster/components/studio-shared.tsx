@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { Music2Icon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import type { SearchResult } from "@/features/poster/types"
 import type { usePosterStudio } from "@/features/poster/use-poster-studio"
@@ -39,13 +40,14 @@ export function SectionHeading({
 }
 
 export function CoverArt({ result }: { result: SearchResult }) {
+  const { t } = useTranslation()
   const [failed, setFailed] = useState(false)
 
   if (failed) {
     return (
       <div
         className="cover-fallback grid size-full place-items-center text-muted-foreground [&_svg]:size-[18px]"
-        aria-label={`${result.title} 封面加载失败`}
+        aria-label={t("poster.coverFailed", { title: result.title })}
       >
         <Music2Icon aria-hidden="true" />
       </div>
@@ -55,7 +57,7 @@ export function CoverArt({ result }: { result: SearchResult }) {
   return (
     <img
       src={result.cover_url}
-      alt={`${result.title} 封面`}
+      alt={t("poster.coverAlt", { title: result.title })}
       loading="lazy"
       onError={() => setFailed(true)}
     />
