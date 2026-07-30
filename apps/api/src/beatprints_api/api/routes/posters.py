@@ -187,7 +187,7 @@ def _image_response(
         content, filename = result
 
     server_timing = ", ".join(
-        f"{name};dur={duration:.3f}" for name, duration in timings.items()
+        f"{name};dur={duration:.0f}" for name, duration in timings.items()
     )
     return Response(
         content=content,
@@ -221,7 +221,7 @@ async def _generate(
         result.timings_ms if isinstance(result, beatprints_service.PosterResult) else {}
     )
     logger.info(
-        "Generated %s poster provider=%s qr=%s bytes=%d queue_ms=%.3f timings_ms=%s",
+        "Generated %s poster provider=%s qr=%s bytes=%d queue_ms=%.0f timings_ms=%s",
         "track" if isinstance(request, TrackPosterRequest) else "album",
         request.provider,
         request.qr_platform is not None,
@@ -231,7 +231,7 @@ async def _generate(
             else len(result[0])
         ),
         queue_ms,
-        {name: round(duration, 3) for name, duration in timings.items()},
+        {name: round(duration) for name, duration in timings.items()},
     )
     return _image_response(result, queue_ms)
 

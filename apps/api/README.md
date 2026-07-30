@@ -57,7 +57,7 @@ src/beatprints_api/
 `code` 为 `0` 表示成功；错误使用非零业务码，`data` 在无附加信息时为 `null`。
 Pydantic 请求校验错误会在 `data.errors` 中提供字段级详情。所有响应都带有
 `X-Request-ID` 和 `X-Process-Time` 响应头，其中 `X-Process-Time` 是本次请求在应用内
-处理所用的毫秒数（纯数值，保留三位小数）。
+处理所用的整数毫秒数。
 
 ## Docker 服务器部署
 
@@ -99,8 +99,8 @@ docker compose up -d --build
 `METADATA_CACHE_MAX_ENTRIES` 调整；多进程之间不共享缓存。
 
 成功生成海报时，响应中的 `Server-Timing` 会分别报告 `queue`、`metadata`、`lyrics`、
-`cover`、`palette`、`render` 和 `read` 耗时，单位为毫秒，可用来区分排队、上游网络和
-本地图像渲染瓶颈。`X-Process-Time` 仍表示整个 HTTP 请求的总耗时。
+`cover`、`palette`、`render` 和 `read` 耗时，统一使用整数毫秒，可用来区分排队、上游
+网络和本地图像渲染瓶颈。`X-Process-Time` 仍表示整个 HTTP 请求的整数毫秒总耗时。
 
 在 Nginx、Caddy 或云平台负载均衡器后部署时，将其反向代理到容器的 `8000` 端口即可。
 应用已启用代理头处理，平台也可以通过 `PORT` 环境变量修改监听端口。

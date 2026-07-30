@@ -32,5 +32,5 @@ async def request_context_middleware(
         )
     response.headers["X-Request-ID"] = request_id
     elapsed_ms = (time.perf_counter() - started_at) * 1000
-    response.headers["X-Process-Time"] = f"{elapsed_ms:.3f}"
+    response.headers["X-Process-Time"] = f"{elapsed_ms:.0f}"
     return response

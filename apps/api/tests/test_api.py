@@ -22,8 +22,7 @@ def test_health() -> None:
     }
     assert response.headers["x-request-id"]
     process_time = response.headers["x-process-time"]
-    assert float(process_time) >= 0
-    assert len(process_time.rsplit(".", maxsplit=1)[-1]) == 3
+    assert process_time.isdigit()
 
 
 def test_web_app_is_served_without_shadowing_api(tmp_path: Path) -> None:
@@ -79,7 +78,7 @@ def test_track_returns_png(monkeypatch) -> None:
         lambda request: posters.beatprints_service.PosterResult(
             b"\x89PNG\r\n\x1a\n",
             "poster.png",
-            {"metadata": 12.5, "render": 34.25},
+            {"metadata": 12.6, "render": 34.6},
         ),
     )
     response = client.post(
@@ -93,8 +92,8 @@ def test_track_returns_png(monkeypatch) -> None:
     assert response.headers["content-type"] == "image/png"
     assert 'filename="poster.png"' in response.headers["content-disposition"]
     assert "queue;dur=" in response.headers["server-timing"]
-    assert "metadata;dur=12.500" in response.headers["server-timing"]
-    assert "render;dur=34.250" in response.headers["server-timing"]
+    assert "metadata;dur=13" in response.headers["server-timing"]
+    assert "render;dur=35" in response.headers["server-timing"]
     assert response.headers["x-process-time"]
 
 
