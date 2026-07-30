@@ -1,9 +1,25 @@
-# BeatPrints
+# BeatPrints Web
 
-BeatPrints 音乐海报制作应用 monorepo。用户查询歌曲或专辑，使用匹配到的封面和音乐
-资料，选择歌词与可选的平台入口，生成可下载的 BeatPrints PNG 海报。后端使用
-FastAPI + uv，前端使用 React、Vite、shadcn/ui 与 pnpm；两套依赖系统彼此独立，
-根目录同时作为 Python 项目和开发、部署命令入口。
+> 把喜欢的音乐，留下纸面的形状。
+
+BeatPrints Web 是一个可自部署的音乐海报创作工具。搜索一首歌或一张专辑，确认准确
+版本，选择最想留下的四行歌词，再将它们排成一张可以下载、收藏或打印的 PNG 海报。
+
+它基于原始 [BeatPrints](https://github.com/TrueMyst/BeatPrints) 项目构建，在原始海报
+生成能力之上补充了完整的 Web 创作界面、HTTP API、音乐目录集成与部署工具。后端使用
+FastAPI + uv，前端使用 React、Vite、shadcn/ui 与 pnpm；生产环境中，前端构建产物由
+同一个 API 容器提供。
+
+## 功能
+
+- 从 Deezer 或 Spotify 音乐目录中搜索并确认单曲或专辑版本。
+- 选择四行歌词，或为纯音乐手动添加文字。
+- 可选添加 Spotify、Apple Music、QQ 音乐或网易云音乐的二维码入口。
+- 配置海报主题、封面强调色、曲目编号和随机曲序。
+- 生成、下载和收藏 PNG 音乐海报。
+- 提供可供其他应用调用的 REST API。
+- 内置简体中文、繁體中文与 English 界面。
+- 支持 Docker Compose 自部署。
 
 ```text
 .
@@ -48,12 +64,13 @@ make docker:up
 
 ## Docker 镜像
 
-GitHub Actions 会使用 `apps/api/Dockerfile` 构建 `linux/amd64` 和 `linux/arm64`
-镜像：
+GitHub Actions 会使用 `apps/api/Dockerfile` 构建同时包含 Web 前端与 API 的
+`linux/amd64` 和 `linux/arm64` 单镜像：
 
 - Pull Request：只构建验证，不推送。
 - 推送到 `main`：发布 `main`、`latest` 和 `sha-xxxxxxx` 标签。
 - 推送 `v1.2.3` Git tag：发布 `1.2.3`、`1.2`、`1` 和 SHA 标签。
+- 仅修改 Markdown、`docs/` 或 `LICENSE` 时不会触发镜像构建；仍可手动运行工作流。
 
 镜像地址为：
 
@@ -64,7 +81,8 @@ ghcr.io/<github-owner>/<repository>:latest
 工作流使用仓库自带的 `GITHUB_TOKEN`，不需要额外配置 Registry 密钥。GHCR 首次发布的
 Package 默认可能是私有的，可在 GitHub Package 设置中调整可见性。
 
-API 文档和调用示例见 [apps/api/README.md](apps/api/README.md)。
+API 文档和调用示例见 [apps/api/README.md](apps/api/README.md)。部署时，将服务器的
+Nginx、Caddy 或 Traefik 反向代理到容器的 `8000` 端口即可。
 
 ## 依赖边界
 
@@ -73,3 +91,11 @@ API 文档和调用示例见 [apps/api/README.md](apps/api/README.md)。
 - 根目录的 `uv.lock` 与 `pnpm-lock.yaml` 都应提交。
 - Makefile 负责跨应用命令编排，采用 `动作:应用` 命名。
 - pnpm 只管理前端 workspace，uv 在根目录管理 `apps/api`。
+
+## 致谢与许可
+
+本项目基于 TrueMyst 创作的原始
+[BeatPrints](https://github.com/TrueMyst/BeatPrints) 项目构建。请在使用、分发或创建
+衍生作品时保留对原始项目的署名。
+
+本项目仅供非商业使用，并采用 [CC BY-NC-SA 4.0](./LICENSE) 许可。

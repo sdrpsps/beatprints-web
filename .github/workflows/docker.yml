@@ -6,7 +6,15 @@ on:
       - main
     tags:
       - "v*"
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "LICENSE"
   pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "LICENSE"
   workflow_dispatch:
 
 concurrency:
@@ -57,8 +65,8 @@ jobs:
             type=sha,prefix=sha-
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
           labels: |
-            org.opencontainers.image.title=BeatPrints API
-            org.opencontainers.image.description=FastAPI service for generating BeatPrints-compatible music posters
+            org.opencontainers.image.title=BeatPrints Web
+            org.opencontainers.image.description=Self-hostable BeatPrints music-poster web app and API
             org.opencontainers.image.licenses=CC-BY-NC-SA-4.0
 
       - name: Build and push image
