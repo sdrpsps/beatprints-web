@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   ArrowDownToLineIcon,
+  ArrowLeftRightIcon,
   Disc3Icon,
-  RotateCcwIcon,
   TriangleAlertIcon,
 } from "lucide-react"
 
@@ -131,16 +131,8 @@ function OutputActions({ studio }: { studio: Studio }) {
         <ArrowDownToLineIcon data-icon="inline-start" />
         {t("poster.download")}
       </a>
-      <Button
-        variant="outline"
-        size="lg"
-        disabled={!studio.canGenerate}
-        onClick={() => void studio.generate()}
-      >
-        <RotateCcwIcon data-icon="inline-start" />
-        {t("poster.regenerate")}
-      </Button>
       <Button variant="ghost" size="lg" onClick={studio.resetSelection}>
+        <ArrowLeftRightIcon data-icon="inline-start" />
         {t("poster.startOver")}
       </Button>
     </div>
