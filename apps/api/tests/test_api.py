@@ -416,6 +416,130 @@ def test_spotify_album_link_resolve_returns_link_metadata(monkeypatch) -> None:
     }
 
 
+@pytest.mark.parametrize(
+    ("platform", "item_type"),
+    [
+        ("spotify", "track"),
+        ("spotify", "album"),
+        ("apple_music", "track"),
+        ("apple_music", "album"),
+        ("qq_music", "track"),
+        ("qq_music", "album"),
+        ("netease_music", "track"),
+        ("netease_music", "album"),
+    ],
+)
+def test_every_platform_exposes_ranked_candidates(
+    monkeypatch,
+    platform: str,
+    item_type: str,
+) -> None:
+    seen: dict[str, object] = {}
+
+    def candidates(
+        provider: str,
+        catalog_id: str,
+        candidate_type: str,
+        candidate_platform: str,
+        limit: int,
+    ) -> list[dict]:
+        seen.update(
+            provider=provider,
+            catalog_id=catalog_id,
+            item_type=candidate_type,
+            platform=candidate_platform,
+            limit=limit,
+        )
+        return [
+            {
+                "url": f"https://example.com/{platform}/{item_type}/1",
+                "title": "Candidate",
+                "artists": ["Artist"],
+                "type": item_type,
+                "album": "Candidate Album" if item_type == "track" else None,
+                "release_year": 2020,
+                "duration_seconds": 195 if item_type == "track" else None,
+                "track_count": 10 if item_type == "album" else None,
+            }
+        ]
+
+    monkeypatch.setattr(
+        catalog.beatprints_service, "platform_link_candidates", candidates
+    )
+
+    response = client.get(
+        f"/v1/platform-links/{platform}/candidates",
+        params={
+            "provider": "deezer",
+            "catalog_id": "source-id",
+            "type": item_type,
+            "limit": 6,
+        },
+    )
+
+    assert response.status_code == 200
+    assert seen == {
+        "provider": "deezer",
+        "catalog_id": "source-id",
+        "item_type": item_type,
+        "platform": platform,
+        "limit": 6,
+    }
+    assert response.json()["data"][0]["type"] == item_type
+
+
+@pytest.mark.parametrize(
+    "platform",
+    ["spotify", "apple_music", "qq_music", "netease_music"],
+)
+def test_candidate_selection_resolves_current_platform_metadata(
+    monkeypatch,
+    platform: str,
+) -> None:
+    seen: dict[str, str] = {}
+
+    def resolve(candidate_platform: str, url: str) -> dict:
+        seen.update(platform=candidate_platform, url=url)
+        return {
+            "url": url,
+            "title": "Current title",
+            "artists": ["Current artist"],
+            "album": "Current album",
+            "release_year": 2024,
+            "duration_seconds": 201,
+            "type": "track",
+        }
+
+    if platform == "spotify":
+        monkeypatch.setattr(
+            catalog.beatprints_service,
+            "resolve_spotify_url",
+            lambda url: resolve("spotify", url),
+        )
+    else:
+        monkeypatch.setattr(
+            catalog.beatprints_service, "resolve_platform_url", resolve
+        )
+    url = f"https://example.com/{platform}/track/1"
+
+    response = client.get(
+        f"/v1/platform-links/{platform}/resolve",
+        params={"url": url},
+    )
+
+    assert response.status_code == 200
+    assert seen == {"platform": platform, "url": url}
+    assert response.json()["data"] == {
+        "url": url,
+        "title": "Current title",
+        "artists": ["Current artist"],
+        "album": "Current album",
+        "release_year": 2024,
+        "duration_seconds": 201,
+        "type": "track",
+    }
+
+
 def test_track_allows_empty_instrumental_text() -> None:
     from beatprints_api.models import TrackPosterRequest
 

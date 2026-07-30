@@ -4,12 +4,16 @@ import { useTranslation } from "react-i18next"
 
 import {
   ApiError,
+  fetchPlatformCandidates,
   fetchLyrics,
   generatePoster,
   matchAppleMusic,
   matchSpotifyFromDeezer,
+  matchChinaPlatform,
   resolveAppleMusicUrl,
   resolveSpotifyUrl,
+  resolveChinaPlatformUrl,
+  resolvePlatformUrl,
   searchCatalog,
 } from "@/features/poster/api"
 import type {
@@ -62,6 +66,17 @@ function friendlyError(
     message: messages[error.status] ?? error.message ?? fallback,
     requestId: error.requestId,
   }
+}
+
+function platformFlowError(
+  error: unknown,
+  fallback: string,
+  t: TFunction,
+) {
+  if (error instanceof ApiError && error.status === 404) {
+    return { message: fallback, requestId: error.requestId }
+  }
+  return friendlyError(error, fallback, t)
 }
 
 export function nonemptyLines(value: string) {
@@ -148,6 +163,26 @@ export function usePosterStudio() {
   const [spotifyManualState, setSpotifyManualState] = useState<"idle" | "loading" | "success" | "error">("idle")
   const [spotifyManualMatch, setSpotifyManualMatch] = useState<AppleMusicMatch>()
   const [spotifyManualError, setSpotifyManualError] = useState<string>()
+  const [chinaState, setChinaState] = useState<"idle" | "loading" | "success" | "error">("idle")
+  const [chinaMatch, setChinaMatch] = useState<AppleMusicMatch>()
+  const [chinaError, setChinaError] = useState<string>()
+  const [chinaMode, setChinaMode] = useState<"automatic" | "manual">("automatic")
+  const [chinaManualState, setChinaManualState] = useState<"idle" | "loading" | "success" | "error">("idle")
+  const [chinaManualMatch, setChinaManualMatch] = useState<AppleMusicMatch>()
+  const [chinaManualError, setChinaManualError] = useState<string>()
+  const [platformChoiceMode, setPlatformChoiceMode] = useState<
+    "automatic" | "candidates" | "manual"
+  >("automatic")
+  const [platformCandidateState, setPlatformCandidateState] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle")
+  const [platformCandidates, setPlatformCandidates] = useState<
+    AppleMusicMatch[]
+  >([])
+  const [platformCandidateError, setPlatformCandidateError] =
+    useState<string>()
+  const [platformCandidateResolvingUrl, setPlatformCandidateResolvingUrl] =
+    useState<string>()
   const [indexing, setIndexingState] = useState(true)
   const [shuffle, setShuffleState] = useState(false)
   const [generationState, setGenerationState] = useState<
@@ -226,6 +261,18 @@ export function usePosterStudio() {
     setSpotifyManualState("idle")
     setSpotifyManualMatch(undefined)
     setSpotifyManualError(undefined)
+    setChinaState("idle")
+    setChinaMatch(undefined)
+    setChinaError(undefined)
+    setChinaMode("automatic")
+    setChinaManualState("idle")
+    setChinaManualMatch(undefined)
+    setChinaManualError(undefined)
+    setPlatformChoiceMode("automatic")
+    setPlatformCandidateState("idle")
+    setPlatformCandidates([])
+    setPlatformCandidateError(undefined)
+    setPlatformCandidateResolvingUrl(undefined)
   }
 
   function resetSelection() {
@@ -375,6 +422,21 @@ export function usePosterStudio() {
     setSpotifyMatch(undefined)
     setSpotifyMatchError(undefined)
     setSpotifyLinkMode("automatic")
+    setSpotifyManualState("idle")
+    setSpotifyManualMatch(undefined)
+    setSpotifyManualError(undefined)
+    setChinaState("idle")
+    setChinaMatch(undefined)
+    setChinaError(undefined)
+    setChinaMode("automatic")
+    setChinaManualState("idle")
+    setChinaManualMatch(undefined)
+    setChinaManualError(undefined)
+    setPlatformChoiceMode("automatic")
+    setPlatformCandidateState("idle")
+    setPlatformCandidates([])
+    setPlatformCandidateError(undefined)
+    setPlatformCandidateResolvingUrl(undefined)
     markOutputStale()
     if (value === "apple_music" && selected) {
       const controller = new AbortController()
@@ -412,6 +474,35 @@ export function usePosterStudio() {
           setSpotifyMatchError(friendlyError(error, t("poster.errors.spotifyMatchError"), t).message)
         })
     }
+    if ((value === "qq_music" || value === "netease_music") && selected) {
+      const controller = new AbortController()
+      appleMusicRequest.current = controller
+      setChinaState("loading")
+      void matchChinaPlatform(
+        value,
+        selected.provider,
+        selected.id,
+        kind,
+        controller.signal,
+      )
+        .then((match) => {
+          if (controller.signal.aborted) return
+          setPlatformUrlState(match.url)
+          setChinaMatch(match)
+          setChinaState("success")
+        })
+        .catch((error: unknown) => {
+          if (controller.signal.aborted) return
+          setChinaState("error")
+          setChinaError(
+            platformFlowError(
+              error,
+              t("poster.errors.platformMatchError"),
+              t,
+            ).message,
+          )
+        })
+    }
   }
 
   function changePlatformUrl(value: string) {
@@ -427,12 +518,16 @@ export function usePosterStudio() {
       setSpotifyManualMatch(undefined)
       setSpotifyManualError(undefined)
     }
+    if ((qrPlatform === "qq_music" || qrPlatform === "netease_music") && chinaMode === "manual") {
+      setChinaManualState("idle"); setChinaManualMatch(undefined); setChinaManualError(undefined)
+    }
     markOutputStale()
   }
 
   function changeAppleMusicLinkMode(value: "automatic" | "manual") {
     if (value === appleMusicLinkMode) return
     appleMusicRequest.current?.abort()
+    setPlatformChoiceMode(value === "manual" ? "manual" : "automatic")
     setAppleMusicLinkMode(value)
     setAppleMusicState("idle")
     setAppleMusicMatch(undefined)
@@ -447,6 +542,7 @@ export function usePosterStudio() {
   function changeSpotifyLinkMode(value: "automatic" | "manual") {
     if (value === spotifyLinkMode) return
     appleMusicRequest.current?.abort()
+    setPlatformChoiceMode(value === "manual" ? "manual" : "automatic")
     setSpotifyLinkMode(value)
     setSpotifyMatchState("idle")
     setSpotifyMatch(undefined)
@@ -482,6 +578,57 @@ export function usePosterStudio() {
     }
   }
 
+  function changeChinaMode(value: "automatic" | "manual") {
+    if (value === chinaMode) return
+    appleMusicRequest.current?.abort()
+    setPlatformChoiceMode(value === "manual" ? "manual" : "automatic")
+    setChinaMode(value)
+    setChinaState("idle")
+    setChinaMatch(undefined)
+    setChinaError(undefined)
+    setPlatformUrlState("")
+    setChinaManualState("idle")
+    setChinaManualMatch(undefined)
+    setChinaManualError(undefined)
+    markOutputStale()
+  }
+
+  async function resolveManualChinaUrl() {
+    if (qrPlatform !== "qq_music" && qrPlatform !== "netease_music") return
+    const error = platformUrlError(qrPlatform, platformUrl, t)
+    if (error) {
+      setChinaManualState("error")
+      setChinaManualError(error)
+      return
+    }
+    const controller = new AbortController()
+    appleMusicRequest.current?.abort()
+    appleMusicRequest.current = controller
+    setChinaManualState("loading")
+    setChinaManualError(undefined)
+    try {
+      const match = await resolveChinaPlatformUrl(
+        qrPlatform,
+        platformUrl.trim(),
+        controller.signal,
+      )
+      if (controller.signal.aborted) return
+      setChinaManualMatch(match)
+      setChinaManualState("success")
+    } catch (cause) {
+      if (!controller.signal.aborted) {
+        setChinaManualState("error")
+        setChinaManualError(
+          platformFlowError(
+            cause,
+            t("poster.errors.platformLinkResolveError"),
+            t,
+          ).message,
+        )
+      }
+    }
+  }
+
   async function resolveManualAppleMusicUrl() {
     const error = platformUrlError("apple_music", platformUrl, t)
     if (error) {
@@ -505,6 +652,125 @@ export function usePosterStudio() {
       setAppleMusicManualError(
         friendlyError(error, t("poster.errors.appleMusicMatchError"), t).message,
       )
+    }
+  }
+
+  function clearPlatformMatches() {
+    setPlatformUrlState("")
+    setAppleMusicState("idle")
+    setAppleMusicMatch(undefined)
+    setAppleMusicError(undefined)
+    setSpotifyMatchState("idle")
+    setSpotifyMatch(undefined)
+    setSpotifyMatchError(undefined)
+    setChinaState("idle")
+    setChinaMatch(undefined)
+    setChinaError(undefined)
+  }
+
+  async function showPlatformCandidates() {
+    if (!selected || !qrPlatform) return
+    appleMusicRequest.current?.abort()
+    const controller = new AbortController()
+    appleMusicRequest.current = controller
+    clearPlatformMatches()
+    setPlatformChoiceMode("candidates")
+    setPlatformCandidateState("loading")
+    setPlatformCandidates([])
+    setPlatformCandidateError(undefined)
+    setPlatformCandidateResolvingUrl(undefined)
+    markOutputStale()
+    try {
+      const candidates = await fetchPlatformCandidates(
+        qrPlatform,
+        selected.provider,
+        selected.id,
+        kind,
+        controller.signal,
+      )
+      if (controller.signal.aborted) return
+      setPlatformCandidates(candidates)
+      setPlatformCandidateState("success")
+    } catch (error) {
+      if (controller.signal.aborted) return
+      setPlatformCandidateState("error")
+      setPlatformCandidateError(
+        platformFlowError(
+          error,
+          t("poster.errors.platformCandidatesError"),
+          t,
+        ).message,
+      )
+    }
+  }
+
+  function showManualPlatformLink() {
+    setPlatformChoiceMode("manual")
+    if (qrPlatform === "apple_music") {
+      changeAppleMusicLinkMode("manual")
+    } else if (qrPlatform === "spotify") {
+      changeSpotifyLinkMode("manual")
+    } else if (
+      qrPlatform === "qq_music" ||
+      qrPlatform === "netease_music"
+    ) {
+      changeChinaMode("manual")
+    }
+    setPlatformCandidateState("idle")
+    setPlatformCandidates([])
+    setPlatformCandidateError(undefined)
+    setPlatformCandidateResolvingUrl(undefined)
+  }
+
+  async function selectPlatformCandidate(candidate: AppleMusicMatch) {
+    if (!qrPlatform) return
+    appleMusicRequest.current?.abort()
+    const controller = new AbortController()
+    appleMusicRequest.current = controller
+    setPlatformCandidateResolvingUrl(candidate.url)
+    setPlatformCandidateError(undefined)
+    try {
+      const match = await resolvePlatformUrl(
+        qrPlatform,
+        candidate.url,
+        controller.signal,
+      )
+      if (controller.signal.aborted) return
+      if (match.type !== kind) {
+        setPlatformCandidateError(t("poster.errors.platformCandidateType"))
+        return
+      }
+      setPlatformUrlState(match.url)
+      if (qrPlatform === "apple_music") {
+        setAppleMusicLinkMode("automatic")
+        setAppleMusicMatch(match)
+        setAppleMusicState("success")
+      } else if (qrPlatform === "spotify") {
+        setSpotifyLinkMode("automatic")
+        setSpotifyMatch(match)
+        setSpotifyMatchState("success")
+      } else {
+        setChinaMode("automatic")
+        setChinaMatch(match)
+        setChinaState("success")
+      }
+      setPlatformChoiceMode("automatic")
+      setPlatformCandidateState("idle")
+      setPlatformCandidates([])
+      markOutputStale()
+    } catch (error) {
+      if (controller.signal.aborted) return
+      setPlatformCandidateError(
+        platformFlowError(
+          error,
+          t("poster.errors.platformCandidateResolveError"),
+          t,
+        ).message,
+      )
+    } finally {
+      if (!controller.signal.aborted) {
+        setPlatformCandidateResolvingUrl(undefined)
+      }
     }
   }
 
@@ -536,6 +802,8 @@ export function usePosterStudio() {
       ? appleMusicError
       : qrPlatform === "spotify" && selected?.provider === "deezer" && spotifyLinkMode === "automatic"
         ? spotifyMatchError
+      : (qrPlatform === "qq_music" || qrPlatform === "netease_music") && chinaMode === "automatic"
+        ? chinaError
       : platformNeedsUrl && qrPlatform
       ? platformUrlError(qrPlatform, platformUrl, t)
       : undefined
@@ -557,10 +825,20 @@ export function usePosterStudio() {
     Boolean(selected) &&
     lyricsReady &&
     !currentPlatformError &&
+    platformChoiceMode !== "candidates" &&
     (qrPlatform !== "apple_music" ||
-      appleMusicLinkMode === "manual" ||
-      appleMusicState === "success") &&
-    (qrPlatform !== "spotify" || selected?.provider !== "deezer" || spotifyLinkMode === "manual" || spotifyMatchState === "success") &&
+      (appleMusicLinkMode === "manual"
+        ? appleMusicManualState === "success"
+        : appleMusicState === "success")) &&
+    (qrPlatform !== "spotify" ||
+      selected?.provider !== "deezer" ||
+      (spotifyLinkMode === "manual"
+        ? spotifyManualState === "success"
+        : spotifyMatchState === "success")) &&
+    (!["qq_music", "netease_music"].includes(qrPlatform) ||
+      (chinaMode === "manual"
+        ? chinaManualState === "success"
+        : chinaState === "success")) &&
     generationState !== "loading"
 
   async function generate() {
@@ -676,6 +954,15 @@ export function usePosterStudio() {
     spotifyManualMatch,
     spotifyManualError,
     resolveManualSpotifyUrl,
+    chinaState, chinaMatch, chinaMode, setChinaMode: changeChinaMode, chinaManualState, chinaManualMatch, chinaManualError, resolveManualChinaUrl,
+    platformChoiceMode,
+    platformCandidateState,
+    platformCandidates,
+    platformCandidateError,
+    platformCandidateResolvingUrl,
+    showPlatformCandidates,
+    showManualPlatformLink,
+    selectPlatformCandidate,
     indexing,
     setIndexing: changeIndexing,
     shuffle,

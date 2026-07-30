@@ -5,6 +5,7 @@ import type {
   CatalogProvider,
   LyricsPreview,
   PosterKind,
+  PosterPlatform,
   PosterRequest,
   SearchProvider,
   SearchResult,
@@ -128,6 +129,56 @@ export async function resolveSpotifyUrl(url: string, signal?: AbortSignal) {
   const params = new URLSearchParams({ url })
   return getJson<AppleMusicMatch>(
     `/v1/platform-links/spotify/resolve?${params}`,
+    signal,
+  )
+}
+
+export async function matchChinaPlatform(
+  platform: "qq_music" | "netease_music",
+  provider: CatalogProvider,
+  catalogId: number | string,
+  kind: PosterKind,
+  signal?: AbortSignal,
+) {
+  const params = new URLSearchParams({ provider, catalog_id: String(catalogId), type: kind })
+  return getJson<AppleMusicMatch>(`/v1/platform-links/${platform}?${params}`, signal)
+}
+
+export async function resolveChinaPlatformUrl(
+  platform: "qq_music" | "netease_music",
+  url: string,
+  signal?: AbortSignal,
+) {
+  return getJson<AppleMusicMatch>(`/v1/platform-links/${platform}/resolve?${new URLSearchParams({ url })}`, signal)
+}
+
+export async function fetchPlatformCandidates(
+  platform: PosterPlatform,
+  provider: CatalogProvider,
+  catalogId: number | string,
+  kind: PosterKind,
+  signal?: AbortSignal,
+) {
+  const params = new URLSearchParams({
+    provider,
+    catalog_id: String(catalogId),
+    type: kind,
+    limit: "8",
+  })
+  return getJson<AppleMusicMatch[]>(
+    `/v1/platform-links/${platform}/candidates?${params}`,
+    signal,
+  )
+}
+
+export async function resolvePlatformUrl(
+  platform: PosterPlatform,
+  url: string,
+  signal?: AbortSignal,
+) {
+  const params = new URLSearchParams({ url })
+  return getJson<AppleMusicMatch>(
+    `/v1/platform-links/${platform}/resolve?${params}`,
     signal,
   )
 }

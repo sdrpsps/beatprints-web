@@ -99,29 +99,38 @@ When the user chooses no platform, omit `qr_platform`; the poster contains no pl
 or QR code.
 
 When Spotify supplies the metadata and `qr_platform=spotify`, the backend can reuse Spotify's
-source link. For Apple Music, the frontend should request a conservative automatic match using
+source link. For every other source/destination combination, the frontend first requests a
+conservative automatic match using
 the selected result's unchanged `provider + id` through
 `GET /v1/platform-links/apple-music?provider=<deezer|spotify>&catalog_id=<id>&type=<track|album>`.
-The backend retrieves that exact source item, searches the configured Apple Music storefront,
-and returns a link only when the title, artist, and release-specific metadata meet its confidence
-threshold. QQ Music and NetEase Music currently still require a caller-supplied matching URL.
-If the listener supplies a different Apple Music URL, the frontend can read that link's current
-public Apple metadata through `GET /v1/platform-links/apple-music/resolve?url=<apple-music-url>`
-and update only the Apple Music confirmation card. The poster's primary metadata, lyrics, and
-cover remain tied to the originally selected Spotify or Deezer catalog result.
+Spotify, QQ Music, and NetEase Music expose equivalent automatic routes. The backend retrieves
+that exact source item and returns a link only when title, artist, and release-specific metadata
+meet the destination's strict confidence threshold.
 
 For a Deezer source and Spotify QR destination, the frontend should similarly request
 `GET /v1/platform-links/spotify?provider=deezer&catalog_id=<id>&type=<track|album>`. The backend
 first uses the Deezer track ISRC when available, then uses a strict title, artist, and duration
 match; albums use strict title and artist matching. When the automatic result is wrong or absent,
 the listener can enter a Spotify public link and the frontend can read its current public metadata
-through `GET /v1/platform-links/spotify/resolve?url=<spotify-url>`. This refreshes only the Spotify
-confirmation card, not the poster's selected source metadata, lyrics, or cover.
+through `GET /v1/platform-links/spotify/resolve?url=<spotify-url>`.
+
+When an automatic result is absent or rejected, all four destinations expose ranked alternatives:
+
+`GET /v1/platform-links/<spotify|apple_music|qq_music|netease_music>/candidates?provider=<deezer|spotify>&catalog_id=<id>&type=<track|album>&limit=8`.
+
+Candidate search deliberately has broader recall than automatic confirmation. It ranks by title,
+artist, album, year, duration, and track count, but never silently confirms a weak result. The UI
+shows these alternatives using the same cover/title/artist/context hierarchy as source search,
+with a “Select” action. Selecting a candidate calls
+`GET /v1/platform-links/<platform>/resolve?url=<public-url>` and uses the returned current metadata
+for the platform confirmation card. Manual public-link entry remains the final fallback and uses
+the same resolve behavior. Candidate or manual resolution refreshes only the QR destination and
+confirmation card; the poster's source metadata, lyrics, cover, and catalog ID remain unchanged.
 
 Only one platform is rendered per poster. For Spotify, a canonical Spotify track or album link
 renders Spotify's native Spotify Code, which is scan-ready in the Spotify mobile app. The other
-platforms use a standard QR code whose dark color is extracted from the cover while the QR
-background remains white.
+platforms use a standard QR code. Every platform mark and code uses the shared poster-theme color
+rule; platform-specific differences are limited to the mark and code format.
 
 The UI should present this as an optional poster destination, not as the metadata search source.
 Do not label both concepts simply as “音乐平台.”
@@ -150,11 +159,11 @@ Content-Type: application/json
 }
 ```
 
-The QR fields are omitted when the user does not choose a destination. Apple Music and Deezer-to-
-Spotify destinations include their returned automatic-match URLs under `platform_links`; QQ Music
-and NetEase Music destinations include a caller-supplied matching URL. If an automatic Apple Music
-or Spotify match cannot be confirmed, show a clear no-match state and offer manual link entry;
-do not allow generation until that URL is valid.
+The QR fields are omitted when the user does not choose a destination. Every cross-platform
+destination includes its confirmed automatic, candidate-resolved, or manually resolved URL under
+`platform_links`. If an automatic match cannot be confirmed, show ranked candidates and manual
+link entry. Do not allow generation while browsing candidates or until the selected/manual URL has
+been resolved into current metadata.
 
 Generation is server-side and concurrency-limited. The UI needs an honest pending state and
 must prevent accidental duplicate submissions without implying fine-grained progress the API

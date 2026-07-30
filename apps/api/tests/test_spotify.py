@@ -264,6 +264,22 @@ def test_apple_music_scannable_uses_the_same_theme_color_rule_as_spotify_code() 
     assert light_color + (255,) in {value for _count, value in colors}
 
 
+def test_china_music_scannables_use_theme_colored_supplied_symbols() -> None:
+    color = beatprints_service.beatprints_image.t.THEMES["Light"]
+    for symbol in (
+        beatprints_service.QQ_MUSIC_SYMBOL_PATH,
+        beatprints_service.NETEASE_MUSIC_SYMBOL_PATH,
+    ):
+        image = beatprints_service._china_music_scannable(
+            ("Platform", "https://example.com/track/1"), symbol
+        )("Light")
+        icon = image.crop((0, 23, 74, 97))
+        colors = icon.getcolors(maxcolors=icon.width * icon.height) or []
+        assert color + (255,) in {value for _count, value in colors}
+        assert image.getpixel((0, 23))[3] == 0
+        assert image.getpixel((73, 23))[3] == 0
+
+
 def test_cover_qr_color_is_colored_and_has_safe_white_contrast(tmp_path) -> None:
     cover_path = tmp_path / "cover.png"
     Image.new("RGB", (200, 200), (217, 164, 65)).save(cover_path)

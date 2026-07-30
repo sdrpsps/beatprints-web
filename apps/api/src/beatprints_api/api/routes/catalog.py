@@ -275,3 +275,82 @@ async def resolve_spotify_url(
     except beatprints_service.UpstreamError as exc:
         raise UpstreamServiceError(str(exc)) from exc
     return ApiResponse(code=0, data=result, message="success")
+
+
+@router.get(
+    "/platform-links/{platform}/candidates",
+    summary="搜索目标平台候选版本",
+    description=(
+        "从用户准确选择的 provider + catalog_id 获取源资料，"
+        "返回按标题、艺人、专辑、年份、时长或歌曲数量排序的目标平台候选。"
+        "候选不会被自动确认，用户选择后应再调用 resolve 获取当前资料。"
+    ),
+    response_model=ApiResponse[list[SpotifyMatchData]],
+    response_model_exclude_none=True,
+    responses=ERROR_RESPONSES,
+)
+async def platform_link_candidates(
+    platform: Literal[
+        "spotify", "apple_music", "qq_music", "netease_music"
+    ],
+    provider: Annotated[CatalogProvider, Query()],
+    catalog_id: Annotated[str, Query(min_length=1)],
+    type: Annotated[Literal["track", "album"], Query()],
+    limit: Annotated[int, Query(ge=1, le=10)] = 8,
+) -> ApiResponse[list[SpotifyMatchData]]:
+    try:
+        result = await run_in_threadpool(
+            beatprints_service.platform_link_candidates,
+            provider,
+            catalog_id,
+            type,
+            platform,
+            limit,
+        )
+    except SpotifyNotConfiguredError as exc:
+        raise UpstreamServiceError(str(exc), unavailable=True) from exc
+    except beatprints_service.UpstreamError as exc:
+        raise UpstreamServiceError(str(exc)) from exc
+    return ApiResponse(code=0, data=result, message="success")
+
+
+@router.get("/platform-links/{platform}", response_model=ApiResponse[SpotifyMatchData])
+async def match_china_platform(
+    platform: Literal["qq_music", "netease_music"],
+    provider: Annotated[CatalogProvider, Query()],
+    catalog_id: Annotated[str, Query(min_length=1)],
+    type: Annotated[Literal["track", "album"], Query()],
+) -> ApiResponse[SpotifyMatchData]:
+    try:
+        result = await run_in_threadpool(
+            beatprints_service.match_china_platform, provider, catalog_id, type, platform
+        )
+    except beatprints_service.AppleMusicNoMatchError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except beatprints_service.UpstreamError as exc:
+        raise UpstreamServiceError(str(exc)) from exc
+    return ApiResponse(code=0, data=result, message="success")
+
+
+@router.get(
+    "/platform-links/{platform}/resolve",
+    response_model=ApiResponse[SpotifyMatchData],
+    response_model_exclude_none=True,
+)
+async def resolve_platform_url(
+    platform: Literal[
+        "spotify", "apple_music", "qq_music", "netease_music"
+    ],
+    url: Annotated[str, Query(min_length=1, max_length=2000)],
+) -> ApiResponse[SpotifyMatchData]:
+    try:
+        result = await run_in_threadpool(
+            beatprints_service.resolve_platform_url, platform, url
+        )
+    except beatprints_service.AppleMusicNoMatchError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except SpotifyNotConfiguredError as exc:
+        raise UpstreamServiceError(str(exc), unavailable=True) from exc
+    except beatprints_service.UpstreamError as exc:
+        raise UpstreamServiceError(str(exc)) from exc
+    return ApiResponse(code=0, data=result, message="success")

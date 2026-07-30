@@ -41,20 +41,26 @@ journey for both **tracks and albums**:
 3. Display a successful match in the same `Item`-style hierarchy as a source search result: cover,
    title, artists, and contextual metadata. Tracks show their album; albums show release year and
    track count. The right-side confirmation action is labelled only “Open”.
-4. A user must be able to reject an automatic result and manually paste a public platform link.
+4. When an automatic result is absent or the user rejects it, offer ranked candidates for every
+   supported QR destination. Candidate search may be broader than automatic confirmation, but it
+   must never silently select a weak result. Candidate rows use the source-search `Item` hierarchy
+   and a “Select” action. Resolving a selected candidate must fetch its current metadata before
+   returning to the confirmation card.
+5. A user must also be able to manually paste a public platform link.
    Resolving that link must fetch its **current** track or album metadata and refresh only the
    platform confirmation card. It must never overwrite the selected source item's poster title,
    artists, cover, lyrics, release data, or catalog ID.
-5. Keep automatic matching, manual-link resolution, error/no-match fallback, disabled generation,
-   and confirmation-card rendering equivalent for tracks and albums. Add backend regression tests
-   for both item types and both automatic and manual routes whenever this flow changes.
-6. Platform artwork must use the shared poster-theme color rule used by Spotify Code. Do not let
+6. Keep automatic matching, candidate search and resolution, manual-link resolution,
+   error/no-match fallback, disabled generation, and confirmation-card rendering equivalent for
+   tracks and albums. Add backend regression tests for every supported destination and both item
+   types whenever this flow changes.
+7. Platform artwork must use the shared poster-theme color rule used by Spotify Code. Do not let
    Apple Music's symbol or QR code use a separate cover-derived color path; platform-specific
    differences should be limited to the mark and code format, not their color source.
 
-Apple Music and Deezer-to-Spotify currently implement this contract. Any future cross-platform
-destination should follow the same API and interaction pattern unless the product requirements
-explicitly say otherwise.
+Spotify, Apple Music, QQ Music, and NetEase Music implement this contract. Any future
+cross-platform destination should follow the same API and interaction pattern unless the product
+requirements explicitly say otherwise.
 
 ## Frontend scope
 

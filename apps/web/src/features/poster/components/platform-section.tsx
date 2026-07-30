@@ -1,4 +1,4 @@
-import { ExternalLinkIcon, Music2Icon } from "lucide-react"
+import { ExternalLinkIcon, ListMusicIcon, Music2Icon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import {
@@ -11,12 +11,21 @@ import {
 } from "@/components/ui/field"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty"
 import { Spinner } from "@/components/ui/spinner"
 import {
   Item,
   ItemActions,
   ItemContent,
   ItemDescription,
+  ItemGroup,
   ItemMedia,
   ItemTitle,
 } from "@/components/ui/item"
@@ -76,20 +85,162 @@ export function PlatformSection({ studio }: { studio: Studio }) {
         </ToggleGroup>
       </FieldSet>
       {studio.platformNeedsUrl && studio.qrPlatform ? (
-        studio.qrPlatform === "apple_music" &&
-        studio.appleMusicLinkMode === "automatic" ? (
-          <AppleMusicMatch studio={studio} />
-        ) : studio.qrPlatform === "spotify" && studio.selected.provider === "deezer" && studio.spotifyLinkMode === "automatic" ? (
-          <SpotifyMatch studio={studio} />
-        ) : studio.qrPlatform === "apple_music" ? (
-          <ManualAppleMusicLink studio={studio} />
-        ) : studio.qrPlatform === "spotify" && studio.selected.provider === "deezer" ? (
-          <ManualSpotifyLink studio={studio} />
-        ) : (
-          <PlatformUrlField studio={studio} />
-        )
+        <PlatformLinkFlow studio={studio} />
       ) : null}
     </section>
+  )
+}
+
+function PlatformLinkFlow({ studio }: { studio: Studio }) {
+  if (studio.platformChoiceMode === "candidates") {
+    return <PlatformCandidates studio={studio} />
+  }
+  if (studio.platformChoiceMode === "manual") {
+    if (studio.qrPlatform === "apple_music") {
+      return <ManualAppleMusicLink studio={studio} />
+    }
+    if (studio.qrPlatform === "spotify") {
+      return <ManualSpotifyLink studio={studio} />
+    }
+    return <ManualChinaLink studio={studio} />
+  }
+  if (studio.qrPlatform === "apple_music") {
+    return <AppleMusicMatch studio={studio} />
+  }
+  if (studio.qrPlatform === "spotify") {
+    return <SpotifyMatch studio={studio} />
+  }
+  return <ChinaMatch studio={studio} />
+}
+
+function PlatformFallbackActions({ studio }: { studio: Studio }) {
+  const { t } = useTranslation()
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => void studio.showPlatformCandidates()}
+      >
+        <ListMusicIcon data-icon="inline-start" aria-hidden="true" />
+        {t("poster.choosePlatformVersion")}
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={studio.showManualPlatformLink}
+      >
+        {t("poster.manualPlatformLink")}
+      </Button>
+    </div>
+  )
+}
+
+function ChinaMatch({ studio }: { studio: Studio }) {
+  const { t } = useTranslation()
+  const label =
+    studio.qrPlatform === "qq_music"
+      ? t("poster.qqMusic")
+      : t("poster.neteaseMusic")
+
+  if (studio.chinaState === "loading") {
+    return (
+      <Alert>
+        <Spinner aria-hidden="true" />
+        <AlertTitle>
+          {t("poster.platformMatching", { platform: label })}
+        </AlertTitle>
+      </Alert>
+    )
+  }
+
+  if (studio.chinaState === "success" && studio.chinaMatch) {
+    return (
+      <>
+        <AppleMusicConfirmationCard
+          match={studio.chinaMatch}
+          source={studio.selected!}
+        />
+        <PlatformFallbackActions studio={studio} />
+      </>
+    )
+  }
+
+  if (studio.chinaState === "error") {
+    return (
+      <>
+        <Alert variant="destructive">
+          <Music2Icon aria-hidden="true" />
+          <AlertTitle>{label}</AlertTitle>
+          <AlertDescription>{studio.currentPlatformError}</AlertDescription>
+        </Alert>
+        <PlatformFallbackActions studio={studio} />
+      </>
+    )
+  }
+
+  return null
+}
+
+function ManualChinaLink({ studio }: { studio: Studio }) {
+  const { t } = useTranslation()
+  const label =
+    studio.qrPlatform === "qq_music"
+      ? t("poster.qqMusic")
+      : t("poster.neteaseMusic")
+  const error = studio.currentPlatformError ?? studio.chinaManualError
+  return (
+    <>
+      <Field data-invalid={Boolean(error) || undefined}>
+        <FieldLabel htmlFor="china-url">
+          {label} {t("poster.platformLinkSuffix")}
+        </FieldLabel>
+        <InputGroup>
+          <InputGroupAddon>
+            <ExternalLinkIcon aria-hidden="true" />
+          </InputGroupAddon>
+          <InputGroupInput
+            id="china-url"
+            type="url"
+            inputMode="url"
+            value={studio.platformUrl}
+            aria-invalid={Boolean(error)}
+            placeholder={t("poster.platformUrlPlaceholder")}
+            onChange={(event) => studio.setPlatformUrl(event.target.value)}
+          />
+        </InputGroup>
+        <FieldDescription>{t("poster.platformManualHelp")}</FieldDescription>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={studio.chinaManualState === "loading"}
+          onClick={() => void studio.resolveManualChinaUrl()}
+        >
+          {studio.chinaManualState === "loading" ? (
+            <Spinner data-icon="inline-start" aria-hidden="true" />
+          ) : null}
+          {t("poster.fetchPlatformInfo")}
+        </Button>
+        {error ? <FieldError>{error}</FieldError> : null}
+      </Field>
+      {studio.chinaManualState === "success" && studio.chinaManualMatch ? (
+        <AppleMusicConfirmationCard
+          match={studio.chinaManualMatch}
+          source={studio.selected!}
+        />
+      ) : null}
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={() => void studio.showPlatformCandidates()}
+      >
+        {t("poster.choosePlatformVersion")}
+      </Button>
+    </>
   )
 }
 
@@ -138,6 +289,14 @@ function ManualSpotifyLink({ studio }: { studio: Studio }) {
           source={studio.selected!}
         />
       ) : null}
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={() => void studio.showPlatformCandidates()}
+      >
+        {t("poster.choosePlatformVersion")}
+      </Button>
     </>
   )
 }
@@ -154,28 +313,25 @@ function SpotifyMatch({ studio }: { studio: Studio }) {
   }
   if (studio.spotifyMatchState === "success" && studio.spotifyMatch) {
     return (
-      <AppleMusicConfirmationCard
-        match={studio.spotifyMatch}
-        source={studio.selected!}
-        manualAction={() => studio.setSpotifyLinkMode("manual")}
-        manualLabel={t("poster.manualSpotifyLink")}
-      />
+      <>
+        <AppleMusicConfirmationCard
+          match={studio.spotifyMatch}
+          source={studio.selected!}
+        />
+        <PlatformFallbackActions studio={studio} />
+      </>
     )
   }
   if (studio.spotifyMatchState === "error") {
     return (
-      <Alert variant="destructive">
-        <Music2Icon aria-hidden="true" />
-        <AlertTitle>{t("poster.spotifyNotMatched")}</AlertTitle>
-        <AlertDescription>{studio.currentPlatformError}</AlertDescription>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => studio.setSpotifyLinkMode("manual")}
-        >
-          {t("poster.manualSpotifyLink")}
-        </Button>
-      </Alert>
+      <>
+        <Alert variant="destructive">
+          <Music2Icon aria-hidden="true" />
+          <AlertTitle>{t("poster.spotifyNotMatched")}</AlertTitle>
+          <AlertDescription>{studio.currentPlatformError}</AlertDescription>
+        </Alert>
+        <PlatformFallbackActions studio={studio} />
+      </>
     )
   }
   return null
@@ -196,29 +352,26 @@ function AppleMusicMatch({ studio }: { studio: Studio }) {
 
   if (studio.appleMusicState === "success" && studio.appleMusicMatch) {
     return (
-      <AppleMusicConfirmationCard
-        match={studio.appleMusicMatch}
-        source={studio.selected!}
-        manualAction={() => studio.setAppleMusicLinkMode("manual")}
-        manualLabel={t("poster.manualAppleMusicLink")}
-      />
+      <>
+        <AppleMusicConfirmationCard
+          match={studio.appleMusicMatch}
+          source={studio.selected!}
+        />
+        <PlatformFallbackActions studio={studio} />
+      </>
     )
   }
 
   if (studio.appleMusicState === "error") {
     return (
-      <Alert variant="destructive">
-        <Music2Icon aria-hidden="true" />
-        <AlertTitle>{t("poster.appleMusicNotMatched")}</AlertTitle>
-        <AlertDescription>{studio.currentPlatformError}</AlertDescription>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => studio.setAppleMusicLinkMode("manual")}
-        >
-          {t("poster.manualAppleMusicLink")}
-        </Button>
-      </Alert>
+      <>
+        <Alert variant="destructive">
+          <Music2Icon aria-hidden="true" />
+          <AlertTitle>{t("poster.appleMusicNotMatched")}</AlertTitle>
+          <AlertDescription>{studio.currentPlatformError}</AlertDescription>
+        </Alert>
+        <PlatformFallbackActions studio={studio} />
+      </>
     )
   }
 
@@ -268,6 +421,200 @@ function ManualAppleMusicLink({ studio }: { studio: Studio }) {
           source={studio.selected!}
         />
       ) : null}
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={() => void studio.showPlatformCandidates()}
+      >
+        {t("poster.choosePlatformVersion")}
+      </Button>
+    </>
+  )
+}
+
+function formatDuration(seconds?: number) {
+  if (!seconds) return undefined
+  const minutes = Math.floor(seconds / 60)
+  const remaining = seconds % 60
+  return `${minutes}:${remaining.toString().padStart(2, "0")}`
+}
+
+function PlatformCandidates({ studio }: { studio: Studio }) {
+  const { t } = useTranslation()
+  const platformLabels: Record<PosterPlatform, string> = {
+    spotify: "Spotify",
+    apple_music: "Apple Music",
+    qq_music: t("poster.qqMusic"),
+    netease_music: t("poster.neteaseMusic"),
+  }
+  const label = platformLabels[studio.qrPlatform as PosterPlatform]
+
+  if (studio.platformCandidateState === "loading") {
+    return (
+      <Alert>
+        <Spinner aria-hidden="true" />
+        <AlertTitle>
+          {t("poster.searchingPlatformVersions", { platform: label })}
+        </AlertTitle>
+        <AlertDescription>
+          {t("poster.searchingPlatformVersionsHelp")}
+        </AlertDescription>
+      </Alert>
+    )
+  }
+
+  if (studio.platformCandidateState === "error") {
+    return (
+      <>
+        <Alert variant="destructive">
+          <Music2Icon aria-hidden="true" />
+          <AlertTitle>{t("poster.platformCandidatesFailed")}</AlertTitle>
+          <AlertDescription>
+            {studio.platformCandidateError}
+          </AlertDescription>
+        </Alert>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void studio.showPlatformCandidates()}
+          >
+            {t("poster.retry")}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={studio.showManualPlatformLink}
+          >
+            {t("poster.manualPlatformLink")}
+          </Button>
+        </div>
+      </>
+    )
+  }
+
+  if (
+    studio.platformCandidateState === "success" &&
+    studio.platformCandidates.length === 0
+  ) {
+    return (
+      <Empty className="border">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <ListMusicIcon aria-hidden="true" />
+          </EmptyMedia>
+          <EmptyTitle>{t("poster.noPlatformCandidates")}</EmptyTitle>
+          <EmptyDescription>
+            {t("poster.noPlatformCandidatesHelp")}
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={studio.showManualPlatformLink}
+          >
+            {t("poster.manualPlatformLink")}
+          </Button>
+        </EmptyContent>
+      </Empty>
+    )
+  }
+
+  return (
+    <>
+      <Alert>
+        <ListMusicIcon aria-hidden="true" />
+        <AlertTitle>
+          {t("poster.choosePlatformVersionTitle", { platform: label })}
+        </AlertTitle>
+        <AlertDescription>
+          {t("poster.choosePlatformVersionHelp")}
+        </AlertDescription>
+      </Alert>
+      {studio.platformCandidateError ? (
+        <Alert variant="destructive">
+          <Music2Icon aria-hidden="true" />
+          <AlertTitle>{t("poster.platformCandidateResolveFailed")}</AlertTitle>
+          <AlertDescription>
+            {studio.platformCandidateError}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      <ItemGroup>
+        {studio.platformCandidates.map((candidate) => {
+          const details =
+            candidate.type === "album"
+              ? [
+                  candidate.release_year,
+                  candidate.track_count
+                    ? `${candidate.track_count} ${t("poster.trackCountUnit")}`
+                    : undefined,
+                ]
+              : [
+                  candidate.album,
+                  candidate.release_year,
+                  formatDuration(candidate.duration_seconds),
+                ]
+          const context = details.filter(Boolean).join(" · ")
+          const isResolving =
+            studio.platformCandidateResolvingUrl === candidate.url
+          return (
+            <Item key={candidate.url} variant="outline">
+              <ItemMedia variant="image" className="size-16">
+                {candidate.cover_url ? (
+                  <img
+                    src={candidate.cover_url}
+                    alt={t("poster.platformCoverAlt", {
+                      title: candidate.title,
+                      platform: label,
+                    })}
+                  />
+                ) : (
+                  <CoverArt result={studio.selected!} />
+                )}
+              </ItemMedia>
+              <ItemContent>
+                <ItemTitle>{candidate.title}</ItemTitle>
+                <ItemDescription>
+                  {candidate.artists.join("、")}
+                </ItemDescription>
+                {context ? (
+                  <ItemDescription>{context}</ItemDescription>
+                ) : null}
+              </ItemContent>
+              <ItemActions className="max-sm:basis-full max-sm:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={Boolean(studio.platformCandidateResolvingUrl)}
+                  onClick={() =>
+                    void studio.selectPlatformCandidate(candidate)
+                  }
+                >
+                  {isResolving ? (
+                    <Spinner data-icon="inline-start" aria-hidden="true" />
+                  ) : null}
+                  {t("poster.selectPlatformVersion")}
+                </Button>
+              </ItemActions>
+            </Item>
+          )
+        })}
+      </ItemGroup>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={studio.showManualPlatformLink}
+      >
+        {t("poster.manualPlatformLink")}
+      </Button>
     </>
   )
 }
@@ -275,13 +622,9 @@ function ManualAppleMusicLink({ studio }: { studio: Studio }) {
 function AppleMusicConfirmationCard({
   match,
   source,
-  manualAction,
-  manualLabel,
 }: {
   match: NonNullable<Studio["appleMusicMatch"]>
   source: NonNullable<Studio["selected"]>
-  manualAction?: () => void
-  manualLabel?: string
 }) {
   const { t } = useTranslation()
   const albumDetails = [
@@ -295,74 +638,33 @@ function AppleMusicConfirmationCard({
     <Item variant="outline">
       <ItemMedia variant="image" className="size-16">
         {match.cover_url ? (
-          <img src={match.cover_url} alt={t("poster.appleMusicCoverAlt", { title: match.title })} />
+          <img
+            src={match.cover_url}
+            alt={t("poster.platformCoverAlt", {
+              title: match.title,
+              platform: "",
+            })}
+          />
         ) : (
           <CoverArt result={source} />
         )}
       </ItemMedia>
-        <ItemContent>
-          <ItemTitle>{match.title}</ItemTitle>
-          <ItemDescription>{match.artists.join("、")}</ItemDescription>
-          {match.type === "album" && albumDetails ? (
-            <ItemDescription>{albumDetails}</ItemDescription>
-          ) : null}
-          {match.type === "track" && match.album ? (
-            <ItemDescription>{match.album}</ItemDescription>
-          ) : null}
-        </ItemContent>
+      <ItemContent>
+        <ItemTitle>{match.title}</ItemTitle>
+        <ItemDescription>{match.artists.join("、")}</ItemDescription>
+        {match.type === "album" && albumDetails ? (
+          <ItemDescription>{albumDetails}</ItemDescription>
+        ) : null}
+        {match.type === "track" && match.album ? (
+          <ItemDescription>{match.album}</ItemDescription>
+        ) : null}
+      </ItemContent>
       <ItemActions className="max-sm:basis-full max-sm:justify-end">
         <Button render={<a href={match.url} target="_blank" rel="noreferrer" />} variant="outline" size="sm">
           <ExternalLinkIcon data-icon="inline-start" aria-hidden="true" />
           {t("poster.openAppleMusic")}
         </Button>
-        {manualAction ? (
-          <Button variant="ghost" size="sm" onClick={manualAction}>
-            {manualLabel}
-          </Button>
-        ) : null}
       </ItemActions>
     </Item>
-  )
-}
-
-function PlatformUrlField({ studio }: { studio: Studio }) {
-  const { t } = useTranslation()
-  const platform = studio.qrPlatform as PosterPlatform
-
-  const platformLabels: Record<PosterPlatform, string> = {
-    spotify: "Spotify",
-    apple_music: "Apple Music",
-    qq_music: t("poster.qqMusic"),
-    netease_music: t("poster.neteaseMusic"),
-  }
-
-  return (
-    <Field data-invalid={Boolean(studio.currentPlatformError) || undefined}>
-      <FieldLabel htmlFor="platform-url">
-        {platformLabels[platform]} {t("poster.platformLinkSuffix")}
-      </FieldLabel>
-      <InputGroup>
-        <InputGroupAddon>
-          <ExternalLinkIcon aria-hidden="true" />
-        </InputGroupAddon>
-        <InputGroupInput
-          id="platform-url"
-          type="url"
-          inputMode="url"
-          value={studio.platformUrl}
-          aria-invalid={Boolean(studio.currentPlatformError)}
-          placeholder={t("poster.platformUrlPlaceholder")}
-          onChange={(event) => studio.setPlatformUrl(event.target.value)}
-        />
-      </InputGroup>
-      <FieldDescription>
-        {platform === "apple_music"
-          ? t("poster.appleMusicManualHelp")
-          : t("poster.platformUrlHelp")}
-      </FieldDescription>
-      {studio.currentPlatformError ? (
-        <FieldError>{studio.currentPlatformError}</FieldError>
-      ) : null}
-    </Field>
   )
 }
