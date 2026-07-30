@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import type { TFunction } from "i18next"
 import { useTranslation } from "react-i18next"
 
 import {
@@ -40,7 +41,7 @@ function loadPreferences(): PosterPreferences {
 function friendlyError(
   error: unknown,
   fallback: string,
-  t: (key: string) => string,
+  t: TFunction,
 ) {
   if (!(error instanceof ApiError)) {
     return { message: fallback }
@@ -71,7 +72,7 @@ function limitLines(value: string, maximum = 4) {
 export function platformUrlError(
   platform: PosterPlatform,
   value: string,
-  t: (key: string) => string,
+  t: TFunction,
 ): string | undefined {
   let url: URL
   try {

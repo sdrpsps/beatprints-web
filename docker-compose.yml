@@ -5,9 +5,9 @@ services:
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
     ports:
-      - "${PORT:-8000}:${PORT:-8000}"
+      - "${API_PORT:-8000}:8000"
     environment:
-      PORT: "${PORT:-8000}"
+      PORT: "8000"
       API_KEY: "${API_KEY:-}"
       CORS_ORIGINS: "${CORS_ORIGINS:-}"
       SPOTIFY_CLIENT_ID: "${SPOTIFY_CLIENT_ID:-}"
@@ -19,3 +19,18 @@ services:
       resources:
         limits:
           memory: 1G
+
+  beatprints-web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      beatprints-api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-3000}:80"
+    deploy:
+      resources:
+        limits:
+          memory: 128M
