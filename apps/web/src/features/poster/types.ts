@@ -49,6 +49,15 @@ export type LyricsPreview = {
   lines: LyricsLine[]
 }
 
+export type AppleMusicMatch = {
+  url: string
+  title: string
+  artists: string[]
+  type: PosterKind
+  album?: string
+  cover_url?: string
+}
+
 export type PosterPreferences = {
   kind: PosterKind
   theme: Theme

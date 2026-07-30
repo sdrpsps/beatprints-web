@@ -11,9 +11,11 @@ import threading
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import date
+from difflib import SequenceMatcher
 from functools import lru_cache
 from pathlib import Path
-from urllib.parse import urljoin, urlparse
+from urllib.parse import parse_qs, urljoin, urlparse
 
 import deezer
 import httpx
@@ -24,6 +26,7 @@ from qrcode.constants import ERROR_CORRECT_M
 from beatprints_api.config import settings
 from beatprints_api.models.dto import (
     AlbumPosterRequest,
+    AppleMusicMatchData,
     LyricsLine,
     LyricsPreviewData,
     PosterPlatformLinks,
@@ -74,10 +77,18 @@ PLATFORM_LABELS = {
 SPOTIFY_CODE_SCALE = 1.06
 SPOTIFY_CODE_WIDTH = 560
 SPOTIFY_CODE_HEIGHT = 120
+APPLE_MUSIC_SYMBOL_PATH = (
+    Path(__file__).resolve().parents[1] / "assets" / "apple-music-symbol.png"
+)
+APPLE_MUSIC_SEARCH_URL = "https://itunes.apple.com/search"
 
 
 class UpstreamError(RuntimeError):
     """Raised when a metadata, lyrics, or cover provider fails."""
+
+
+class AppleMusicNoMatchError(UpstreamError):
+    """Raised when Apple Music has no sufficiently confident catalog match."""
 
 
 @dataclass(frozen=True)
@@ -115,6 +126,183 @@ def _normalized_label(value: object) -> str:
     if label.casefold() in {"unknown", "unknown label", "unknown records"}:
         return ""
     return label
+
+
+def _match_text(value: object) -> str:
+    """Normalize catalog text while retaining non-Latin artist and title characters."""
+
+    return "".join(
+        character for character in str(value or "").casefold() if character.isalnum()
+    )
+
+
+def _text_similarity(left: object, right: object) -> float:
+    normalized_left = _match_text(left)
+    normalized_right = _match_text(right)
+    if not normalized_left or not normalized_right:
+        return 0.0
+    if normalized_left == normalized_right:
+        return 1.0
+    return SequenceMatcher(None, normalized_left, normalized_right).ratio()
+
+
+def _metadata_artists(metadata: deez.TrackMetadata | deez.AlbumMetadata) -> str:
+    return " ".join(str(artist) for artist in metadata.artists)
+
+
+def _duration_seconds(value: str) -> int | None:
+    try:
+        minutes, seconds = value.split(":", maxsplit=1)
+        return int(minutes) * 60 + int(seconds)
+    except AttributeError, ValueError:
+        return None
+
+
+def _release_year(value: object) -> int | None:
+    try:
+        return date.fromisoformat(str(value)[:10]).year
+    except ValueError:
+        try:
+            return int(str(value)[:4])
+        except ValueError:
+            return None
+
+
+def _apple_music_results(query: str, entity: str) -> list[dict]:
+    try:
+        response = cover_client.get(
+            APPLE_MUSIC_SEARCH_URL,
+            params={
+                "term": query,
+                "media": "music",
+                "entity": entity,
+                "country": settings.apple_music_storefront,
+                "limit": 10,
+            },
+        )
+        response.raise_for_status()
+        results = response.json().get("results", [])
+    except (httpx.HTTPError, ValueError) as exc:
+        raise UpstreamError(f"Apple Music search failed: {exc}") from exc
+    return [result for result in results if isinstance(result, dict)]
+
+
+def _apple_music_result_data(result: dict) -> AppleMusicMatchData:
+    is_track = result.get("wrapperType") == "track"
+    title = result.get("trackName") if is_track else result.get("collectionName")
+    url = result.get("trackViewUrl") if is_track else result.get("collectionViewUrl")
+    if not isinstance(title, str) or not isinstance(url, str):
+        raise AppleMusicNoMatchError("Apple Music did not return a usable catalog item")
+    return AppleMusicMatchData(
+        url=url,
+        title=title,
+        artists=[result["artistName"]] if isinstance(result.get("artistName"), str) else [],
+        album=result.get("collectionName") if is_track else None,
+        cover_url=result.get("artworkUrl100"),
+        type="track" if is_track else "album",
+    )
+
+
+def resolve_apple_music_url(url: str) -> AppleMusicMatchData:
+    """Return public Apple Music metadata for a manually supplied Apple URL."""
+
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    if not (host == "music.apple.com" or host.endswith(".music.apple.com")):
+        raise AppleMusicNoMatchError("URL is not an Apple Music link")
+    track_ids = parse_qs(parsed.query).get("i", [])
+    identifier = track_ids[0] if track_ids else next(
+        (part for part in reversed(parsed.path.split("/")) if part.isdigit()), None
+    )
+    if not identifier:
+        raise AppleMusicNoMatchError("Apple Music link does not contain a catalog ID")
+    try:
+        response = cover_client.get(
+            "https://itunes.apple.com/lookup",
+            params={"id": identifier, "country": settings.apple_music_storefront},
+        )
+        response.raise_for_status()
+        results = response.json().get("results", [])
+    except (httpx.HTTPError, ValueError) as exc:
+        raise UpstreamError(f"Apple Music lookup failed: {exc}") from exc
+    for result in results:
+        if isinstance(result, dict) and result.get("wrapperType") in {"track", "collection"}:
+            return _apple_music_result_data(result)
+    raise AppleMusicNoMatchError("Apple Music link did not resolve to a catalog item")
+
+
+def _apple_music_track_match(metadata: deez.TrackMetadata) -> AppleMusicMatchData:
+    source_duration = _duration_seconds(metadata.duration)
+    candidates: list[tuple[float, dict]] = []
+    for candidate in _apple_music_results(
+        f"{metadata.title} {_metadata_artists(metadata)}", "song"
+    ):
+        url = candidate.get("trackViewUrl")
+        if not url:
+            continue
+        title_score = _text_similarity(metadata.title, candidate.get("trackName"))
+        artist_score = _text_similarity(
+            _metadata_artists(metadata), candidate.get("artistName")
+        )
+        album_score = _text_similarity(metadata.album, candidate.get("collectionName"))
+        candidate_duration = candidate.get("trackTimeMillis")
+        duration_score = 0.5
+        if source_duration and isinstance(candidate_duration, int):
+            difference = abs(source_duration - candidate_duration / 1000)
+            duration_score = max(0.0, 1 - difference / 15)
+        score = (
+            title_score * 0.52
+            + artist_score * 0.30
+            + album_score * 0.10
+            + duration_score * 0.08
+        )
+        if title_score >= 0.88 and artist_score >= 0.72 and score >= 0.84:
+            candidates.append((score, candidate))
+    if not candidates:
+        raise AppleMusicNoMatchError("No confident Apple Music match was found")
+    _score, match = max(candidates, key=lambda item: item[0])
+    return AppleMusicMatchData(
+        url=match["trackViewUrl"],
+        title=match["trackName"],
+        artists=[match["artistName"]],
+        album=match.get("collectionName"),
+        type="track",
+        cover_url=match.get("artworkUrl100"),
+    )
+
+
+def _apple_music_album_match(metadata: deez.AlbumMetadata) -> AppleMusicMatchData:
+    source_year = _release_year(metadata.released)
+    candidates: list[tuple[float, dict]] = []
+    for candidate in _apple_music_results(
+        f"{metadata.title} {_metadata_artists(metadata)}", "album"
+    ):
+        url = candidate.get("collectionViewUrl")
+        if not url:
+            continue
+        title_score = _text_similarity(metadata.title, candidate.get("collectionName"))
+        artist_score = _text_similarity(
+            _metadata_artists(metadata), candidate.get("artistName")
+        )
+        candidate_year = _release_year(candidate.get("releaseDate"))
+        year_score = (
+            0.5
+            if not source_year or not candidate_year
+            else float(source_year == candidate_year)
+        )
+        score = title_score * 0.64 + artist_score * 0.26 + year_score * 0.10
+        if title_score >= 0.90 and artist_score >= 0.72 and score >= 0.85:
+            candidates.append((score, candidate))
+    if not candidates:
+        raise AppleMusicNoMatchError("No confident Apple Music match was found")
+    _score, match = max(candidates, key=lambda item: item[0])
+    return AppleMusicMatchData(
+        url=match["collectionViewUrl"],
+        title=match["collectionName"],
+        artists=[match["artistName"]],
+        type="album",
+        cover_url=match.get("artworkUrl100"),
+    )
 
 
 def _is_public_host(hostname: str) -> bool:
@@ -263,6 +451,24 @@ def _album_metadata(request: AlbumPosterRequest) -> deez.AlbumMetadata:
     return metadata
 
 
+def match_apple_music(
+    provider: str,
+    catalog_id: int | str,
+    item_type: str,
+) -> AppleMusicMatchData:
+    """Match an exact selected Spotify/Deezer catalog item to Apple Music."""
+
+    if item_type == "track":
+        metadata = _track_metadata(
+            TrackPosterRequest(provider=provider, catalog_id=catalog_id)
+        )
+        return _apple_music_track_match(metadata)
+    metadata = _album_metadata(
+        AlbumPosterRequest(provider=provider, catalog_id=catalog_id)
+    )
+    return _apple_music_album_match(metadata)
+
+
 def clear_metadata_cache() -> None:
     _cached_track_metadata.cache_clear()
     _cached_album_metadata.cache_clear()
@@ -405,6 +611,134 @@ def _platform_scannable(
     return render
 
 
+def _apple_music_icon(color: tuple[int, int, int], size: int) -> Image.Image:
+    """Tint the alpha mask derived from the supplied Apple Music SVG."""
+
+    try:
+        with Image.open(APPLE_MUSIC_SYMBOL_PATH) as source:
+            mask = source.convert("RGBA").getchannel("A")
+    except OSError as exc:
+        raise RuntimeError("Apple Music symbol asset is unavailable") from exc
+    mask = mask.resize((size, size), Image.Resampling.LANCZOS)
+    icon = Image.new("RGBA", (size, size), color + (0,))
+    icon.putalpha(mask)
+    return icon
+
+
+def _transparent_qr(
+    qr: qrcode.QRCode, color: tuple[int, int, int], target_size: int
+) -> Image.Image:
+    """Draw a transparent, poster-friendly dot QR with stable finder patterns."""
+
+    modules = qr.get_matrix()
+    module_count = len(modules)
+    scale = 4
+    size = target_size * scale
+    module_size = size / module_count
+    code = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(code)
+    border = qr.border
+    last_finder_start = module_count - border - 7
+
+    def in_finder(x: int, y: int) -> bool:
+        return (
+            (border <= x < border + 7 and border <= y < border + 7)
+            or (
+                last_finder_start <= x < last_finder_start + 7
+                and border <= y < border + 7
+            )
+            or (
+                border <= x < border + 7
+                and last_finder_start <= y < last_finder_start + 7
+            )
+        )
+
+    for y, row in enumerate(modules):
+        for x, enabled in enumerate(row):
+            if enabled:
+                left = round(x * module_size)
+                top = round(y * module_size)
+                right = round((x + 1) * module_size)
+                bottom = round((y + 1) * module_size)
+                if not in_finder(x, y):
+                    inset = round(module_size * 0.12)
+                    draw.ellipse(
+                        (
+                            left + inset,
+                            top + inset,
+                            right - inset - 1,
+                            bottom - inset - 1,
+                        ),
+                        fill=color + (255,),
+                    )
+    # Keep the finder pattern recognizably square for camera detectors, with only
+    # a small softening at its outer corners to match the dot treatment.
+    finder_radius = round(module_size * 0.3)
+    for x, y in (
+        (border, border),
+        (last_finder_start, border),
+        (border, last_finder_start),
+    ):
+        left = round(x * module_size)
+        top = round(y * module_size)
+        right = round((x + 7) * module_size) - 1
+        bottom = round((y + 7) * module_size) - 1
+        draw.rounded_rectangle(
+            (left, top, right, bottom), radius=finder_radius, fill=color + (255,)
+        )
+        inner_left = round((x + 1) * module_size)
+        inner_top = round((y + 1) * module_size)
+        inner_right = round((x + 6) * module_size) - 1
+        inner_bottom = round((y + 6) * module_size) - 1
+        draw.rounded_rectangle(
+            (inner_left, inner_top, inner_right, inner_bottom),
+            radius=round(module_size * 0.2),
+            fill=(0, 0, 0, 0),
+        )
+        center_left = round((x + 2) * module_size)
+        center_top = round((y + 2) * module_size)
+        center_right = round((x + 5) * module_size) - 1
+        center_bottom = round((y + 5) * module_size) - 1
+        draw.rounded_rectangle(
+            (center_left, center_top, center_right, center_bottom),
+            radius=round(module_size * 0.2),
+            fill=color + (255,),
+        )
+    return code.resize((target_size, target_size), Image.Resampling.LANCZOS)
+
+
+def _apple_music_scannable(item: tuple[str, str], color: tuple[int, int, int]):
+    """Render a colour-matched Apple Music mark and standard QR code."""
+
+    def render(_theme: str = "Light") -> Image.Image:
+        width, height = beatprints_image.s.SCANCODE
+        canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        _label, link = item
+
+        qr = qrcode.QRCode(
+            version=None,
+            # Apple Music URLs are long. L minimizes module density so the code stays
+            # visually open at poster size; the rendered modules remain large enough
+            # for a clean, unobstructed print scan.
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=4,
+            border=2,
+        )
+        qr.add_data(link)
+        qr.make(fit=True)
+        code_size = 112
+        code = _transparent_qr(qr, color, code_size)
+        icon_size = 74
+        icon = _apple_music_icon(color, icon_size)
+        canvas.alpha_composite(icon, (0, (height - icon_size) // 2))
+        qr_x = 98
+        qr_y = (height - code_size) // 2
+        canvas.alpha_composite(code, (qr_x, qr_y))
+        return canvas
+
+    return render
+
+
 def _spotify_uri(link: str) -> str | None:
     """Return a canonical Spotify track or album URI for a supported web link."""
 
@@ -485,9 +819,10 @@ def _provider_rendering(
                 if platform_link[0] == "Spotify"
                 else None
             )
-            beatprints_image.scannable = spotify_code or _platform_scannable(
-                platform_link,
-                qr_color,
+            beatprints_image.scannable = spotify_code or (
+                _apple_music_scannable(platform_link, qr_color)
+                if platform_link[0] == "Apple Music"
+                else _platform_scannable(platform_link, qr_color)
             )
         try:
             yield

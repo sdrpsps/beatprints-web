@@ -1,12 +1,13 @@
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
 
 from beatprints_api.api.dependencies import require_api_key
 from beatprints_api.exceptions import UpstreamServiceError
 from beatprints_api.models import (
     ApiResponse,
+    AppleMusicMatchData,
     CatalogProvider,
     LyricsPreviewData,
     SearchProvider,
@@ -160,4 +161,63 @@ async def preview_lyrics(
     except Exception as exc:
         raise UpstreamServiceError("Lyrics request failed") from exc
 
+    return ApiResponse(code=0, data=result, message="success")
+
+
+@router.get(
+    "/platform-links/apple-music",
+    summary="自动匹配 Apple Music 链接",
+    description=(
+        "使用已选 Spotify 或 Deezer 条目的 provider + catalog_id 获取原始资料，"
+        "再按标题、艺人、专辑和时长（或发行年份）保守匹配 Apple Music。"
+    ),
+    response_model=ApiResponse[AppleMusicMatchData],
+    response_model_exclude_none=True,
+    responses={**ERROR_RESPONSES, 404: {"model": ApiResponse[object]}},
+)
+async def match_apple_music(
+    provider: Annotated[
+        CatalogProvider, Query(description="已选条目的元数据来源。")
+    ],
+    catalog_id: Annotated[
+        str, Query(min_length=1, description="已选条目的原始目录 ID。")
+    ],
+    type: Annotated[
+        Literal["track", "album"], Query(description="已选条目的类型。")
+    ],
+) -> ApiResponse[AppleMusicMatchData]:
+    try:
+        result = await run_in_threadpool(
+            beatprints_service.match_apple_music,
+            provider,
+            catalog_id,
+            type,
+        )
+    except beatprints_service.AppleMusicNoMatchError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except SpotifyNotConfiguredError as exc:
+        raise UpstreamServiceError(str(exc), unavailable=True) from exc
+    except beatprints_service.UpstreamError as exc:
+        raise UpstreamServiceError(str(exc)) from exc
+    except Exception as exc:
+        raise UpstreamServiceError("Apple Music matching failed") from exc
+    return ApiResponse(code=0, data=result, message="success")
+
+
+@router.get(
+    "/platform-links/apple-music/resolve",
+    summary="读取 Apple Music 链接资料",
+    response_model=ApiResponse[AppleMusicMatchData],
+    response_model_exclude_none=True,
+    responses={**ERROR_RESPONSES, 404: {"model": ApiResponse[object]}},
+)
+async def resolve_apple_music_url(
+    url: Annotated[str, Query(min_length=1, max_length=2000, description="Apple Music 公开链接。")],
+) -> ApiResponse[AppleMusicMatchData]:
+    try:
+        result = await run_in_threadpool(beatprints_service.resolve_apple_music_url, url)
+    except beatprints_service.AppleMusicNoMatchError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except beatprints_service.UpstreamError as exc:
+        raise UpstreamServiceError(str(exc)) from exc
     return ApiResponse(code=0, data=result, message="success")

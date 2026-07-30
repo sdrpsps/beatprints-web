@@ -232,6 +232,78 @@ def test_lyrics_preview_preserves_catalog_reference(monkeypatch) -> None:
     }
 
 
+def test_apple_music_match_preserves_selected_catalog_reference(monkeypatch) -> None:
+    seen: dict[str, str] = {}
+
+    def match(provider: str, catalog_id: str, item_type: str) -> dict:
+        seen.update(provider=provider, catalog_id=catalog_id, item_type=item_type)
+        return {
+            "url": "https://music.apple.com/us/album/example/123456789?i=123456790",
+            "title": "Example",
+            "artists": ["Artist"],
+            "album": "Example Album",
+            "type": item_type,
+        }
+
+    monkeypatch.setattr(catalog.beatprints_service, "match_apple_music", match)
+
+    response = client.get(
+        "/v1/platform-links/apple-music",
+        params={"provider": "deezer", "catalog_id": "5416564", "type": "track"},
+    )
+
+    assert response.status_code == 200
+    assert seen == {"provider": "deezer", "catalog_id": "5416564", "item_type": "track"}
+    assert response.json()["data"] == {
+        "url": "https://music.apple.com/us/album/example/123456789?i=123456790",
+        "title": "Example",
+        "artists": ["Artist"],
+        "album": "Example Album",
+        "type": "track",
+    }
+
+
+def test_apple_music_match_returns_not_found_when_not_confident(monkeypatch) -> None:
+    def no_match(*_args: object) -> None:
+        raise catalog.beatprints_service.AppleMusicNoMatchError(
+            "No confident Apple Music match was found"
+        )
+
+    monkeypatch.setattr(catalog.beatprints_service, "match_apple_music", no_match)
+
+    response = client.get(
+        "/v1/platform-links/apple-music",
+        params={"provider": "spotify", "catalog_id": "track-id", "type": "track"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["message"] == "No confident Apple Music match was found"
+
+
+def test_apple_music_link_resolve_returns_link_metadata(monkeypatch) -> None:
+    seen: dict[str, str] = {}
+
+    def resolve(url: str) -> dict:
+        seen["url"] = url
+        return {
+            "url": url,
+            "title": "Manual match",
+            "artists": ["Artist"],
+            "album": "Album",
+            "cover_url": "https://example.com/cover.jpg",
+            "type": "track",
+        }
+
+    monkeypatch.setattr(catalog.beatprints_service, "resolve_apple_music_url", resolve)
+    url = "https://music.apple.com/us/album/example/123456789?i=123456790"
+
+    response = client.get("/v1/platform-links/apple-music/resolve", params={"url": url})
+
+    assert response.status_code == 200
+    assert seen == {"url": url}
+    assert response.json()["data"]["cover_url"] == "https://example.com/cover.jpg"
+
+
 def test_track_allows_empty_instrumental_text() -> None:
     from beatprints_api.models import TrackPosterRequest
 

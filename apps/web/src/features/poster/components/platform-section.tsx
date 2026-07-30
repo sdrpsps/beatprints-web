@@ -1,4 +1,4 @@
-import { ExternalLinkIcon } from "lucide-react"
+import { ExternalLinkIcon, Music2Icon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import {
@@ -9,6 +9,17 @@ import {
   FieldLegend,
   FieldSet,
 } from "@/components/ui/field"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+  ItemTitle,
+} from "@/components/ui/item"
 import {
   InputGroup,
   InputGroupAddon,
@@ -19,6 +30,7 @@ import {
   SectionHeading,
   studioSectionClass,
   type Studio,
+  CoverArt,
 } from "@/features/poster/components/studio-shared"
 import type { PosterPlatform } from "@/features/poster/types"
 
@@ -64,9 +76,145 @@ export function PlatformSection({ studio }: { studio: Studio }) {
         </ToggleGroup>
       </FieldSet>
       {studio.platformNeedsUrl && studio.qrPlatform ? (
-        <PlatformUrlField studio={studio} />
+        studio.qrPlatform === "apple_music" &&
+        studio.appleMusicLinkMode === "automatic" ? (
+          <AppleMusicMatch studio={studio} />
+        ) : studio.qrPlatform === "apple_music" ? (
+          <ManualAppleMusicLink studio={studio} />
+        ) : (
+          <PlatformUrlField studio={studio} />
+        )
       ) : null}
     </section>
+  )
+}
+
+function AppleMusicMatch({ studio }: { studio: Studio }) {
+  const { t } = useTranslation()
+
+  if (studio.appleMusicState === "loading") {
+    return (
+      <Alert>
+        <Spinner aria-hidden="true" />
+        <AlertTitle>{t("poster.appleMusicMatching")}</AlertTitle>
+        <AlertDescription>{t("poster.appleMusicMatchingHelp")}</AlertDescription>
+      </Alert>
+    )
+  }
+
+  if (studio.appleMusicState === "success" && studio.appleMusicMatch) {
+    return (
+      <AppleMusicConfirmationCard
+        match={studio.appleMusicMatch}
+        source={studio.selected!}
+        manualAction={() => studio.setAppleMusicLinkMode("manual")}
+      />
+    )
+  }
+
+  if (studio.appleMusicState === "error") {
+    return (
+      <Alert variant="destructive">
+        <Music2Icon aria-hidden="true" />
+        <AlertTitle>{t("poster.appleMusicNotMatched")}</AlertTitle>
+        <AlertDescription>{studio.currentPlatformError}</AlertDescription>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => studio.setAppleMusicLinkMode("manual")}
+        >
+          {t("poster.manualAppleMusicLink")}
+        </Button>
+      </Alert>
+    )
+  }
+
+  return null
+}
+
+function ManualAppleMusicLink({ studio }: { studio: Studio }) {
+  const { t } = useTranslation()
+  const error = studio.currentPlatformError ?? studio.appleMusicManualError
+
+  return (
+    <>
+      <Field data-invalid={Boolean(error) || undefined}>
+        <FieldLabel htmlFor="apple-music-url">Apple Music {t("poster.platformLinkSuffix")}</FieldLabel>
+        <InputGroup>
+          <InputGroupAddon>
+            <ExternalLinkIcon aria-hidden="true" />
+          </InputGroupAddon>
+          <InputGroupInput
+            id="apple-music-url"
+            type="url"
+            inputMode="url"
+            value={studio.platformUrl}
+            aria-invalid={Boolean(error)}
+            placeholder={t("poster.platformUrlPlaceholder")}
+            onChange={(event) => studio.setPlatformUrl(event.target.value)}
+          />
+        </InputGroup>
+        <FieldDescription>{t("poster.appleMusicManualHelp")}</FieldDescription>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={studio.appleMusicManualState === "loading"}
+          onClick={() => void studio.resolveManualAppleMusicUrl()}
+        >
+          {studio.appleMusicManualState === "loading" ? (
+            <Spinner data-icon="inline-start" aria-hidden="true" />
+          ) : null}
+          {t("poster.fetchAppleMusicInfo")}
+        </Button>
+        {error ? <FieldError>{error}</FieldError> : null}
+      </Field>
+      {studio.appleMusicManualState === "success" && studio.appleMusicManualMatch ? (
+        <AppleMusicConfirmationCard
+          match={studio.appleMusicManualMatch}
+          source={studio.selected!}
+        />
+      ) : null}
+    </>
+  )
+}
+
+function AppleMusicConfirmationCard({
+  match,
+  source,
+  manualAction,
+}: {
+  match: NonNullable<Studio["appleMusicMatch"]>
+  source: NonNullable<Studio["selected"]>
+  manualAction?: () => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <Item variant="outline">
+      <ItemMedia variant="image" className="size-16">
+        {match.cover_url ? (
+          <img src={match.cover_url} alt={t("poster.appleMusicCoverAlt", { title: match.title })} />
+        ) : (
+          <CoverArt result={source} />
+        )}
+      </ItemMedia>
+      <ItemContent>
+        <ItemTitle>{match.title}</ItemTitle>
+        <ItemDescription>{match.artists.join("、")}</ItemDescription>
+        {match.album ? <ItemDescription>{match.album}</ItemDescription> : null}
+      </ItemContent>
+      <ItemActions className="max-sm:basis-full max-sm:justify-end">
+        <Button render={<a href={match.url} target="_blank" rel="noreferrer" />} variant="outline" size="sm">
+          <ExternalLinkIcon data-icon="inline-start" aria-hidden="true" />
+          {t("poster.openAppleMusic")}
+        </Button>
+        {manualAction ? (
+          <Button variant="ghost" size="sm" onClick={manualAction}>
+            {t("poster.manualAppleMusicLink")}
+          </Button>
+        ) : null}
+      </ItemActions>
+    </Item>
   )
 }
 
@@ -101,7 +249,9 @@ function PlatformUrlField({ studio }: { studio: Studio }) {
         />
       </InputGroup>
       <FieldDescription>
-        {t("poster.platformUrlHelp")}
+        {platform === "apple_music"
+          ? t("poster.appleMusicManualHelp")
+          : t("poster.platformUrlHelp")}
       </FieldDescription>
       {studio.currentPlatformError ? (
         <FieldError>{studio.currentPlatformError}</FieldError>

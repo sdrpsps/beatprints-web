@@ -99,8 +99,16 @@ When the user chooses no platform, omit `qr_platform`; the poster contains no pl
 or QR code.
 
 When Spotify supplies the metadata and `qr_platform=spotify`, the backend can reuse Spotify's
-source link. Apple Music, QQ Music, and NetEase Music currently are not search providers, so
-the frontend or another service must supply the matching URL in `platform_links`.
+source link. For Apple Music, the frontend should request a conservative automatic match using
+the selected result's unchanged `provider + id` through
+`GET /v1/platform-links/apple-music?provider=<deezer|spotify>&catalog_id=<id>&type=<track|album>`.
+The backend retrieves that exact source item, searches the configured Apple Music storefront,
+and returns a link only when the title, artist, and release-specific metadata meet its confidence
+threshold. QQ Music and NetEase Music currently still require a caller-supplied matching URL.
+If the listener supplies a different Apple Music URL, the frontend can read that link's current
+public Apple metadata through `GET /v1/platform-links/apple-music/resolve?url=<apple-music-url>`
+and update only the Apple Music confirmation card. The poster's primary metadata, lyrics, and
+cover remain tied to the originally selected Spotify or Deezer catalog result.
 
 Only one platform is rendered per poster. For Spotify, a canonical Spotify track or album link
 renders Spotify's native Spotify Code, which is scan-ready in the Spotify mobile app. The other
@@ -134,8 +142,10 @@ Content-Type: application/json
 }
 ```
 
-The QR fields are omitted when the user does not choose a destination. A non-Spotify
-destination also includes its matching URL under `platform_links`.
+The QR fields are omitted when the user does not choose a destination. An Apple Music destination
+includes the returned automatic-match URL under `platform_links`; QQ Music and NetEase Music
+destinations include a caller-supplied matching URL. If an Apple Music match cannot be confirmed,
+show a clear no-match state and do not allow generation with Apple Music selected.
 
 Generation is server-side and concurrency-limited. The UI needs an honest pending state and
 must prevent accidental duplicate submissions without implying fine-grained progress the API

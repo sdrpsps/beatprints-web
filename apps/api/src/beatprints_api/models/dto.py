@@ -582,3 +582,14 @@ class LyricsPreviewData(BaseModel):
             ),
         ),
     ]
+
+
+class AppleMusicMatchData(BaseModel):
+    """由已选目录条目自动匹配到的 Apple Music 公开链接。"""
+
+    url: HttpUrl
+    title: str
+    artists: list[str]
+    type: Literal["track", "album"]
+    album: str | None = None
+    cover_url: HttpUrl | None = None

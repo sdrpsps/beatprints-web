@@ -244,6 +244,20 @@ def test_spotify_code_scannable_uses_spotify_image_service_output(monkeypatch) -
     assert image.getpixel((212, 60)) == (50, 47, 48, 255)
 
 
+def test_apple_music_scannable_has_a_color_matched_icon_and_transparent_qr_background() -> (
+    None
+):
+    image = beatprints_service._apple_music_scannable(
+        ("Apple Music", "https://music.apple.com/us/album/example/123456789"),
+        (82, 44, 126),
+    )("Light")
+
+    assert image.mode == "RGBA"
+    assert image.size == beatprints_service.beatprints_image.s.SCANCODE
+    assert image.getpixel((20, 60)) == (82, 44, 126, 255)
+    assert image.getpixel((98, 4))[3] == 0
+
+
 def test_cover_qr_color_is_colored_and_has_safe_white_contrast(tmp_path) -> None:
     cover_path = tmp_path / "cover.png"
     Image.new("RGB", (200, 200), (217, 164, 65)).save(cover_path)

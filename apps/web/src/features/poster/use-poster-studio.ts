@@ -6,9 +6,12 @@ import {
   ApiError,
   fetchLyrics,
   generatePoster,
+  matchAppleMusic,
+  resolveAppleMusicUrl,
   searchCatalog,
 } from "@/features/poster/api"
 import type {
+  AppleMusicMatch,
   LyricsLine,
   CatalogProvider,
   PosterKind,
@@ -48,6 +51,7 @@ function friendlyError(
   }
   const messages: Record<number, string> = {
     401: t("poster.errors.error401"),
+    404: t("poster.errors.appleMusicNoMatch"),
     422: t("poster.errors.error422"),
     502: t("poster.errors.error502"),
     503: t("poster.errors.error503"),
@@ -122,6 +126,19 @@ export function usePosterStudio() {
   const [instrumentalText, setInstrumentalText] = useState("")
   const [qrPlatform, setQrPlatformState] = useState<PosterPlatform | "">("")
   const [platformUrl, setPlatformUrlState] = useState("")
+  const [appleMusicState, setAppleMusicState] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle")
+  const [appleMusicMatch, setAppleMusicMatch] = useState<AppleMusicMatch>()
+  const [appleMusicError, setAppleMusicError] = useState<string>()
+  const [appleMusicLinkMode, setAppleMusicLinkMode] = useState<
+    "automatic" | "manual"
+  >("automatic")
+  const [appleMusicManualState, setAppleMusicManualState] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle")
+  const [appleMusicManualMatch, setAppleMusicManualMatch] = useState<AppleMusicMatch>()
+  const [appleMusicManualError, setAppleMusicManualError] = useState<string>()
   const [indexing, setIndexingState] = useState(true)
   const [shuffle, setShuffleState] = useState(false)
   const [generationState, setGenerationState] = useState<
@@ -135,6 +152,7 @@ export function usePosterStudio() {
   const [outputStale, setOutputStale] = useState(false)
   const searchRequest = useRef<AbortController | null>(null)
   const lyricsRequest = useRef<AbortController | null>(null)
+  const appleMusicRequest = useRef<AbortController | null>(null)
   const generationRequest = useRef<AbortController | null>(null)
 
   useEffect(() => {
@@ -148,6 +166,7 @@ export function usePosterStudio() {
     () => () => {
       searchRequest.current?.abort()
       lyricsRequest.current?.abort()
+      appleMusicRequest.current?.abort()
       generationRequest.current?.abort()
       if (output) URL.revokeObjectURL(output.url)
     },
@@ -171,6 +190,7 @@ export function usePosterStudio() {
 
   function clearSelectionState() {
     lyricsRequest.current?.abort()
+    appleMusicRequest.current?.abort()
     setSelected(undefined)
     setLyricsState("idle")
     setLyricsError(undefined)
@@ -183,6 +203,13 @@ export function usePosterStudio() {
     setInstrumentalText("")
     setQrPlatformState("")
     setPlatformUrlState("")
+    setAppleMusicState("idle")
+    setAppleMusicMatch(undefined)
+    setAppleMusicError(undefined)
+    setAppleMusicLinkMode("automatic")
+    setAppleMusicManualState("idle")
+    setAppleMusicManualMatch(undefined)
+    setAppleMusicManualError(undefined)
   }
 
   function resetSelection() {
@@ -318,14 +345,86 @@ export function usePosterStudio() {
   }
 
   function changeQrPlatform(value: PosterPlatform | "") {
+    appleMusicRequest.current?.abort()
     setQrPlatformState(value)
     setPlatformUrlState("")
+    setAppleMusicState("idle")
+    setAppleMusicMatch(undefined)
+    setAppleMusicError(undefined)
+    setAppleMusicLinkMode("automatic")
+    setAppleMusicManualState("idle")
+    setAppleMusicManualMatch(undefined)
+    setAppleMusicManualError(undefined)
     markOutputStale()
+    if (value === "apple_music" && selected) {
+      const controller = new AbortController()
+      appleMusicRequest.current = controller
+      setAppleMusicState("loading")
+      void matchAppleMusic(selected.provider, selected.id, kind, controller.signal)
+        .then((match) => {
+          if (controller.signal.aborted) return
+          setPlatformUrlState(match.url)
+          setAppleMusicMatch(match)
+          setAppleMusicState("success")
+        })
+        .catch((error: unknown) => {
+          if (controller.signal.aborted) return
+          setAppleMusicState("error")
+          setAppleMusicError(
+            friendlyError(error, t("poster.errors.appleMusicMatchError"), t).message,
+          )
+        })
+    }
   }
 
   function changePlatformUrl(value: string) {
     setPlatformUrlState(value)
+    if (qrPlatform === "apple_music" && appleMusicLinkMode === "manual") {
+      setAppleMusicManualState("idle")
+      setAppleMusicManualMatch(undefined)
+      setAppleMusicManualError(undefined)
+    }
     markOutputStale()
+  }
+
+  function changeAppleMusicLinkMode(value: "automatic" | "manual") {
+    if (value === appleMusicLinkMode) return
+    appleMusicRequest.current?.abort()
+    setAppleMusicLinkMode(value)
+    setAppleMusicState("idle")
+    setAppleMusicMatch(undefined)
+    setAppleMusicError(undefined)
+    setPlatformUrlState("")
+    setAppleMusicManualState("idle")
+    setAppleMusicManualMatch(undefined)
+    setAppleMusicManualError(undefined)
+    markOutputStale()
+  }
+
+  async function resolveManualAppleMusicUrl() {
+    const error = platformUrlError("apple_music", platformUrl, t)
+    if (error) {
+      setAppleMusicManualState("error")
+      setAppleMusicManualError(error)
+      return
+    }
+    appleMusicRequest.current?.abort()
+    const controller = new AbortController()
+    appleMusicRequest.current = controller
+    setAppleMusicManualState("loading")
+    setAppleMusicManualError(undefined)
+    try {
+      const match = await resolveAppleMusicUrl(platformUrl.trim(), controller.signal)
+      if (controller.signal.aborted) return
+      setAppleMusicManualMatch(match)
+      setAppleMusicManualState("success")
+    } catch (error) {
+      if (controller.signal.aborted) return
+      setAppleMusicManualState("error")
+      setAppleMusicManualError(
+        friendlyError(error, t("poster.errors.appleMusicMatchError"), t).message,
+      )
+    }
   }
 
   function changeTheme(value: Theme) {
@@ -352,7 +451,9 @@ export function usePosterStudio() {
     Boolean(qrPlatform) &&
     !(qrPlatform === "spotify" && selected?.provider === "spotify")
   const currentPlatformError =
-    platformNeedsUrl && qrPlatform
+    qrPlatform === "apple_music" && appleMusicLinkMode === "automatic"
+      ? appleMusicError
+      : platformNeedsUrl && qrPlatform
       ? platformUrlError(qrPlatform, platformUrl, t)
       : undefined
   const manualLineCount = nonemptyLines(manualLyrics).length
@@ -373,6 +474,9 @@ export function usePosterStudio() {
     Boolean(selected) &&
     lyricsReady &&
     !currentPlatformError &&
+    (qrPlatform !== "apple_music" ||
+      appleMusicLinkMode === "manual" ||
+      appleMusicState === "success") &&
     generationState !== "loading"
 
   async function generate() {
@@ -472,6 +576,14 @@ export function usePosterStudio() {
     setPlatformUrl: changePlatformUrl,
     platformNeedsUrl,
     currentPlatformError,
+    appleMusicState,
+    appleMusicMatch,
+    appleMusicLinkMode,
+    setAppleMusicLinkMode: changeAppleMusicLinkMode,
+    appleMusicManualState,
+    appleMusicManualMatch,
+    appleMusicManualError,
+    resolveManualAppleMusicUrl,
     indexing,
     setIndexing: changeIndexing,
     shuffle,

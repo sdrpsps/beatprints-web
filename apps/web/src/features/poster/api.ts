@@ -1,6 +1,7 @@
 import i18next from "i18next"
 
 import type {
+  AppleMusicMatch,
   CatalogProvider,
   LyricsPreview,
   PosterKind,
@@ -83,6 +84,31 @@ export async function fetchLyrics(
     catalog_id: String(catalogId),
   })
   return getJson<LyricsPreview>(`/v1/lyrics?${params}`, signal)
+}
+
+export async function matchAppleMusic(
+  provider: CatalogProvider,
+  catalogId: number | string,
+  kind: PosterKind,
+  signal?: AbortSignal,
+) {
+  const params = new URLSearchParams({
+    provider,
+    catalog_id: String(catalogId),
+    type: kind,
+  })
+  return getJson<AppleMusicMatch>(
+    `/v1/platform-links/apple-music?${params}`,
+    signal,
+  )
+}
+
+export async function resolveAppleMusicUrl(url: string, signal?: AbortSignal) {
+  const params = new URLSearchParams({ url })
+  return getJson<AppleMusicMatch>(
+    `/v1/platform-links/apple-music/resolve?${params}`,
+    signal,
+  )
 }
 
 function responseFilename(response: Response) {
