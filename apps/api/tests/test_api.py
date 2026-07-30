@@ -327,6 +327,38 @@ def test_deezer_track_can_match_spotify(monkeypatch) -> None:
     assert response.json()["data"]["url"] == "https://open.spotify.com/track/spotify-track-id"
 
 
+def test_deezer_album_can_match_spotify(monkeypatch) -> None:
+    seen: dict[str, str] = {}
+
+    def match(catalog_id: str, item_type: str) -> dict:
+        seen["catalog_id"] = catalog_id
+        seen["item_type"] = item_type
+        return {
+            "url": "https://open.spotify.com/album/spotify-album-id",
+            "title": "Example album",
+            "artists": ["Artist"],
+            "cover_url": "https://i.scdn.co/image/example",
+            "type": item_type,
+        }
+
+    monkeypatch.setattr(catalog.beatprints_service, "match_deezer_to_spotify", match)
+
+    response = client.get(
+        "/v1/platform-links/spotify",
+        params={"provider": "deezer", "catalog_id": "302127", "type": "album"},
+    )
+
+    assert response.status_code == 200
+    assert seen == {"catalog_id": "302127", "item_type": "album"}
+    assert response.json()["data"] == {
+        "url": "https://open.spotify.com/album/spotify-album-id",
+        "title": "Example album",
+        "artists": ["Artist"],
+        "cover_url": "https://i.scdn.co/image/example",
+        "type": "album",
+    }
+
+
 def test_spotify_link_resolve_returns_link_metadata(monkeypatch) -> None:
     seen: dict[str, str] = {}
 
@@ -349,6 +381,31 @@ def test_spotify_link_resolve_returns_link_metadata(monkeypatch) -> None:
     assert response.status_code == 200
     assert seen == {"url": url}
     assert response.json()["data"]["cover_url"] == "https://i.scdn.co/image/example"
+
+
+def test_spotify_album_link_resolve_returns_link_metadata(monkeypatch) -> None:
+    def resolve(url: str) -> dict:
+        return {
+            "url": url,
+            "title": "Manual Spotify album",
+            "artists": ["Artist"],
+            "cover_url": "https://i.scdn.co/image/example",
+            "type": "album",
+        }
+
+    monkeypatch.setattr(catalog.beatprints_service, "resolve_spotify_url", resolve)
+    url = "https://open.spotify.com/album/7xvBUHu5e17ZVM52T5o1sR"
+
+    response = client.get("/v1/platform-links/spotify/resolve", params={"url": url})
+
+    assert response.status_code == 200
+    assert response.json()["data"] == {
+        "url": url,
+        "title": "Manual Spotify album",
+        "artists": ["Artist"],
+        "cover_url": "https://i.scdn.co/image/example",
+        "type": "album",
+    }
 
 
 def test_track_allows_empty_instrumental_text() -> None:
