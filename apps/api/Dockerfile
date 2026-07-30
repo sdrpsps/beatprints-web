@@ -1,3 +1,21 @@
+FROM node:24-alpine AS web-builder
+
+ENV PNPM_HOME=/pnpm \
+    PATH=/pnpm:$PATH
+
+WORKDIR /app
+
+RUN corepack enable
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/web/package.json ./apps/web/
+
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+    pnpm install --frozen-lockfile --filter @beatprints/web...
+
+COPY apps/web ./apps/web
+RUN pnpm --filter @beatprints/web build
+
 FROM ghcr.io/astral-sh/uv:0.11.32-python3.14-trixie-slim AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -18,7 +36,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 COPY apps/api/src ./apps/api/src
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-editable && \
+    uv sync --locked --no-editable --reinstall-package beatprints-api && \
     uv pip uninstall \
         pylette opencv-python scikit-learn scipy numpy \
         joblib narwhals threadpoolctl && \
@@ -30,6 +48,7 @@ FROM python:3.14-slim-trixie AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH=/app/.venv/bin:$PATH \
+    WEB_DIST_DIR=/app/web \
     PORT=8000 \
     WEB_CONCURRENCY=1 \
     MAX_CONCURRENT_JOBS=1
@@ -37,6 +56,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 COPY --from=builder /app/.venv /app/.venv
+COPY --from=web-builder /app/apps/web/dist /app/web
 
 RUN useradd --create-home --uid 10001 appuser && chown -R appuser:appuser /app
 USER appuser

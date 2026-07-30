@@ -1,3 +1,4 @@
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -5,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from beatprints_api.api import dependencies
 from beatprints_api.api.routes import catalog, posters
-from beatprints_api.main import app
+from beatprints_api.main import app, create_app
 from beatprints_api.spotify import SpotifyNotConfiguredError
 
 client = TestClient(app)
@@ -23,6 +24,18 @@ def test_health() -> None:
     process_time = response.headers["x-process-time"]
     assert float(process_time) >= 0
     assert len(process_time.rsplit(".", maxsplit=1)[-1]) == 3
+
+
+def test_web_app_is_served_without_shadowing_api(tmp_path: Path) -> None:
+    (tmp_path / "index.html").write_text("<h1>BeatPrints</h1>")
+    (tmp_path / "favicon.svg").write_text("<svg></svg>")
+    web_client = TestClient(create_app(web_root=tmp_path))
+
+    assert web_client.get("/").text == "<h1>BeatPrints</h1>"
+    assert web_client.get("/studio").text == "<h1>BeatPrints</h1>"
+    assert web_client.get("/favicon.svg").text == "<svg></svg>"
+    assert web_client.head("/favicon.svg").status_code == 200
+    assert web_client.get("/health").json()["data"]["status"] == "ok"
 
 
 def test_track_requires_exactly_one_source() -> None:

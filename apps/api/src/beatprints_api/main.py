@@ -1,5 +1,9 @@
+import os
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from beatprints_api.api.errors import register_exception_handlers
 from beatprints_api.api.middleware import request_context_middleware
@@ -7,7 +11,7 @@ from beatprints_api.api.routes import catalog_router, posters_router, system_rou
 from beatprints_api.config import settings
 
 
-def create_app() -> FastAPI:
+def create_app(web_root: Path | None = None) -> FastAPI:
     app = FastAPI(
         title="BeatPrints API",
         version="0.1.0",
@@ -39,6 +43,27 @@ def create_app() -> FastAPI:
     app.include_router(system_router)
     app.include_router(catalog_router)
     app.include_router(posters_router)
+
+    resolved_web_root = web_root or Path(os.getenv("WEB_DIST_DIR", "/app/web"))
+    index_file = resolved_web_root / "index.html"
+    if index_file.is_file():
+        resolved_web_root = resolved_web_root.resolve()
+        index_file = resolved_web_root / "index.html"
+
+        @app.api_route(
+            "/{path:path}",
+            methods=["GET", "HEAD"],
+            include_in_schema=False,
+        )
+        def serve_web_app(path: str) -> FileResponse:
+            requested_file = (resolved_web_root / path).resolve()
+            if (
+                requested_file.is_relative_to(resolved_web_root)
+                and requested_file.is_file()
+            ):
+                return FileResponse(requested_file)
+            return FileResponse(index_file)
+
     return app
 
 
