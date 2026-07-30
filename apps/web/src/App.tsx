@@ -24,12 +24,12 @@ function App() {
           href="/"
           aria-label={t("app.homeLabel")}
         >
-          <span
-            className="grid size-[30px] place-items-center bg-primary font-[var(--font-utility)] text-[10px] tracking-[0.08em] text-primary-foreground"
+          <img
+            className="size-9 object-contain"
+            src="/favicon.png"
+            alt=""
             aria-hidden="true"
-          >
-            BP
-          </span>
+          />
           {t("poster.brand")}
         </a>
         <nav
