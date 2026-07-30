@@ -1,13 +1,15 @@
 # BeatPrints
 
-BeatPrints 图片生成服务 monorepo。后端使用 FastAPI + uv，前端工作区使用 pnpm；
-两套依赖系统彼此独立；根目录同时作为 Python 项目和开发、部署命令入口。
+BeatPrints 音乐海报制作应用 monorepo。用户查询歌曲或专辑，使用匹配到的封面和音乐
+资料，选择歌词与可选的平台入口，生成可下载的 BeatPrints PNG 海报。后端使用
+FastAPI + uv，前端使用 React、Vite、shadcn/ui 与 pnpm；两套依赖系统彼此独立，
+根目录同时作为 Python 项目和开发、部署命令入口。
 
 ```text
 .
 ├── apps/
 │   ├── api/          # Python/FastAPI，uv 独立管理
-│   └── web/          # 预留前端应用，pnpm 管理
+│   └── web/          # React/Vite 前端应用，pnpm 管理
 ├── packages/         # 预留前端共享包
 ├── Makefile
 ├── pyproject.toml    # API 项目、构建及工具配置
@@ -27,9 +29,9 @@ make setup
 make dev
 ```
 
-目前尚未初始化前端，因此 `make dev` 只启动 API。以后在 `apps/web` 创建
-`package.json` 且包名设为 `@beatprints/web` 后，`make dev` 会通过 pnpm 同时启动
-API 和前端。
+`make dev` 会同时启动 API 和前端。前端开发路径见
+[apps/web/README.md](apps/web/README.md)，产品流程、API 映射和当前集成缺口见
+[docs/frontend-product-brief.md](docs/frontend-product-brief.md)。
 
 常用命令：
 
