@@ -3,7 +3,6 @@
   "packages": {
     ".": {
       "release-type": "simple",
-      "package-name": "BeatPrints Web",
       "version-file": "VERSION",
       "initial-version": "1.0.0",
       "include-component-in-tag": false,
