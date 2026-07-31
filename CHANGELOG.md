@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.0](https://github.com/sdrpsps/beatprints-web/compare/v1.0.1...v1.1.0) (2026-07-31)
+
+
+### Features
+
+* **api:** add structured access logging ([23ed061](https://github.com/sdrpsps/beatprints-web/commit/23ed06122e717066a381353c272901babd370f2a))
+* make track lyrics optional ([b186316](https://github.com/sdrpsps/beatprints-web/commit/b186316de676eb00179948917851f2e069c74cf8))
+
 ## [1.0.1](https://github.com/sdrpsps/beatprints-web/compare/v1.0.0...v1.0.1) (2026-07-31)
 
 
