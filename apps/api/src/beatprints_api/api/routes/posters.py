@@ -11,6 +11,7 @@ from fastapi.responses import Response
 from beatprints_api.api.dependencies import require_api_key
 from beatprints_api.config import settings
 from beatprints_api.exceptions import InvalidInputError, UpstreamServiceError
+from beatprints_api.logging import log_event
 from beatprints_api.models import ApiResponse, AlbumPosterRequest, TrackPosterRequest
 from beatprints_api.services import beatprints as beatprints_service
 from beatprints_api.spotify import SpotifyError, SpotifyNotConfiguredError
@@ -229,18 +230,22 @@ async def _generate(
     timings = (
         result.timings_ms if isinstance(result, beatprints_service.PosterResult) else {}
     )
-    logger.info(
-        "Generated %s poster provider=%s qr=%s bytes=%d queue_ms=%.0f timings_ms=%s",
-        "track" if isinstance(request, TrackPosterRequest) else "album",
-        request.provider,
-        request.qr_platform is not None,
-        (
+    log_event(
+        logger,
+        logging.INFO,
+        "poster_generated",
+        "Poster generated",
+        poster_type="track" if isinstance(request, TrackPosterRequest) else "album",
+        provider=request.provider,
+        theme=request.theme,
+        qr_platform=request.qr_platform or "none",
+        response_bytes=(
             len(result.content)
             if isinstance(result, beatprints_service.PosterResult)
             else len(result[0])
         ),
-        queue_ms,
-        {name: round(duration) for name, duration in timings.items()},
+        queue_ms=round(queue_ms),
+        timings_ms={name: round(duration) for name, duration in timings.items()},
     )
     return _image_response(result, queue_ms)
 

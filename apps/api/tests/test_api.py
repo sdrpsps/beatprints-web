@@ -5,6 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from beatprints_api.api import dependencies
+from beatprints_api.api import middleware as api_middleware
 from beatprints_api.api.routes import catalog, posters
 from beatprints_api.config import settings
 from beatprints_api.main import app, create_app
@@ -28,6 +29,52 @@ def test_health() -> None:
     assert response.headers["x-request-id"]
     process_time = response.headers["x-process-time"]
     assert process_time.isdigit()
+
+
+def test_api_access_log_is_structured_and_private(monkeypatch) -> None:
+    events: list[tuple[str, dict[str, object]]] = []
+
+    def capture_event(_logger, _level, event, _message, **fields) -> None:
+        events.append((event, fields))
+
+    monkeypatch.setattr(api_middleware, "log_event", capture_event)
+
+    response = client.get("/v1/themes")
+
+    assert response.status_code == 200
+    assert events == [
+        (
+            "http_request",
+            {
+                "method": "GET",
+                "route": "/v1/themes",
+                "status": 200,
+                "duration_ms": events[0][1]["duration_ms"],
+                "response_bytes": events[0][1]["response_bytes"],
+                "version": settings.build_version,
+                "git_sha": settings.build_git_sha,
+            },
+        )
+    ]
+
+
+def test_health_check_does_not_emit_access_log(monkeypatch) -> None:
+    events: list[str] = []
+
+    def capture_event(_logger, _level, event, _message, **_fields) -> None:
+        events.append(event)
+
+    monkeypatch.setattr(api_middleware, "log_event", capture_event)
+
+    assert client.get("/health").status_code == 200
+    assert events == []
+
+
+def test_invalid_request_id_is_replaced() -> None:
+    response = client.get("/health", headers={"X-Request-ID": "not valid"})
+
+    assert response.status_code == 200
+    assert response.headers["X-Request-ID"] != "not valid"
 
 
 def test_web_app_is_served_without_shadowing_api(tmp_path: Path) -> None:

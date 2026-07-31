@@ -11,6 +11,7 @@ def main() -> None:
         workers=settings.workers,
         proxy_headers=True,
         forwarded_allow_ips="*",
+        access_log=False,
     )
 
 

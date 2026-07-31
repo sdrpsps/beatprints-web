@@ -9,6 +9,9 @@ from beatprints_api.api.errors import register_exception_handlers
 from beatprints_api.api.middleware import request_context_middleware
 from beatprints_api.api.routes import catalog_router, posters_router, system_router
 from beatprints_api.config import settings
+from beatprints_api.logging import configure_logging
+
+configure_logging()
 
 
 def create_app(web_root: Path | None = None) -> FastAPI:
