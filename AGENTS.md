@@ -7,7 +7,7 @@ dashboard. Its primary track-poster journey is:
 
 1. Search for a track and select the exact catalog result.
 2. Review the matched cover, title, artists, album, release information, and duration.
-3. Select exactly four lyric lines.
+3. Optionally select up to four lyric lines.
 4. Optionally choose one music platform to add as the poster's QR destination.
 5. Choose poster appearance options and generate the final PNG.
 

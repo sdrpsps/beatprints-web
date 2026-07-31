@@ -344,7 +344,7 @@ export function usePosterStudio() {
       if (controller.signal.aborted) return
       setInstrumental(preview.instrumental)
       setLyrics(preview.lines)
-      setSelectedLines(preview.lines.slice(0, 4).map((line) => line.index))
+      setSelectedLines([])
       setLyricsMode(preview.instrumental ? "manual" : "catalog")
       setLyricsState("success")
     } catch (error) {
@@ -813,9 +813,9 @@ export function usePosterStudio() {
       ? instrumentalText.length <= 200 && instrumentalLineCount <= 4
       : lyricsMode === "catalog"
         ? lyricsState === "success" &&
-          selectedLines.length === 4 &&
+          selectedLines.length <= 4 &&
           selectedLyrics.every(Boolean)
-        : manualLineCount === 4)
+        : manualLineCount <= 4)
   const canGenerate =
     Boolean(selected) &&
     lyricsReady &&

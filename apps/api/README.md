@@ -117,7 +117,8 @@ curl "http://localhost:8000/v1/lyrics?provider=deezer&catalog_id=5416564"
 ```
 
 响应中的 `lines` 按原歌词顺序包含一开始编号的非空行；`instrumental=true` 表示纯音乐。
-界面选择完成后应将最终四行作为 `lyrics` 提交，确保生成内容与选择一致。
+界面选择完成后应将最多四行最终文字作为 `lyrics` 提交，确保生成内容与选择一致；
+提交空字符串表示明确不显示歌词，并避免触发后端默认选择前四行的兼容行为。
 
 ```bash
 curl -X POST http://localhost:8000/v1/posters/track \

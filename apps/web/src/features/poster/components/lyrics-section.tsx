@@ -5,7 +5,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
   Field,
   FieldDescription,
-  FieldError,
   FieldLabel,
 } from "@/components/ui/field"
 import { Spinner } from "@/components/ui/spinner"
@@ -109,9 +108,8 @@ function InstrumentalField({ studio }: { studio: Studio }) {
 
 function ManualLyricsField({ studio }: { studio: Studio }) {
   const { t } = useTranslation()
-  const invalid = studio.manualLineCount !== 4
   return (
-    <Field data-invalid={invalid || undefined}>
+    <Field>
       <FieldLabel htmlFor="manual-lyrics">
         {t("poster.manualLyricsLabel")}
       </FieldLabel>
@@ -119,16 +117,12 @@ function ManualLyricsField({ studio }: { studio: Studio }) {
         id="manual-lyrics"
         value={studio.manualLyrics}
         maxLength={2000}
-        aria-invalid={invalid}
         placeholder={t("poster.manualLyricsPlaceholder")}
         onChange={(event) => studio.setManualLyrics(event.target.value)}
       />
       <FieldDescription>
         {t("poster.manualLyricsHelp", { count: studio.manualLineCount })}
       </FieldDescription>
-      {invalid ? (
-        <FieldError>{t("poster.manualLyricsError")}</FieldError>
-      ) : null}
     </Field>
   )
 }

@@ -58,14 +58,15 @@ Show the selected cover and enough metadata to disambiguate recordings with the 
 Changing the selected recording invalidates any lyrics and platform-link choices tied to the
 previous selection.
 
-### 3. Select four lyric lines
+### 3. Optionally select up to four lyric lines
 
 The intended product interaction is to show lyrics for the selected recording and let the user
-choose exactly four lines for the poster.
+leave lyrics off the poster or choose up to four lines.
 
 The generation endpoint currently supports:
 
-- `lyrics`: explicit text supplied by the caller, recommended as four lines;
+- `lyrics`: optional explicit text supplied by the caller, limited to four lines; an empty
+  string explicitly omits lyrics from the poster;
 - `lyrics_range`: an inclusive `start-end` string such as `11-14`; the selected range must
   resolve to exactly four non-empty LRClib lines;
 - neither field: the backend selects the first four non-empty LRClib lines;
@@ -78,12 +79,14 @@ GET /v1/lyrics?provider=<deezer|spotify>&catalog_id=<selected-result-id>
 ```
 
 The endpoint returns ordered, non-empty lyric lines with stable one-based indices and an
-`instrumental` flag. The frontend defaults to the first four lines, allows any four lines to be
+`instrumental` flag. The frontend defaults to no selected lines, allows up to four lines to be
 selected, and submits their final text as `lyrics` so the generated result exactly matches the
-selection. If lyrics are unavailable, the user can enter four lines manually. Instrumental
-recordings default to no lyric-area text and may use an optional custom short line.
+selection. An empty selection is submitted as an empty string so the backend does not fall back
+to its legacy first-four-lines behavior. If lyrics are unavailable, the user can enter up to four
+lines manually or leave the field empty. Instrumental recordings default to no lyric-area text
+and may use optional custom text of up to four lines.
 
-Four non-contiguous lines are allowed. The frontend submits explicit `lyrics`; the older
+Up to four non-contiguous lines are allowed. The frontend submits explicit `lyrics`; the older
 `lyrics_range` model remains available to direct API consumers that prefer a contiguous
 interval.
 
@@ -230,7 +233,7 @@ full complexity in the default flow unless product requirements call for manual 
 ## Design direction
 
 - Make cover artwork and the emerging poster the dominant visual material.
-- Treat the four lyric lines as an editorial selection, not a generic multi-select form.
+- Treat lyric lines as an optional editorial selection, not a generic multi-select form.
 - Use catalog metadata to establish trust and disambiguate recordings.
 - Reveal platform QR options only when requested; absence is a valid default.
 - Avoid generic AI sparkles, dashboard KPI cards, gratuitous gradients, and decoration that
@@ -238,14 +241,14 @@ full complexity in the default flow unless product requirements call for manual 
 - Use one signature interaction tied to the act of making a poster—for example a disciplined
   transition from catalog result to composed print preview—while keeping the surrounding UI
   quiet.
-- Write interface copy from the listener's perspective: “选择四行歌词,” “添加平台入口,” and
+- Write interface copy from the listener's perspective: “选择歌词,” “添加平台入口,” and
   “生成海报,” rather than exposing backend terms such as `catalog_id` or `qr_platform`.
 
 ## Definition of done for the core journey
 
 - The user can distinguish and select the correct recording.
 - The selected recording survives every later step as an exact provider/catalog reference.
-- Exactly four lyric lines are visibly selected before track generation.
+- Zero to four lyric lines can be selected before track generation.
 - No QR code is added unless the user explicitly chooses a platform.
 - A chosen non-Spotify platform cannot proceed without its matching URL.
 - The user can review theme and accent choices before generation.

@@ -129,7 +129,7 @@ async def search(
     summary="预览歌曲歌词",
     description=(
         "按搜索结果中未改变的 provider + id 获取 LRClib 歌词，"
-        "返回规范化非空行供前端任选四行。纯音乐返回 instrumental=true 和空行列表。"
+        "返回规范化非空行供前端选择最多四行。纯音乐返回 instrumental=true 和空行列表。"
     ),
     response_model=ApiResponse[LyricsPreviewData],
     response_model_exclude_none=True,

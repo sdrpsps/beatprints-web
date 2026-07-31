@@ -8,14 +8,14 @@ BeatPrints Web 前端应用，使用 React、TypeScript、Vite、Tailwind CSS v4
 BeatPrints Web 用真实歌曲或专辑的资料、封面与歌词制作可下载的 PNG 海报。核心歌曲流程是：
 
 ```text
-查询歌曲 → 选择准确版本 → 选择四行歌词 → 可选的平台二维码 → 配置样式 → 生成并下载
+查询歌曲 → 选择准确版本 → 可选最多四行歌词 → 可选的平台二维码 → 配置样式 → 生成并下载
 ```
 
 搜索结果选定后，前端必须保留并提交原始 `provider + id`，不能重新提交搜索词让后端选择
 第一条结果。元数据来源和海报上的可选平台二维码是两个不同概念。
 
-前端通过 `GET /v1/lyrics` 读取所选 `provider + catalog_id` 的规范化歌词行，默认选择
-前四行，并允许用户任选四行或手动填写。完整的产品流程、接口映射与状态见
+前端通过 `GET /v1/lyrics` 读取所选 `provider + catalog_id` 的规范化歌词行，默认不选
+歌词，并允许用户选择最多四行或手动填写；留空时海报不显示歌词。完整的产品流程、接口映射与状态见
 [`docs/frontend-product-brief.md`](../../docs/frontend-product-brief.md)。
 
 ## 开发

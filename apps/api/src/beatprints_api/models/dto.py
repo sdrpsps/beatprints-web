@@ -308,13 +308,12 @@ class TrackPosterRequest(PosterSource):
     lyrics: Annotated[
         str | None,
         Field(
-            min_length=1,
             max_length=2000,
             description=(
-                "直接显示在海报上的歌词。提供后不会查询 LRClib，"
-                "并优先于 lyrics_range。建议提供四行。"
+                "直接显示在海报上的可选歌词。提供后不会查询 LRClib，"
+                "并优先于 lyrics_range。空字符串表示不显示歌词，最多四行。"
             ),
-            examples=["First line\nSecond line\nThird line\nFourth line"],
+            examples=["", "First line\nSecond line\nThird line\nFourth line"],
         ),
     ] = None
     lyrics_range: Annotated[
@@ -565,7 +564,7 @@ class LyricsLine(BaseModel):
 
 
 class LyricsPreviewData(BaseModel):
-    """供前端选择四行歌词使用的预览结果。"""
+    """供前端选择最多四行可选歌词使用的预览结果。"""
 
     provider: CatalogProvider
     catalog_id: int | str
@@ -578,7 +577,7 @@ class LyricsPreviewData(BaseModel):
         Field(
             description=(
                 "按原歌词顺序返回的非空歌词。纯音乐时为空；"
-                "前端默认选中前四行，但允许任选四行。"
+                "前端默认不选中歌词，允许选择最多四行。"
             ),
         ),
     ]

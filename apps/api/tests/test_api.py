@@ -102,6 +102,32 @@ def test_track_returns_png(monkeypatch) -> None:
     assert response.headers["x-process-time"]
 
 
+def test_track_endpoint_accepts_empty_lyrics(monkeypatch) -> None:
+    captured: dict[str, str | None] = {}
+
+    def generate(request):
+        captured["lyrics"] = request.lyrics
+        return posters.beatprints_service.PosterResult(
+            b"\x89PNG\r\n\x1a\n",
+            "poster.png",
+            {},
+        )
+
+    monkeypatch.setattr(posters.beatprints_service, "generate_track", generate)
+
+    response = client.post(
+        "/v1/posters/track",
+        json={
+            "provider": "deezer",
+            "catalog_id": 5416564,
+            "lyrics": "",
+        },
+    )
+
+    assert response.status_code == 200
+    assert captured["lyrics"] == ""
+
+
 def test_poster_response_supports_unicode_filenames(monkeypatch) -> None:
     monkeypatch.setattr(
         posters.beatprints_service,
@@ -421,6 +447,20 @@ def test_track_allows_empty_instrumental_text() -> None:
     )
 
     assert request.instrumental_text == ""
+
+
+def test_track_allows_empty_explicit_lyrics() -> None:
+    from beatprints_api.models import TrackPosterRequest
+    from beatprints_api.services.beatprints import _select_lyrics
+
+    request = TrackPosterRequest(
+        provider="deezer",
+        catalog_id=5416564,
+        lyrics="",
+    )
+
+    assert request.lyrics == ""
+    assert _select_lyrics(SimpleNamespace(), request) == ""
 
 
 def test_empty_instrumental_text_is_safe_for_upstream_renderer() -> None:
