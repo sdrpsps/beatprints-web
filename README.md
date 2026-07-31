@@ -67,9 +67,10 @@ make docker:up
 GitHub Actions 会使用 `apps/api/Dockerfile` 构建同时包含 Web 前端与 API 的
 `linux/amd64` 和 `linux/arm64` 单镜像：
 
-- Pull Request：只构建验证，不推送镜像。
+- Pull Request：只原生构建 `linux/amd64` 验证，不推送镜像，以便快速反馈。
 - 推送到 `main`：由 Release Please 创建或更新 Release PR，不推送 Docker 镜像。
-- 推送 `v1.2.3` Git tag：发布 `1.2.3`、`1.2`、`1`、`latest` 和 SHA 标签。
+- 推送 `v1.2.3` Git tag：在 GitHub 托管的 amd64 与 arm64 runner 上分别原生构建，
+  再合并发布 `1.2.3`、`1.2`、`1`、`latest` 和 SHA 多架构标签。
 - 仅修改 Markdown、`docs/` 或 `LICENSE` 时不会触发镜像构建；仍可手动运行工作流。
 
 页面页脚会显示构建版本和短 Git SHA；`/health` 会返回完整版本和 SHA，OpenAPI 文档使用
