@@ -14,7 +14,7 @@ export function SiteFooter() {
       <div className="flex items-center gap-[22px] max-sm:flex-col max-sm:items-start max-sm:gap-3">
         <a
           className="inline-flex items-center gap-[7px] text-[13px] text-muted-foreground no-underline transition-colors duration-150 hover:text-foreground motion-reduce:transition-none [&_svg]:size-3.5"
-          href="https://github.com/sdrpsps/byteshare"
+          href="https://github.com/sdrpsps/beatprints-web"
           target="_blank"
           rel="noreferrer"
         >
