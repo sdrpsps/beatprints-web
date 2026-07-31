@@ -7,17 +7,12 @@ import {
   fetchPlatformCandidates,
   fetchLyrics,
   generatePoster,
-  matchAppleMusic,
-  matchSpotifyFromDeezer,
-  matchChinaPlatform,
-  resolveAppleMusicUrl,
-  resolveSpotifyUrl,
-  resolveChinaPlatformUrl,
+  matchPlatformLink,
   resolvePlatformUrl,
   searchCatalog,
 } from "@/features/poster/api"
 import type {
-  AppleMusicMatch,
+  PlatformLinkMatch,
   LyricsLine,
   CatalogProvider,
   PosterKind,
@@ -146,7 +141,7 @@ export function usePosterStudio() {
   const [appleMusicState, setAppleMusicState] = useState<
     "idle" | "loading" | "success" | "error"
   >("idle")
-  const [appleMusicMatch, setAppleMusicMatch] = useState<AppleMusicMatch>()
+  const [appleMusicMatch, setAppleMusicMatch] = useState<PlatformLinkMatch>()
   const [appleMusicError, setAppleMusicError] = useState<string>()
   const [appleMusicLinkMode, setAppleMusicLinkMode] = useState<
     "automatic" | "manual"
@@ -154,21 +149,21 @@ export function usePosterStudio() {
   const [appleMusicManualState, setAppleMusicManualState] = useState<
     "idle" | "loading" | "success" | "error"
   >("idle")
-  const [appleMusicManualMatch, setAppleMusicManualMatch] = useState<AppleMusicMatch>()
+  const [appleMusicManualMatch, setAppleMusicManualMatch] = useState<PlatformLinkMatch>()
   const [appleMusicManualError, setAppleMusicManualError] = useState<string>()
   const [spotifyMatchState, setSpotifyMatchState] = useState<"idle" | "loading" | "success" | "error">("idle")
-  const [spotifyMatch, setSpotifyMatch] = useState<AppleMusicMatch>()
+  const [spotifyMatch, setSpotifyMatch] = useState<PlatformLinkMatch>()
   const [spotifyMatchError, setSpotifyMatchError] = useState<string>()
   const [spotifyLinkMode, setSpotifyLinkMode] = useState<"automatic" | "manual">("automatic")
   const [spotifyManualState, setSpotifyManualState] = useState<"idle" | "loading" | "success" | "error">("idle")
-  const [spotifyManualMatch, setSpotifyManualMatch] = useState<AppleMusicMatch>()
+  const [spotifyManualMatch, setSpotifyManualMatch] = useState<PlatformLinkMatch>()
   const [spotifyManualError, setSpotifyManualError] = useState<string>()
   const [chinaState, setChinaState] = useState<"idle" | "loading" | "success" | "error">("idle")
-  const [chinaMatch, setChinaMatch] = useState<AppleMusicMatch>()
+  const [chinaMatch, setChinaMatch] = useState<PlatformLinkMatch>()
   const [chinaError, setChinaError] = useState<string>()
   const [chinaMode, setChinaMode] = useState<"automatic" | "manual">("automatic")
   const [chinaManualState, setChinaManualState] = useState<"idle" | "loading" | "success" | "error">("idle")
-  const [chinaManualMatch, setChinaManualMatch] = useState<AppleMusicMatch>()
+  const [chinaManualMatch, setChinaManualMatch] = useState<PlatformLinkMatch>()
   const [chinaManualError, setChinaManualError] = useState<string>()
   const [platformChoiceMode, setPlatformChoiceMode] = useState<
     "automatic" | "candidates" | "manual"
@@ -177,7 +172,7 @@ export function usePosterStudio() {
     "idle" | "loading" | "success" | "error"
   >("idle")
   const [platformCandidates, setPlatformCandidates] = useState<
-    AppleMusicMatch[]
+    PlatformLinkMatch[]
   >([])
   const [platformCandidateError, setPlatformCandidateError] =
     useState<string>()
@@ -442,7 +437,7 @@ export function usePosterStudio() {
       const controller = new AbortController()
       appleMusicRequest.current = controller
       setAppleMusicState("loading")
-      void matchAppleMusic(selected.provider, selected.id, kind, controller.signal)
+      void matchPlatformLink("apple_music", selected.provider, selected.id, kind, controller.signal)
         .then((match) => {
           if (controller.signal.aborted) return
           setPlatformUrlState(match.url)
@@ -461,7 +456,7 @@ export function usePosterStudio() {
       const controller = new AbortController()
       appleMusicRequest.current = controller
       setSpotifyMatchState("loading")
-      void matchSpotifyFromDeezer(selected.id, kind, controller.signal)
+      void matchPlatformLink("spotify", selected.provider, selected.id, kind, controller.signal)
         .then((match) => {
           if (controller.signal.aborted) return
           setPlatformUrlState(match.url)
@@ -478,7 +473,7 @@ export function usePosterStudio() {
       const controller = new AbortController()
       appleMusicRequest.current = controller
       setChinaState("loading")
-      void matchChinaPlatform(
+      void matchPlatformLink(
         value,
         selected.provider,
         selected.id,
@@ -567,7 +562,7 @@ export function usePosterStudio() {
     setSpotifyManualState("loading")
     setSpotifyManualError(undefined)
     try {
-      const match = await resolveSpotifyUrl(platformUrl.trim(), controller.signal)
+      const match = await resolvePlatformUrl("spotify", platformUrl.trim(), controller.signal)
       if (controller.signal.aborted) return
       setSpotifyManualMatch(match)
       setSpotifyManualState("success")
@@ -607,7 +602,7 @@ export function usePosterStudio() {
     setChinaManualState("loading")
     setChinaManualError(undefined)
     try {
-      const match = await resolveChinaPlatformUrl(
+      const match = await resolvePlatformUrl(
         qrPlatform,
         platformUrl.trim(),
         controller.signal,
@@ -642,7 +637,7 @@ export function usePosterStudio() {
     setAppleMusicManualState("loading")
     setAppleMusicManualError(undefined)
     try {
-      const match = await resolveAppleMusicUrl(platformUrl.trim(), controller.signal)
+      const match = await resolvePlatformUrl("apple_music", platformUrl.trim(), controller.signal)
       if (controller.signal.aborted) return
       setAppleMusicManualMatch(match)
       setAppleMusicManualState("success")
@@ -722,7 +717,7 @@ export function usePosterStudio() {
     setPlatformCandidateResolvingUrl(undefined)
   }
 
-  async function selectPlatformCandidate(candidate: AppleMusicMatch) {
+  async function selectPlatformCandidate(candidate: PlatformLinkMatch) {
     if (!qrPlatform) return
     appleMusicRequest.current?.abort()
     const controller = new AbortController()

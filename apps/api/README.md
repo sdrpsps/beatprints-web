@@ -222,43 +222,29 @@ Link。推荐优先传平台分享功能生成的 HTTPS/Universal Link：扫码�
 
 使用 Spotify 作为 `provider`、同时明确选择
 `"qr_platform": "spotify"` 时，可以省略 `platform_links.spotify`，服务会使用 Spotify
-元数据返回的歌曲或专辑链接。Apple Music 也支持对已选 Spotify 或 Deezer 条目自动匹配：
+元数据返回的歌曲或专辑链接。所有目标平台都使用同一套链接匹配接口；`platform` 为
+`spotify`、`apple_music`、`qq_music` 或 `netease_music`：
 
 ```bash
-curl "http://localhost:8000/v1/platform-links/apple-music?provider=deezer&catalog_id=5416564&type=track"
+curl "http://localhost:8000/v1/platform-links/apple_music?provider=deezer&catalog_id=5416564&type=track"
 ```
 
-该接口先读取未改变的 `provider + catalog_id`，再使用标题、艺人、专辑和时长（专辑为发行年）
-保守匹配当前 Apple Music storefront；只有足够确定时才返回 `url`。调用方将该 URL 写入
-`platform_links.apple_music` 后再生成海报。无可信结果会返回 404，不能把近似同名作品静默用作二维码。
-未指定 `qr_platform` 时不会因为数据源是 Spotify 而自动显示。QQ 音乐和网易云音乐仍需要调用方
-完成跨平台匹配后传入对应链接。
+该接口始终先读取未经改变的 `provider + catalog_id`，再用目标平台各自的严格规则确认匹配；
+无可信结果返回 404，绝不会把近似同名作品静默用作二维码。Spotify 同源条目直接复用其规范链接；
+Deezer 到 Spotify 的歌曲优先使用 ISRC，其他情况使用标题、艺人、发行信息、时长或曲目数的严格
+组合校验。调用方将成功结果的 `url` 写入对应 `platform_links.<platform>` 后生成海报。未指定
+`qr_platform` 时，数据源是 Spotify 也不会自动显示二维码。
 
-已选 Deezer 条目且目标平台是 Spotify 时，也可以自动匹配：
-
-```bash
-curl "http://localhost:8000/v1/platform-links/spotify?provider=deezer&catalog_id=5416564&type=track"
-```
-
-歌曲优先使用 Deezer 的 ISRC 精确匹配；缺少 ISRC 或找不到精确结果时，服务只会接受标题、艺人和
-时长均达到严格阈值的 Spotify 结果。专辑使用严格的标题和艺人匹配。没有可信结果时返回 404，不会
-静默选择同名作品。手动输入 Spotify URL 后，可调用下面接口读取该链接当前对应的公开资料，用于刷新
-前端确认卡片；它不会改写海报所选的 Deezer 来源资料、歌词或封面。
+自动结果不存在、被用户拒绝或需要手动输入链接时，使用同一资源族的候选与解析端点：
 
 ```bash
+curl "http://localhost:8000/v1/platform-links/apple_music/candidates?provider=deezer&catalog_id=5416564&type=track&limit=8"
 curl --get "http://localhost:8000/v1/platform-links/spotify/resolve" \
   --data-urlencode "url=https://open.spotify.com/track/7lp5evZr7qEDwlv5PS8b6i"
 ```
 
-手动输入 Apple Music URL 时，可用下面接口读取该 URL 当前对应的公开曲目或专辑资料，用于更新
-前端确认卡片：
-
-```bash
-curl --get "http://localhost:8000/v1/platform-links/apple-music/resolve" \
-  --data-urlencode "url=https://music.apple.com/us/album/example/123456789?i=123456790"
-```
-
-该接口不会改变生成海报使用的 Spotify 或 Deezer 元数据；它只帮助用户核对手动二维码目标。
+`/candidates` 提供可由用户确认的排序候选；`/resolve` 读取所选公开链接的当前资料，用于刷新目标
+平台确认卡片。两者均支持四个平台，且不会改写海报使用的 Spotify / Deezer 来源资料、歌词或封面。
 
 选择 Spotify 且链接是标准的 Spotify 歌曲或专辑链接时，海报左下角会使用 Spotify
 提供的原生 Spotify Code PNG（可由 Spotify App 的“搜索 → 扫描”识别），而不是普通
@@ -266,10 +252,9 @@ curl --get "http://localhost:8000/v1/platform-links/apple-music/resolve" \
 Spotify Code 由 Spotify 的 scannable 图服务生成，不需要额外的开发者凭据。不能解析为
 标准 Spotify 歌曲或专辑链接时，服务会保留普通二维码作为兼容回退。
 
-Apple Music、QQ 音乐和网易云音乐继续使用普通二维码：深色模块和平台名称会使用从专辑
-封面提取的颜色。服务优先选择饱和度较高、且与白色背景达到安全对比度的封面颜色；封面颜色
-全部过浅时，会把选中的颜色压暗到足以扫描，而不是退回固定黑色。二维码背景和 quiet zone
-始终保持白色，以提高相机识别稳定性。
+Apple Music、QQ 音乐和网易云音乐继续使用普通二维码。所有平台标记和二维码均使用同一套
+海报主题色规则；平台之间只允许标记与编码格式不同，不能为 Apple Music 或其他平台另走封面
+取色路径。二维码背景和 quiet zone 始终保持白色，以提高相机识别稳定性。
 
 Apple Music 会使用 Apple Music Symbol 加二维码的紧凑组合，并与 Spotify Code 一样采用海报主题色，
 以保持相同的视觉位置、比例和配色逻辑。它不是 App Clip Code；扫码仍会打开调用方提供的

@@ -237,188 +237,63 @@ def test_lyrics_preview_preserves_catalog_reference(monkeypatch) -> None:
     }
 
 
-def test_apple_music_match_preserves_selected_catalog_reference(monkeypatch) -> None:
+@pytest.mark.parametrize(
+    ("platform", "item_type"),
+    [
+        ("spotify", "track"), ("spotify", "album"),
+        ("apple_music", "track"), ("apple_music", "album"),
+        ("qq_music", "track"), ("qq_music", "album"),
+        ("netease_music", "track"), ("netease_music", "album"),
+    ],
+)
+def test_every_platform_automatically_matches_the_selected_catalog_reference(
+    monkeypatch, platform: str, item_type: str
+) -> None:
     seen: dict[str, str] = {}
 
-    def match(provider: str, catalog_id: str, item_type: str) -> dict:
-        seen.update(provider=provider, catalog_id=catalog_id, item_type=item_type)
+    def match(
+        provider: str, catalog_id: str, matched_type: str, matched_platform: str
+    ) -> dict:
+        seen.update(
+            provider=provider,
+            catalog_id=catalog_id,
+            item_type=matched_type,
+            platform=matched_platform,
+        )
         return {
-            "url": "https://music.apple.com/us/album/example/123456789?i=123456790",
+            "url": f"https://example.com/{matched_platform}/{matched_type}",
             "title": "Example",
             "artists": ["Artist"],
-            "album": "Example Album",
-            "type": item_type,
+            "type": matched_type,
         }
 
-    monkeypatch.setattr(catalog.beatprints_service, "match_apple_music", match)
+    monkeypatch.setattr(catalog.beatprints_service, "match_platform_link", match)
 
     response = client.get(
-        "/v1/platform-links/apple-music",
-        params={"provider": "deezer", "catalog_id": "5416564", "type": "track"},
+        f"/v1/platform-links/{platform}",
+        params={"provider": "deezer", "catalog_id": "source-id", "type": item_type},
     )
 
     assert response.status_code == 200
-    assert seen == {"provider": "deezer", "catalog_id": "5416564", "item_type": "track"}
-    assert response.json()["data"] == {
-        "url": "https://music.apple.com/us/album/example/123456789?i=123456790",
-        "title": "Example",
-        "artists": ["Artist"],
-        "album": "Example Album",
-        "type": "track",
-    }
+    assert seen == {"provider": "deezer", "catalog_id": "source-id", "item_type": item_type, "platform": platform}
+    assert response.json()["data"]["type"] == item_type
 
 
-def test_apple_music_match_returns_not_found_when_not_confident(monkeypatch) -> None:
+def test_platform_match_returns_not_found_when_not_confident(monkeypatch) -> None:
     def no_match(*_args: object) -> None:
-        raise catalog.beatprints_service.AppleMusicNoMatchError(
+        raise catalog.beatprints_service.PlatformLinkNoMatchError(
             "No confident Apple Music match was found"
         )
 
-    monkeypatch.setattr(catalog.beatprints_service, "match_apple_music", no_match)
+    monkeypatch.setattr(catalog.beatprints_service, "match_platform_link", no_match)
 
     response = client.get(
-        "/v1/platform-links/apple-music",
+        "/v1/platform-links/apple_music",
         params={"provider": "spotify", "catalog_id": "track-id", "type": "track"},
     )
 
     assert response.status_code == 404
     assert response.json()["message"] == "No confident Apple Music match was found"
-
-
-def test_apple_music_link_resolve_returns_link_metadata(monkeypatch) -> None:
-    seen: dict[str, str] = {}
-
-    def resolve(url: str) -> dict:
-        seen["url"] = url
-        return {
-            "url": url,
-            "title": "Manual match",
-            "artists": ["Artist"],
-            "album": "Album",
-            "cover_url": "https://example.com/cover.jpg",
-            "type": "track",
-        }
-
-    monkeypatch.setattr(catalog.beatprints_service, "resolve_apple_music_url", resolve)
-    url = "https://music.apple.com/us/album/example/123456789?i=123456790"
-
-    response = client.get("/v1/platform-links/apple-music/resolve", params={"url": url})
-
-    assert response.status_code == 200
-    assert seen == {"url": url}
-    assert response.json()["data"]["cover_url"] == "https://example.com/cover.jpg"
-
-
-def test_deezer_track_can_match_spotify(monkeypatch) -> None:
-    monkeypatch.setattr(
-        catalog.beatprints_service,
-        "match_deezer_to_spotify",
-        lambda catalog_id, item_type: {
-            "url": "https://open.spotify.com/track/spotify-track-id",
-            "title": "Example",
-            "artists": ["Artist"],
-            "album": "Album",
-            "cover_url": "https://i.scdn.co/image/example",
-            "type": item_type,
-        },
-    )
-
-    response = client.get(
-        "/v1/platform-links/spotify",
-        params={"provider": "deezer", "catalog_id": "5416564", "type": "track"},
-    )
-
-    assert response.status_code == 200
-    assert response.json()["data"]["url"] == "https://open.spotify.com/track/spotify-track-id"
-
-
-def test_deezer_album_can_match_spotify(monkeypatch) -> None:
-    seen: dict[str, str] = {}
-
-    def match(catalog_id: str, item_type: str) -> dict:
-        seen["catalog_id"] = catalog_id
-        seen["item_type"] = item_type
-        return {
-            "url": "https://open.spotify.com/album/spotify-album-id",
-            "title": "Example album",
-            "artists": ["Artist"],
-            "release_year": 1983,
-            "track_count": 10,
-            "cover_url": "https://i.scdn.co/image/example",
-            "type": item_type,
-        }
-
-    monkeypatch.setattr(catalog.beatprints_service, "match_deezer_to_spotify", match)
-
-    response = client.get(
-        "/v1/platform-links/spotify",
-        params={"provider": "deezer", "catalog_id": "302127", "type": "album"},
-    )
-
-    assert response.status_code == 200
-    assert seen == {"catalog_id": "302127", "item_type": "album"}
-    assert response.json()["data"] == {
-        "url": "https://open.spotify.com/album/spotify-album-id",
-        "title": "Example album",
-        "artists": ["Artist"],
-        "release_year": 1983,
-        "track_count": 10,
-        "cover_url": "https://i.scdn.co/image/example",
-        "type": "album",
-    }
-
-
-def test_spotify_link_resolve_returns_link_metadata(monkeypatch) -> None:
-    seen: dict[str, str] = {}
-
-    def resolve(url: str) -> dict:
-        seen["url"] = url
-        return {
-            "url": url,
-            "title": "Manual Spotify match",
-            "artists": ["Artist"],
-            "album": "Album",
-            "cover_url": "https://i.scdn.co/image/example",
-            "type": "track",
-        }
-
-    monkeypatch.setattr(catalog.beatprints_service, "resolve_spotify_url", resolve)
-    url = "https://open.spotify.com/track/7lp5evZr7qEDwlv5PS8b6i"
-
-    response = client.get("/v1/platform-links/spotify/resolve", params={"url": url})
-
-    assert response.status_code == 200
-    assert seen == {"url": url}
-    assert response.json()["data"]["cover_url"] == "https://i.scdn.co/image/example"
-
-
-def test_spotify_album_link_resolve_returns_link_metadata(monkeypatch) -> None:
-    def resolve(url: str) -> dict:
-        return {
-            "url": url,
-            "title": "Manual Spotify album",
-            "artists": ["Artist"],
-            "release_year": 1999,
-            "track_count": 12,
-            "cover_url": "https://i.scdn.co/image/example",
-            "type": "album",
-        }
-
-    monkeypatch.setattr(catalog.beatprints_service, "resolve_spotify_url", resolve)
-    url = "https://open.spotify.com/album/7xvBUHu5e17ZVM52T5o1sR"
-
-    response = client.get("/v1/platform-links/spotify/resolve", params={"url": url})
-
-    assert response.status_code == 200
-    assert response.json()["data"] == {
-        "url": url,
-        "title": "Manual Spotify album",
-        "artists": ["Artist"],
-        "release_year": 1999,
-        "track_count": 12,
-        "cover_url": "https://i.scdn.co/image/example",
-        "type": "album",
-    }
 
 
 @pytest.mark.parametrize(
@@ -515,16 +390,7 @@ def test_candidate_selection_resolves_current_platform_metadata(
             "type": "track",
         }
 
-    if platform == "spotify":
-        monkeypatch.setattr(
-            catalog.beatprints_service,
-            "resolve_spotify_url",
-            lambda url: resolve("spotify", url),
-        )
-    else:
-        monkeypatch.setattr(
-            catalog.beatprints_service, "resolve_platform_url", resolve
-        )
+    monkeypatch.setattr(catalog.beatprints_service, "resolve_platform_url", resolve)
     url = f"https://example.com/{platform}/track/1"
 
     response = client.get(

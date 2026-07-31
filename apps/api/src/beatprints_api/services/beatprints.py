@@ -92,8 +92,8 @@ class UpstreamError(RuntimeError):
     """Raised when a metadata, lyrics, or cover provider fails."""
 
 
-class AppleMusicNoMatchError(UpstreamError):
-    """Raised when Apple Music has no sufficiently confident catalog match."""
+class PlatformLinkNoMatchError(UpstreamError):
+    """Raised when a QR destination link cannot be confidently matched or resolved."""
 
 
 @dataclass(frozen=True)
@@ -197,7 +197,7 @@ def _apple_music_result_data(result: dict) -> AppleMusicMatchData:
     title = result.get("trackName") if is_track else result.get("collectionName")
     url = result.get("trackViewUrl") if is_track else result.get("collectionViewUrl")
     if not isinstance(title, str) or not isinstance(url, str):
-        raise AppleMusicNoMatchError("Apple Music did not return a usable catalog item")
+        raise PlatformLinkNoMatchError("Apple Music did not return a usable catalog item")
     return AppleMusicMatchData(
         url=url,
         title=title,
@@ -221,13 +221,13 @@ def resolve_apple_music_url(url: str) -> AppleMusicMatchData:
     parsed = urlparse(url)
     host = (parsed.hostname or "").lower()
     if not (host == "music.apple.com" or host.endswith(".music.apple.com")):
-        raise AppleMusicNoMatchError("URL is not an Apple Music link")
+        raise PlatformLinkNoMatchError("URL is not an Apple Music link")
     track_ids = parse_qs(parsed.query).get("i", [])
     identifier = track_ids[0] if track_ids else next(
         (part for part in reversed(parsed.path.split("/")) if part.isdigit()), None
     )
     if not identifier:
-        raise AppleMusicNoMatchError("Apple Music link does not contain a catalog ID")
+        raise PlatformLinkNoMatchError("Apple Music link does not contain a catalog ID")
     try:
         response = cover_client.get(
             "https://itunes.apple.com/lookup",
@@ -240,7 +240,7 @@ def resolve_apple_music_url(url: str) -> AppleMusicMatchData:
     for result in results:
         if isinstance(result, dict) and result.get("wrapperType") in {"track", "collection"}:
             return _apple_music_result_data(result)
-    raise AppleMusicNoMatchError("Apple Music link did not resolve to a catalog item")
+    raise PlatformLinkNoMatchError("Apple Music link did not resolve to a catalog item")
 
 
 def _apple_music_track_match(metadata: deez.TrackMetadata) -> AppleMusicMatchData:
@@ -271,7 +271,7 @@ def _apple_music_track_match(metadata: deez.TrackMetadata) -> AppleMusicMatchDat
         if title_score >= 0.88 and artist_score >= 0.72 and score >= 0.84:
             candidates.append((score, candidate))
     if not candidates:
-        raise AppleMusicNoMatchError("No confident Apple Music match was found")
+        raise PlatformLinkNoMatchError("No confident Apple Music match was found")
     _score, match = max(candidates, key=lambda item: item[0])
     return AppleMusicMatchData(
         url=match["trackViewUrl"],
@@ -312,7 +312,7 @@ def _apple_music_album_match(metadata: deez.AlbumMetadata) -> AppleMusicMatchDat
         if title_score >= 0.90 and artist_score >= 0.72 and score >= 0.85:
             candidates.append((score, candidate))
     if not candidates:
-        raise AppleMusicNoMatchError("No confident Apple Music match was found")
+        raise PlatformLinkNoMatchError("No confident Apple Music match was found")
     _score, match = max(candidates, key=lambda item: item[0])
     return AppleMusicMatchData(
         url=match["collectionViewUrl"],
@@ -579,7 +579,7 @@ def match_deezer_to_spotify(
                     cover_url=candidate["cover_url"],
                     type="album",
                 )
-    raise AppleMusicNoMatchError("No confident Spotify match was found")
+    raise PlatformLinkNoMatchError("No confident Spotify match was found")
 
 
 def resolve_spotify_url(url: str) -> SpotifyMatchData:
@@ -587,7 +587,7 @@ def resolve_spotify_url(url: str) -> SpotifyMatchData:
 
     uri = _spotify_uri(url)
     if uri is None:
-        raise AppleMusicNoMatchError(
+        raise PlatformLinkNoMatchError(
             "URL is not a supported Spotify track or album link"
         )
     _prefix, item_type, catalog_id = uri.split(":", maxsplit=2)
@@ -692,6 +692,7 @@ def _confident_china_candidate(metadata: deez.TrackMetadata | deez.AlbumMetadata
 
 
 def match_china_platform(provider: str, catalog_id: int | str, item_type: str, platform: str) -> SpotifyMatchData:
+    """Conservatively match a selected catalog item to a Chinese platform."""
     metadata = (
         _track_metadata(TrackPosterRequest(provider=provider, catalog_id=catalog_id))
         if item_type == "track"
@@ -729,7 +730,28 @@ def match_china_platform(provider: str, catalog_id: int | str, item_type: str, p
             and _confident_china_candidate(metadata, candidate, item_type)
         ):
             return SpotifyMatchData(type=item_type, **candidate)
-    raise AppleMusicNoMatchError(f"No confident {platform} match was found")
+    raise PlatformLinkNoMatchError(f"No confident {platform} match was found")
+
+
+def match_platform_link(
+    provider: str, catalog_id: int | str, item_type: str, platform: str
+) -> SpotifyMatchData:
+    """Match a selected source item to one QR destination behind one public contract.
+
+    Platform-specific catalog clients and confidence checks stay here so callers never need
+    to branch on a destination. Spotify source items are resolved directly; Deezer-to-Spotify
+    remains a conservative cross-catalog match.
+    """
+
+    if platform == "apple_music":
+        return SpotifyMatchData.model_validate(
+            match_apple_music(provider, catalog_id, item_type).model_dump()
+        )
+    if platform == "spotify":
+        if provider == "spotify":
+            return resolve_spotify_url(f"spotify:{item_type}:{catalog_id}")
+        return match_deezer_to_spotify(catalog_id, item_type)
+    return match_china_platform(provider, catalog_id, item_type, platform)
 
 
 def _candidate_title_similarity(left: object, right: object) -> tuple[float, bool]:
@@ -805,7 +827,7 @@ def _candidate_score(
 def _apple_music_candidate(result: dict) -> dict | None:
     try:
         return _apple_music_result_data(result).model_dump(mode="json")
-    except AppleMusicNoMatchError:
+    except PlatformLinkNoMatchError:
         return None
 
 
@@ -918,7 +940,7 @@ def resolve_china_platform_url(platform: str, url: str) -> SpotifyMatchData:
     try:
         return SpotifyMatchData(**resolve(url))
     except china_music.ChinaMusicError as exc:
-        raise AppleMusicNoMatchError(str(exc)) from exc
+        raise PlatformLinkNoMatchError(str(exc)) from exc
 
 
 def resolve_platform_url(platform: str, url: str) -> SpotifyMatchData:

@@ -49,7 +49,8 @@ export type LyricsPreview = {
   lines: LyricsLine[]
 }
 
-export type AppleMusicMatch = {
+/** Metadata returned for a confirmed optional QR destination, regardless of platform. */
+export type PlatformLinkMatch = {
   url: string
   title: string
   artists: string[]

@@ -98,21 +98,19 @@ The metadata provider and poster platform are separate concepts:
 When the user chooses no platform, omit `qr_platform`; the poster contains no platform label
 or QR code.
 
-When Spotify supplies the metadata and `qr_platform=spotify`, the backend can reuse Spotify's
-source link. For every other source/destination combination, the frontend first requests a
-conservative automatic match using
-the selected result's unchanged `provider + id` through
-`GET /v1/platform-links/apple-music?provider=<deezer|spotify>&catalog_id=<id>&type=<track|album>`.
-Spotify, QQ Music, and NetEase Music expose equivalent automatic routes. The backend retrieves
-that exact source item and returns a link only when title, artist, and release-specific metadata
-meet the destination's strict confidence threshold.
+The frontend uses one API family for every QR destination. It must always pass the exact selected
+result's unchanged `provider + id`, never a new text query:
 
-For a Deezer source and Spotify QR destination, the frontend should similarly request
-`GET /v1/platform-links/spotify?provider=deezer&catalog_id=<id>&type=<track|album>`. The backend
-first uses the Deezer track ISRC when available, then uses a strict title, artist, and duration
-match; albums use strict title and artist matching. When the automatic result is wrong or absent,
-the listener can enter a Spotify public link and the frontend can read its current public metadata
-through `GET /v1/platform-links/spotify/resolve?url=<spotify-url>`.
+```http
+GET /v1/platform-links/<spotify|apple_music|qq_music|netease_music>
+  ?provider=<deezer|spotify>&catalog_id=<id>&type=<track|album>
+```
+
+The backend retrieves that exact source item and returns a link only when its destination-specific
+confidence checks succeed. Spotify source-to-Spotify destination reuses the canonical source
+entry; Deezer-to-Spotify track matching first uses ISRC, then applies strict title, artist, and
+duration checks. The remaining destinations use their own strict title, artist, release, duration,
+or track-count checks. These are server-side strategy differences, not different frontend flows.
 
 When an automatic result is absent or rejected, all four destinations expose ranked alternatives:
 
@@ -122,7 +120,7 @@ Candidate search deliberately has broader recall than automatic confirmation. It
 artist, album, year, duration, and track count, but never silently confirms a weak result. The UI
 shows these alternatives using the same cover/title/artist/context hierarchy as source search,
 with a “Select” action. Selecting a candidate calls
-`GET /v1/platform-links/<platform>/resolve?url=<public-url>` and uses the returned current metadata
+`GET /v1/platform-links/<spotify|apple_music|qq_music|netease_music>/resolve?url=<public-url>` and uses the returned current metadata
 for the platform confirmation card. Manual public-link entry remains the final fallback and uses
 the same resolve behavior. Candidate or manual resolution refreshes only the QR destination and
 confirmation card; the poster's source metadata, lyrics, cover, and catalog ID remain unchanged.
