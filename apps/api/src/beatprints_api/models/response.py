@@ -15,6 +15,8 @@ class ApiResponse(BaseModel, Generic[DataT]):
 
 class HealthData(BaseModel):
     status: str
+    version: str
+    git_sha: str
 
 
 class ThemesData(BaseModel):

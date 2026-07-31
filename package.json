@@ -1,5 +1,5 @@
 {
-  "name": "beatprints",
+  "name": "beatprints-web",
   "private": true,
   "packageManager": "pnpm@11.9.0",
   "devDependencies": {

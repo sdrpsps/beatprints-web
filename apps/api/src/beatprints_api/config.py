@@ -1,5 +1,40 @@
 import os
+import subprocess
 from dataclasses import dataclass
+from pathlib import Path
+
+
+def _project_root() -> Path | None:
+    for directory in Path(__file__).resolve().parents:
+        if (directory / "VERSION").is_file():
+            return directory
+    return None
+
+
+def _version_file() -> str:
+    project_root = _project_root()
+    if project_root is None:
+        return "0.0.0-dev"
+    try:
+        return (project_root / "VERSION").read_text(encoding="utf-8").strip()
+    except OSError:
+        return "0.0.0-dev"
+
+
+def _git_sha() -> str:
+    project_root = _project_root()
+    if project_root is None:
+        return "local"
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=project_root,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=1,
+        ).strip()
+    except OSError, subprocess.SubprocessError:
+        return "local"
 
 
 def _integer(name: str, default: int, minimum: int = 1) -> int:
@@ -26,6 +61,8 @@ class Settings:
     max_concurrent_jobs: int
     port: int
     workers: int
+    build_version: str
+    build_git_sha: str
 
 
 def load_settings() -> Settings:
@@ -46,6 +83,10 @@ def load_settings() -> Settings:
         max_concurrent_jobs=_integer("MAX_CONCURRENT_JOBS", 1),
         port=_integer("PORT", 8000),
         workers=_integer("WEB_CONCURRENCY", 1),
+        build_version=(os.getenv("BEATPRINTS_VERSION") or _version_file()).removeprefix(
+            "v"
+        ),
+        build_git_sha=os.getenv("BEATPRINTS_GIT_SHA") or _git_sha(),
     )
 
 

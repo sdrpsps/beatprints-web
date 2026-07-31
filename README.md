@@ -72,6 +72,10 @@ GitHub Actions 会使用 `apps/api/Dockerfile` 构建同时包含 Web 前端与 
 - 推送 `v1.2.3` Git tag：发布 `1.2.3`、`1.2`、`1` 和 SHA 标签。
 - 仅修改 Markdown、`docs/` 或 `LICENSE` 时不会触发镜像构建；仍可手动运行工作流。
 
+页面页脚会显示构建版本和短 Git SHA；`/health` 会返回完整版本和 SHA，OpenAPI 文档使用
+同一版本。发布构建以 Git tag 与 Actions SHA 为准；本地开发则以根目录 `VERSION` 和当前
+Git 工作树生成可追溯的开发版本（未提交修改会标记为 `dirty`）。
+
 镜像地址为：
 
 ```text
@@ -83,6 +87,23 @@ Package 默认可能是私有的，可在 GitHub Package 设置中调整可见�
 
 API 文档和调用示例见 [apps/api/README.md](apps/api/README.md)。部署时，将服务器的
 Nginx、Caddy 或 Traefik 反向代理到容器的 `8000` 端口即可。
+
+## 自动发布
+
+合并到 `main` 的 Conventional Commit 会由 Release Please 汇总为一个可审阅的 Release PR：
+`fix:` 递增 patch，`feat:` 递增 minor，带 `!` 或 `BREAKING CHANGE:` 的提交递增 major。
+合并该 PR 后，Release Please 会更新 `VERSION`、`pyproject.toml`、`uv.lock` 与
+`CHANGELOG.md`，并创建 `vX.Y.Z` Git tag 和 GitHub Release；该 tag 随即触发 Docker
+工作流发布镜像。
+
+首次启用时会创建 `v1.0.0` 的 Release PR。后续版本由
+[`release-please-config.json`](release-please-config.json) 和
+[`.release-please-manifest.json`](.release-please-manifest.json) 共同记录。
+
+在仓库 Actions secrets 中创建 `RELEASE_PLEASE_TOKEN`：它应是有 `Contents: Read and write`
+与 `Pull requests: Read and write` 权限的 fine-grained PAT（传统 PAT 则需要 `repo` scope）。
+必须使用 PAT，而不是默认的 `GITHUB_TOKEN`，这样 Release Please 创建的 tag 才能触发本仓库
+的 Docker 发布工作流。
 
 ## 依赖边界
 

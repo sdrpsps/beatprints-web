@@ -1,6 +1,8 @@
 import { Code2Icon, ExternalLinkIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
+import { buildInfo } from "@/lib/build-info"
+
 export function SiteFooter() {
   const { t } = useTranslation()
   return (
@@ -9,6 +11,9 @@ export function SiteFooter() {
         <strong className="text-[15px]">{t("poster.brand")}</strong>
         <p className="mt-[7px] text-xs text-muted-foreground">
           {t("app.footerDisclaimer")}
+        </p>
+        <p className="mt-2 font-mono text-[11px] tracking-[-0.01em] text-muted-foreground">
+          {buildInfo.version} · {buildInfo.shortGitSha}
         </p>
       </div>
       <div className="flex items-center gap-[22px] max-sm:flex-col max-sm:items-start max-sm:gap-3">

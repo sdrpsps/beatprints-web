@@ -14,7 +14,7 @@ from beatprints_api.config import settings
 def create_app(web_root: Path | None = None) -> FastAPI:
     app = FastAPI(
         title="BeatPrints API",
-        version="0.1.0",
+        version=settings.build_version,
         description=(
             "通过可切换的音乐平台和 LRClib 自动补全资料，或使用调用方提供的完整资料，"
             "生成 BeatPrints 风格的歌曲与专辑 PNG 海报。\n\n"

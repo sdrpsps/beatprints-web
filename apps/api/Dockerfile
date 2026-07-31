@@ -1,13 +1,18 @@
 FROM node:24-alpine AS web-builder
 
+ARG BUILD_VERSION
+ARG BUILD_GIT_SHA
+
 ENV PNPM_HOME=/pnpm \
-    PATH=/pnpm:$PATH
+    PATH=/pnpm:$PATH \
+    VITE_APP_VERSION=$BUILD_VERSION \
+    VITE_GIT_SHA=$BUILD_GIT_SHA
 
 WORKDIR /app
 
 RUN corepack enable
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml VERSION ./
 COPY apps/web/package.json ./apps/web/
 
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
@@ -50,10 +55,15 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 FROM python:3.14-slim-trixie AS runtime
 
+ARG BUILD_VERSION
+ARG BUILD_GIT_SHA
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH=/app/.venv/bin:$PATH \
     WEB_DIST_DIR=/app/web \
+    BEATPRINTS_VERSION=$BUILD_VERSION \
+    BEATPRINTS_GIT_SHA=$BUILD_GIT_SHA \
     PORT=8000 \
     WEB_CONCURRENCY=1 \
     MAX_CONCURRENT_JOBS=1
@@ -64,6 +74,7 @@ RUN useradd --create-home --uid 10001 appuser
 
 COPY --chown=appuser:appuser --from=builder /app/.venv /app/.venv
 COPY --chown=appuser:appuser --from=web-builder /app/apps/web/dist /app/web
+COPY --chown=appuser:appuser VERSION /app/VERSION
 
 USER appuser
 
