@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/sdrpsps/beatprints-web/compare/v1.0.0...v1.0.1) (2026-07-31)
+
+
+### Miscellaneous Chores
+
+* release 1.0.1 ([b891bfc](https://github.com/sdrpsps/beatprints-web/commit/b891bfc4a8cdfac27e552732ad7dbdaabfc3ccb8))
+
 ## 1.0.0 (2026-07-31)
 
 
