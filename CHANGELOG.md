@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.2](https://github.com/sdrpsps/beatprints-web/compare/v1.1.1...v1.1.2) (2026-08-03)
+
+
+### Bug Fixes
+
+* initialize palette compatibility before integrations ([330171e](https://github.com/sdrpsps/beatprints-web/commit/330171e7371e8b3805d0fa91a32c5f84118c3dd7))
+* initialize palette compatibility before integrations ([baf9418](https://github.com/sdrpsps/beatprints-web/commit/baf9418a07dee407a1d0615043c5de26c9f775d5))
+
 ## [1.1.1](https://github.com/sdrpsps/beatprints-web/compare/v1.1.0...v1.1.1) (2026-08-03)
 
 
