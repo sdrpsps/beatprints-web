@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next"
 
-import { Field, FieldLabel } from "@/components/ui/field"
+import { Field, FieldTitle } from "@/components/ui/field"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import type { Studio } from "@/features/poster/components/studio-shared"
 
@@ -9,8 +9,8 @@ export function LyricsSourcePicker({ studio }: { studio: Studio }) {
   if (studio.lyricsSources.length < 2) return null
 
   return (
-    <Field>
-      <FieldLabel>{t("poster.lyricsSourceLabel")}</FieldLabel>
+    <Field orientation="horizontal" className="justify-end">
+      <FieldTitle>{t("poster.lyricsSourceLabel")}</FieldTitle>
       <ToggleGroup
         aria-label={t("poster.lyricsSourceLabel")}
         value={studio.lyricsSource ? [studio.lyricsSource] : []}

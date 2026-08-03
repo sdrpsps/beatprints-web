@@ -48,4 +48,3 @@ def default_lyrics_source() -> LyricsSourceAdapter:
 # Importing an adapter is the sole enablement mechanism. Temporarily removing a
 # source requires commenting out one import here; no core service changes.
 from beatprints_api.integrations.lyrics import lrclib  # noqa: E402, F401
-from beatprints_api.integrations.lyrics import lrcapi  # noqa: E402, F401

@@ -136,8 +136,8 @@ curl "http://localhost:8000/v1/lyrics?provider=deezer&catalog_id=5416564&source=
 界面选择完成后应将最多四行最终文字作为 `lyrics` 提交，确保生成内容与选择一致；
 提交空字符串表示明确不显示歌词，并避免触发后端默认选择前四行的兼容行为。
 
-内置来源为 LRCLIB 和 LrcApi。LrcApi 默认使用其公开服务；通过 `LRC_API_BASE_URL`
-可以改为自托管实例，通过 `LRC_API_AUTH` 传入自托管实例所需的 Authorization 值。
+当前内置来源为 LRCLIB。新增歌词来源时，只需在歌词来源注册表中添加其适配器导入；
+前端会从 `/v1/lyrics/sources` 读取启用来源。
 
 ```bash
 curl -X POST http://localhost:8000/v1/posters/track \

@@ -299,7 +299,7 @@ def test_lyrics_preview_preserves_catalog_reference(monkeypatch) -> None:
         params={
             "provider": "deezer",
             "catalog_id": "5416564",
-            "source": "lrcapi",
+            "source": "lrclib",
         },
     )
 
@@ -307,7 +307,7 @@ def test_lyrics_preview_preserves_catalog_reference(monkeypatch) -> None:
     assert response.json()["data"] == {
         "provider": "deezer",
         "catalog_id": "5416564",
-        "source": "lrcapi",
+        "source": "lrclib",
         "instrumental": False,
         "lines": [
             {"index": 1, "text": "First line"},
@@ -325,7 +325,6 @@ def test_lyrics_sources_list_enabled_adapters(monkeypatch) -> None:
         lambda: {
             "sources": [
                 {"key": "lrclib", "label": "LRCLIB", "default": True},
-                {"key": "lrcapi", "label": "LrcApi", "default": False},
             ]
         },
     )
@@ -336,7 +335,6 @@ def test_lyrics_sources_list_enabled_adapters(monkeypatch) -> None:
     assert response.json()["data"] == {
         "sources": [
             {"key": "lrclib", "label": "LRCLIB", "default": True},
-            {"key": "lrcapi", "label": "LrcApi", "default": False},
         ]
     }
 
