@@ -182,6 +182,7 @@ class SpotifyClient:
             "cover": self._cover_url(album),
             "label": self._album_label(album),
             "link": track["external_urls"]["spotify"],
+            "isrc": (track.get("external_ids") or {}).get("isrc"),
         }
 
     def album_metadata(self, album_id: str) -> dict:

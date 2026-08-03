@@ -9,6 +9,7 @@ from beatprints_api.api import middleware as api_middleware
 from beatprints_api.api.routes import catalog, posters
 from beatprints_api.config import settings
 from beatprints_api.main import app, create_app
+from beatprints_api.models import PlatformLinkMatchData, PlatformMatchOptionsData
 from beatprints_api.spotify import SpotifyNotConfiguredError
 
 client = TestClient(app)
@@ -325,7 +326,7 @@ def test_every_platform_automatically_matches_the_selected_catalog_reference(
     seen: dict[str, str] = {}
 
     def match(
-        provider: str, catalog_id: str, matched_type: str, matched_platform: str
+        provider: str, catalog_id: str, matched_type: str, matched_platform: str, limit: int
     ) -> dict:
         seen.update(
             provider=provider,
@@ -333,40 +334,22 @@ def test_every_platform_automatically_matches_the_selected_catalog_reference(
             item_type=matched_type,
             platform=matched_platform,
         )
-        return {
-            "url": f"https://example.com/{matched_platform}/{matched_type}",
-            "title": "Example",
-            "artists": ["Artist"],
-            "type": matched_type,
-        }
+        candidate = PlatformLinkMatchData(
+            url=f"https://example.com/{matched_platform}/{matched_type}",
+            title="Example", artists=["Artist"], type=matched_type,
+        )
+        return PlatformMatchOptionsData(match=candidate, candidates=[candidate])
 
-    monkeypatch.setattr(catalog.beatprints_service, "match_platform_link", match)
+    monkeypatch.setattr(catalog.beatprints_service, "platform_match_options", match)
 
     response = client.get(
-        f"/v1/platform-links/{platform}",
+        f"/v1/platform-links/{platform}/options",
         params={"provider": "deezer", "catalog_id": "source-id", "type": item_type},
     )
 
     assert response.status_code == 200
     assert seen == {"provider": "deezer", "catalog_id": "source-id", "item_type": item_type, "platform": platform}
-    assert response.json()["data"]["type"] == item_type
-
-
-def test_platform_match_returns_not_found_when_not_confident(monkeypatch) -> None:
-    def no_match(*_args: object) -> None:
-        raise catalog.beatprints_service.PlatformLinkNoMatchError(
-            "No confident Apple Music match was found"
-        )
-
-    monkeypatch.setattr(catalog.beatprints_service, "match_platform_link", no_match)
-
-    response = client.get(
-        "/v1/platform-links/apple_music",
-        params={"provider": "spotify", "catalog_id": "track-id", "type": "track"},
-    )
-
-    assert response.status_code == 404
-    assert response.json()["message"] == "No confident Apple Music match was found"
+    assert response.json()["data"]["match"]["type"] == item_type
 
 
 @pytest.mark.parametrize(
@@ -395,7 +378,7 @@ def test_every_platform_exposes_ranked_candidates(
         candidate_type: str,
         candidate_platform: str,
         limit: int,
-    ) -> list[dict]:
+    ) -> PlatformMatchOptionsData:
         seen.update(
             provider=provider,
             catalog_id=catalog_id,
@@ -403,25 +386,21 @@ def test_every_platform_exposes_ranked_candidates(
             platform=candidate_platform,
             limit=limit,
         )
-        return [
-            {
-                "url": f"https://example.com/{platform}/{item_type}/1",
-                "title": "Candidate",
-                "artists": ["Artist"],
-                "type": item_type,
-                "album": "Candidate Album" if item_type == "track" else None,
-                "release_year": 2020,
-                "duration_seconds": 195 if item_type == "track" else None,
-                "track_count": 10 if item_type == "album" else None,
-            }
-        ]
+        candidate = PlatformLinkMatchData(
+            url=f"https://example.com/{platform}/{item_type}/1",
+            title="Candidate", artists=["Artist"], type=item_type,
+            album="Candidate Album" if item_type == "track" else None,
+            release_year=2020, duration_seconds=195 if item_type == "track" else None,
+            track_count=10 if item_type == "album" else None,
+        )
+        return PlatformMatchOptionsData(candidates=[candidate])
 
     monkeypatch.setattr(
-        catalog.beatprints_service, "platform_link_candidates", candidates
+        catalog.beatprints_service, "platform_match_options", candidates
     )
 
     response = client.get(
-        f"/v1/platform-links/{platform}/candidates",
+        f"/v1/platform-links/{platform}/options",
         params={
             "provider": "deezer",
             "catalog_id": "source-id",
@@ -438,7 +417,7 @@ def test_every_platform_exposes_ranked_candidates(
         "platform": platform,
         "limit": 6,
     }
-    assert response.json()["data"][0]["type"] == item_type
+    assert response.json()["data"]["candidates"][0]["type"] == item_type
 
 
 @pytest.mark.parametrize(

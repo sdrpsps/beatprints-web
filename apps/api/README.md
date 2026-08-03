@@ -241,24 +241,23 @@ Link。推荐优先传平台分享功能生成的 HTTPS/Universal Link：扫码�
 `spotify`、`apple_music`、`qq_music` 或 `netease_music`：
 
 ```bash
-curl "http://localhost:8000/v1/platform-links/apple_music?provider=deezer&catalog_id=5416564&type=track"
+curl "http://localhost:8000/v1/platform-links/apple_music/options?provider=deezer&catalog_id=5416564&type=track"
 ```
 
-该接口始终先读取未经改变的 `provider + catalog_id`，再用目标平台各自的严格规则确认匹配；
-无可信结果返回 404，绝不会把近似同名作品静默用作二维码。Spotify 同源条目直接复用其规范链接；
-Deezer 到 Spotify 的歌曲优先使用 ISRC，其他情况使用标题、艺人、发行信息、时长或曲目数的严格
-组合校验。调用方将成功结果的 `url` 写入对应 `platform_links.<platform>` 后生成海报。未指定
+该接口始终先读取未经改变的 `provider + catalog_id`，再使用所有目标平台共享的匹配规则。
+平台适配器只负责检索、链接解析和 Spotify ISRC 等额外能力；统一引擎负责标题版本、艺人、
+发行信息、时长、曲目数和歧义判断。响应同时包含可选的 `match` 和同次检索得到的 `candidates`，
+不会把近似同名作品静默确认。调用方将成功结果的 `url` 写入对应 `platform_links.<platform>` 后生成海报。未指定
 `qr_platform` 时，数据源是 Spotify 也不会自动显示二维码。
 
-自动结果不存在、被用户拒绝或需要手动输入链接时，使用同一资源族的候选与解析端点：
+自动结果不存在、被用户拒绝或需要手动输入链接时，使用响应中的候选或解析端点：
 
 ```bash
-curl "http://localhost:8000/v1/platform-links/apple_music/candidates?provider=deezer&catalog_id=5416564&type=track&limit=8"
 curl --get "http://localhost:8000/v1/platform-links/spotify/resolve" \
   --data-urlencode "url=https://open.spotify.com/track/7lp5evZr7qEDwlv5PS8b6i"
 ```
 
-`/candidates` 提供可由用户确认的排序候选；`/resolve` 读取所选公开链接的当前资料，用于刷新目标
+`/options` 提供自动确认与可由用户确认的排序候选；`/resolve` 读取所选公开链接的当前资料，用于刷新目标
 平台确认卡片。两者均支持四个平台，且不会改写海报使用的 Spotify / Deezer 来源资料、歌词或封面。
 
 选择 Spotify 且链接是标准的 Spotify 歌曲或专辑链接时，海报左下角会使用 Spotify

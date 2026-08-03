@@ -72,9 +72,9 @@ def qq_search(query: str, item_type: str) -> list[dict]:
     result: list[dict] = []
     for row in rows:
         if item_type == "track" and row.get("songmid"):
-            result.append({"title": row.get("songname"), "artists": _artists(row.get("singer")), "album": row.get("albumname"), "duration_seconds": row.get("interval"), "release_year": _year(row.get("pubtime")), "cover_url": f"https://y.gtimg.cn/music/photo_new/T002R300x300M000{row.get('albummid')}.jpg", "url": f"https://y.qq.com/n/ryqq/songDetail/{row['songmid']}"})
+            result.append({"platform_id": row["songmid"], "title": row.get("songname"), "artists": _artists(row.get("singer")), "album": row.get("albumname"), "duration_seconds": row.get("interval"), "release_year": _year(row.get("pubtime")), "cover_url": f"https://y.gtimg.cn/music/photo_new/T002R300x300M000{row.get('albummid')}.jpg", "url": f"https://y.qq.com/n/ryqq/songDetail/{row['songmid']}"})
         elif item_type == "album" and row.get("albumMID"):
-            result.append({"title": row.get("albumName"), "artists": _artists(row.get("singer_list")), "release_year": _year(row.get("publicTime")), "track_count": row.get("song_count"), "cover_url": _secure_url(row.get("albumPic")), "url": f"https://y.qq.com/n/ryqq/albumDetail/{row['albumMID']}"})
+            result.append({"platform_id": row["albumMID"], "title": row.get("albumName"), "artists": _artists(row.get("singer_list")), "release_year": _year(row.get("publicTime")), "track_count": row.get("song_count"), "cover_url": _secure_url(row.get("albumPic")), "url": f"https://y.qq.com/n/ryqq/albumDetail/{row['albumMID']}"})
     return result
 
 
@@ -88,20 +88,25 @@ def netease_search(query: str, item_type: str) -> list[dict]:
     for row in rows:
         if item_type == "track" and row.get("id"):
             album = row.get("album") or {}
-            output.append({"title": row.get("name"), "artists": _artists(row.get("artists")), "album": album.get("name"), "duration_seconds": round((row.get("duration") or 0) / 1000), "release_year": _year(album.get("publishTime")), "cover_url": album.get("picUrl"), "url": f"https://music.163.com/#/song?id={row['id']}"})
+            output.append({"platform_id": row["id"], "title": row.get("name"), "artists": _artists(row.get("artists")), "album": album.get("name"), "duration_seconds": round((row.get("duration") or 0) / 1000), "release_year": _year(album.get("publishTime")), "cover_url": album.get("picUrl"), "url": f"https://music.163.com/#/song?id={row['id']}"})
         elif item_type == "album" and row.get("id"):
-            output.append({"title": row.get("name"), "artists": _artists(row.get("artists")), "release_year": _year(row.get("publishTime")), "track_count": row.get("size"), "cover_url": row.get("picUrl"), "url": f"https://music.163.com/#/album?id={row['id']}"})
+            output.append({"platform_id": row["id"], "title": row.get("name"), "artists": _artists(row.get("artists")), "release_year": _year(row.get("publishTime")), "track_count": row.get("size"), "cover_url": row.get("picUrl"), "url": f"https://music.163.com/#/album?id={row['id']}"})
     return output
 
 
 def _id_from_url(url: str, platform: str) -> tuple[str, str] | None:
     parsed = urlparse(url)
-    if platform == "qq_music":
+    hostname = (parsed.hostname or "").lower()
+    if platform == "qq_music" and (
+        hostname == "y.qq.com" or hostname.endswith(".y.qq.com")
+    ):
         parts = [part for part in parsed.path.split("/") if part]
         for kind, item_type in (("songDetail", "track"), ("albumDetail", "album")):
             if kind in parts and parts.index(kind) + 1 < len(parts):
                 return item_type, parts[parts.index(kind) + 1]
-    if platform == "netease_music" and parsed.hostname and parsed.hostname.endswith("music.163.com"):
+    if platform == "netease_music" and (
+        hostname == "music.163.com" or hostname.endswith(".music.163.com")
+    ):
         params = parse_qs(parsed.query or parsed.fragment.split("?", 1)[-1])
         item_id = (params.get("id") or [None])[0]
         if item_id:

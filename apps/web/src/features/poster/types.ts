@@ -62,6 +62,11 @@ export type PlatformLinkMatch = {
   cover_url?: string
 }
 
+export type PlatformMatchOptions = {
+  match?: PlatformLinkMatch
+  candidates: PlatformLinkMatch[]
+}
+
 export type PosterPreferences = {
   kind: PosterKind
   theme: Theme

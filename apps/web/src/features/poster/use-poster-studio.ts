@@ -4,10 +4,9 @@ import { useTranslation } from "react-i18next"
 
 import {
   ApiError,
-  fetchPlatformCandidates,
   fetchLyrics,
+  fetchPlatformMatchOptions,
   generatePoster,
-  matchPlatformLink,
   resolvePlatformUrl,
   searchCatalog,
 } from "@/features/poster/api"
@@ -433,69 +432,91 @@ export function usePosterStudio() {
     setPlatformCandidateError(undefined)
     setPlatformCandidateResolvingUrl(undefined)
     markOutputStale()
+
     if (value === "apple_music" && selected) {
       const controller = new AbortController()
       appleMusicRequest.current = controller
       setAppleMusicState("loading")
-      void matchPlatformLink("apple_music", selected.provider, selected.id, kind, controller.signal)
-        .then((match) => {
+      setPlatformCandidateState("loading")
+      void fetchPlatformMatchOptions("apple_music", selected.provider, selected.id, kind, controller.signal)
+        .then(({ match, candidates }) => {
           if (controller.signal.aborted) return
-          setPlatformUrlState(match.url)
-          setAppleMusicMatch(match)
-          setAppleMusicState("success")
+          setPlatformCandidates(candidates)
+          setPlatformCandidateState("success")
+          if (match) {
+            setPlatformUrlState(match.url)
+            setAppleMusicMatch(match)
+            setAppleMusicState("success")
+          } else {
+            setAppleMusicState("error")
+            setPlatformChoiceMode("candidates")
+          }
         })
         .catch((error: unknown) => {
           if (controller.signal.aborted) return
           setAppleMusicState("error")
-          setAppleMusicError(
-            friendlyError(error, t("poster.errors.appleMusicMatchError"), t).message,
-          )
+          setPlatformCandidateState("error")
+          setPlatformCandidateError(friendlyError(error, t("poster.errors.appleMusicMatchError"), t).message)
+          setPlatformChoiceMode("candidates")
         })
     }
     if (value === "spotify" && selected?.provider === "deezer") {
       const controller = new AbortController()
       appleMusicRequest.current = controller
       setSpotifyMatchState("loading")
-      void matchPlatformLink("spotify", selected.provider, selected.id, kind, controller.signal)
-        .then((match) => {
+      setPlatformCandidateState("loading")
+      void fetchPlatformMatchOptions("spotify", selected.provider, selected.id, kind, controller.signal)
+        .then(({ match, candidates }) => {
           if (controller.signal.aborted) return
-          setPlatformUrlState(match.url)
-          setSpotifyMatch(match)
-          setSpotifyMatchState("success")
+          setPlatformCandidates(candidates)
+          setPlatformCandidateState("success")
+          if (match) {
+            setPlatformUrlState(match.url)
+            setSpotifyMatch(match)
+            setSpotifyMatchState("success")
+          } else {
+            setSpotifyMatchState("error")
+            setPlatformChoiceMode("candidates")
+          }
         })
         .catch((error: unknown) => {
           if (controller.signal.aborted) return
           setSpotifyMatchState("error")
-          setSpotifyMatchError(friendlyError(error, t("poster.errors.spotifyMatchError"), t).message)
+          setPlatformCandidateState("error")
+          setPlatformCandidateError(friendlyError(error, t("poster.errors.spotifyMatchError"), t).message)
+          setPlatformChoiceMode("candidates")
         })
     }
     if ((value === "qq_music" || value === "netease_music") && selected) {
       const controller = new AbortController()
       appleMusicRequest.current = controller
       setChinaState("loading")
-      void matchPlatformLink(
+      setPlatformCandidateState("loading")
+      void fetchPlatformMatchOptions(
         value,
         selected.provider,
         selected.id,
         kind,
         controller.signal,
       )
-        .then((match) => {
+        .then(({ match, candidates }) => {
           if (controller.signal.aborted) return
-          setPlatformUrlState(match.url)
-          setChinaMatch(match)
-          setChinaState("success")
+          setPlatformCandidates(candidates)
+          setPlatformCandidateState("success")
+          if (match) {
+            setPlatformUrlState(match.url)
+            setChinaMatch(match)
+            setChinaState("success")
+          } else {
+            setChinaState("error")
+            setPlatformChoiceMode("candidates")
+          }
         })
         .catch((error: unknown) => {
           if (controller.signal.aborted) return
-          setChinaState("error")
-          setChinaError(
-            platformFlowError(
-              error,
-              t("poster.errors.platformMatchError"),
-              t,
-            ).message,
-          )
+          setPlatformCandidateState("error")
+          setPlatformCandidateError(platformFlowError(error, t("poster.errors.platformMatchError"), t).message)
+          setPlatformChoiceMode("candidates")
         })
     }
   }
@@ -676,7 +697,7 @@ export function usePosterStudio() {
     setPlatformCandidateResolvingUrl(undefined)
     markOutputStale()
     try {
-      const candidates = await fetchPlatformCandidates(
+      const { candidates } = await fetchPlatformMatchOptions(
         qrPlatform,
         selected.provider,
         selected.id,

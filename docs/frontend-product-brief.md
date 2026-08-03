@@ -105,24 +105,23 @@ The frontend uses one API family for every QR destination. It must always pass t
 result's unchanged `provider + id`, never a new text query:
 
 ```http
-GET /v1/platform-links/<spotify|apple_music|qq_music|netease_music>
+GET /v1/platform-links/<spotify|apple_music|qq_music|netease_music>/options
   ?provider=<deezer|spotify>&catalog_id=<id>&type=<track|album>
 ```
 
-The backend retrieves that exact source item and returns a link only when its destination-specific
-confidence checks succeed. Spotify source-to-Spotify destination reuses the canonical source
-entry; Deezer-to-Spotify track matching first uses ISRC, then applies strict title, artist, and
-duration checks. The remaining destinations use their own strict title, artist, release, duration,
-or track-count checks. These are server-side strategy differences, not different frontend flows.
-
-When an automatic result is absent or rejected, all four destinations expose ranked alternatives:
-
-`GET /v1/platform-links/<spotify|apple_music|qq_music|netease_music>/candidates?provider=<deezer|spotify>&catalog_id=<id>&type=<track|album>&limit=8`.
+The backend retrieves that exact source item and runs one shared matching engine for every
+destination. Destination adapters only implement catalog search, link resolution, canonical
+metadata mapping, and optional platform capabilities such as Spotify ISRC lookup. The shared
+engine applies title/version, artist, release, duration, track-count, ranking, and ambiguity rules.
+The response contains an optional confirmed `match` and ranked `candidates` from the same lookup.
+Spotify source-to-Spotify destinations reuse the canonical source entry.
 
 Candidate search deliberately has broader recall than automatic confirmation. It ranks by title,
 artist, album, year, duration, and track count, but never silently confirms a weak result. The UI
-shows these alternatives using the same cover/title/artist/context hierarchy as source search,
-with a “Select” action. Selecting a candidate calls
+can transition directly to the alternatives without another user action or another visible wait
+because confirmation and alternatives come from the same response. It shows these
+alternatives using the same cover/title/artist/context hierarchy as source search, with a “Select”
+action. Selecting a candidate calls
 `GET /v1/platform-links/<spotify|apple_music|qq_music|netease_music>/resolve?url=<public-url>` and uses the returned current metadata
 for the platform confirmation card. Manual public-link entry remains the final fallback and uses
 the same resolve behavior. Candidate or manual resolution refreshes only the QR destination and

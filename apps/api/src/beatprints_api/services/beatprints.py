@@ -16,6 +16,7 @@ from datetime import date
 from difflib import SequenceMatcher
 from functools import lru_cache
 from pathlib import Path
+from typing import Callable
 from urllib.parse import parse_qs, urljoin, urlparse
 
 import deezer
@@ -32,7 +33,8 @@ from beatprints_api.models.dto import (
     LyricsLine,
     LyricsPreviewData,
     PosterPlatformLinks,
-    SpotifyMatchData,
+    PlatformMatchOptionsData,
+    PlatformLinkMatchData,
     TrackPosterRequest,
 )
 from beatprints_api.palette import extract_palette, install_pylette_compatibility_module
@@ -101,6 +103,16 @@ class PosterResult:
     content: bytes
     filename: str
     timings_ms: dict[str, float]
+
+
+@dataclass(frozen=True)
+class DestinationAdapter:
+    """Hide destination catalog mechanics from the shared matching engine."""
+
+    search: Callable[[str, str], list[dict]]
+    resolve: Callable[[str], PlatformLinkMatchData]
+    supports_isrc: bool = False
+    resolve_source: Callable[[str, int | str, str], PlatformLinkMatchData | None] | None = None
 
 
 _uncached_font = write.font
@@ -243,88 +255,6 @@ def resolve_apple_music_url(url: str) -> AppleMusicMatchData:
     raise PlatformLinkNoMatchError("Apple Music link did not resolve to a catalog item")
 
 
-def _apple_music_track_match(metadata: deez.TrackMetadata) -> AppleMusicMatchData:
-    source_duration = _duration_seconds(metadata.duration)
-    candidates: list[tuple[float, dict]] = []
-    for candidate in _apple_music_results(
-        f"{metadata.title} {_metadata_artists(metadata)}", "song"
-    ):
-        url = candidate.get("trackViewUrl")
-        if not url:
-            continue
-        title_score = _text_similarity(metadata.title, candidate.get("trackName"))
-        artist_score = _text_similarity(
-            _metadata_artists(metadata), candidate.get("artistName")
-        )
-        album_score = _text_similarity(metadata.album, candidate.get("collectionName"))
-        candidate_duration = candidate.get("trackTimeMillis")
-        duration_score = 0.5
-        if source_duration and isinstance(candidate_duration, int):
-            difference = abs(source_duration - candidate_duration / 1000)
-            duration_score = max(0.0, 1 - difference / 15)
-        score = (
-            title_score * 0.52
-            + artist_score * 0.30
-            + album_score * 0.10
-            + duration_score * 0.08
-        )
-        if title_score >= 0.88 and artist_score >= 0.72 and score >= 0.84:
-            candidates.append((score, candidate))
-    if not candidates:
-        raise PlatformLinkNoMatchError("No confident Apple Music match was found")
-    _score, match = max(candidates, key=lambda item: item[0])
-    return AppleMusicMatchData(
-        url=match["trackViewUrl"],
-        title=match["trackName"],
-        artists=[match["artistName"]],
-        album=match.get("collectionName"),
-        release_year=_release_year(match.get("releaseDate")),
-        duration_seconds=(
-            round(match["trackTimeMillis"] / 1000)
-            if isinstance(match.get("trackTimeMillis"), int)
-            else None
-        ),
-        type="track",
-        cover_url=match.get("artworkUrl100"),
-    )
-
-
-def _apple_music_album_match(metadata: deez.AlbumMetadata) -> AppleMusicMatchData:
-    source_year = _release_year(metadata.released)
-    candidates: list[tuple[float, dict]] = []
-    for candidate in _apple_music_results(
-        f"{metadata.title} {_metadata_artists(metadata)}", "album"
-    ):
-        url = candidate.get("collectionViewUrl")
-        if not url:
-            continue
-        title_score = _text_similarity(metadata.title, candidate.get("collectionName"))
-        artist_score = _text_similarity(
-            _metadata_artists(metadata), candidate.get("artistName")
-        )
-        candidate_year = _release_year(candidate.get("releaseDate"))
-        year_score = (
-            0.5
-            if not source_year or not candidate_year
-            else float(source_year == candidate_year)
-        )
-        score = title_score * 0.64 + artist_score * 0.26 + year_score * 0.10
-        if title_score >= 0.90 and artist_score >= 0.72 and score >= 0.85:
-            candidates.append((score, candidate))
-    if not candidates:
-        raise PlatformLinkNoMatchError("No confident Apple Music match was found")
-    _score, match = max(candidates, key=lambda item: item[0])
-    return AppleMusicMatchData(
-        url=match["collectionViewUrl"],
-        title=match["collectionName"],
-        artists=[match["artistName"]],
-        type="album",
-        release_year=_release_year(match.get("releaseDate")),
-        track_count=match.get("trackCount"),
-        cover_url=match.get("artworkUrl100"),
-    )
-
-
 def _is_public_host(hostname: str) -> bool:
     try:
         addresses = socket.getaddrinfo(hostname, None)
@@ -400,6 +330,7 @@ def _cached_track_metadata(
             label=_normalized_label(value["label"]),
         )
         metadata.link = value["link"]
+        metadata.isrc = value.get("isrc")
         return metadata
 
     metadata = deez.Deezer().get_track(int(track_id))
@@ -471,118 +402,7 @@ def _album_metadata(request: AlbumPosterRequest) -> deez.AlbumMetadata:
     return metadata
 
 
-def match_apple_music(
-    provider: str,
-    catalog_id: int | str,
-    item_type: str,
-) -> AppleMusicMatchData:
-    """Match an exact selected Spotify/Deezer catalog item to Apple Music."""
-
-    if item_type == "track":
-        metadata = _track_metadata(
-            TrackPosterRequest(provider=provider, catalog_id=catalog_id)
-        )
-        return _apple_music_track_match(metadata)
-    metadata = _album_metadata(
-        AlbumPosterRequest(provider=provider, catalog_id=catalog_id)
-    )
-    return _apple_music_album_match(metadata)
-
-
-def match_deezer_to_spotify(
-    catalog_id: int | str, item_type: str
-) -> SpotifyMatchData:
-    """Conservatively match an exact Deezer item to a Spotify catalog item."""
-
-    if item_type == "track":
-        metadata = _track_metadata(
-            TrackPosterRequest(provider="deezer", catalog_id=catalog_id)
-        )
-        try:
-            source = cover_client.get(f"https://api.deezer.com/track/{catalog_id}")
-            source.raise_for_status()
-            isrc = source.json().get("isrc")
-        except (httpx.HTTPError, ValueError) as exc:
-            raise UpstreamError(f"Deezer ISRC lookup failed: {exc}") from exc
-        candidates = spotify_client.search(
-            f"isrc:{isrc}" if isrc else f"{metadata.title} {_metadata_artists(metadata)}",
-            "track",
-            10,
-        )
-        for candidate in candidates:
-            if isrc and candidate.get("isrc") == isrc:
-                return SpotifyMatchData(
-                    url=candidate["link"],
-                    title=candidate["title"],
-                    artists=candidate["artists"],
-                    album=(candidate.get("album") or {}).get("title"),
-                    release_year=candidate.get("release_year"),
-                    duration_seconds=candidate.get("duration_seconds"),
-                    cover_url=candidate["cover_url"],
-                    type="track",
-                )
-        for candidate in candidates:
-            title_score = _text_similarity(metadata.title, candidate.get("title"))
-            artist_score = _text_similarity(
-                _metadata_artists(metadata),
-                " ".join(candidate.get("artists") or []),
-            )
-            duration_score = 0.5
-            if _duration_seconds(metadata.duration) and candidate.get("duration_seconds"):
-                duration_score = max(
-                    0.0,
-                    1
-                    - abs(
-                        _duration_seconds(metadata.duration)
-                        - candidate["duration_seconds"]
-                    )
-                    / 15,
-                )
-            if (
-                title_score >= 0.9
-                and artist_score >= 0.75
-                and title_score * 0.6 + artist_score * 0.3 + duration_score * 0.1
-                >= 0.86
-            ):
-                return SpotifyMatchData(
-                    url=candidate["link"],
-                    title=candidate["title"],
-                    artists=candidate["artists"],
-                    album=(candidate.get("album") or {}).get("title"),
-                    release_year=candidate.get("release_year"),
-                    duration_seconds=candidate.get("duration_seconds"),
-                    cover_url=candidate["cover_url"],
-                    type="track",
-                )
-    else:
-        metadata = _album_metadata(
-            AlbumPosterRequest(provider="deezer", catalog_id=catalog_id)
-        )
-        candidates = spotify_client.search(
-            f"{metadata.title} {_metadata_artists(metadata)}", "album", 10
-        )
-        for candidate in candidates:
-            if (
-                _text_similarity(metadata.title, candidate.get("title")) >= 0.92
-                and _text_similarity(
-                    _metadata_artists(metadata),
-                    " ".join(candidate.get("artists") or []),
-                )
-                >= 0.75
-            ):
-                return SpotifyMatchData(
-                    url=candidate["link"],
-                    title=candidate["title"],
-                    artists=candidate["artists"],
-                    release_year=candidate.get("release_year"),
-                    track_count=candidate.get("track_count"),
-                    cover_url=candidate["cover_url"],
-                    type="album",
-                )
-    raise PlatformLinkNoMatchError("No confident Spotify match was found")
-
-
-def resolve_spotify_url(url: str) -> SpotifyMatchData:
+def resolve_spotify_url(url: str) -> PlatformLinkMatchData:
     """Read current Spotify metadata for a manually supplied Spotify URL."""
 
     uri = _spotify_uri(url)
@@ -593,7 +413,7 @@ def resolve_spotify_url(url: str) -> SpotifyMatchData:
     _prefix, item_type, catalog_id = uri.split(":", maxsplit=2)
     if item_type == "track":
         value = spotify_client.track_metadata(catalog_id)
-        return SpotifyMatchData(
+        return PlatformLinkMatchData(
             url=value["link"],
             title=value["title"],
             artists=value["artists"],
@@ -604,7 +424,7 @@ def resolve_spotify_url(url: str) -> SpotifyMatchData:
             type="track",
         )
     value = spotify_client.album_metadata(catalog_id)
-    return SpotifyMatchData(
+    return PlatformLinkMatchData(
         url=value["link"],
         title=value["title"],
         artists=value["artists"],
@@ -616,16 +436,29 @@ def resolve_spotify_url(url: str) -> SpotifyMatchData:
 
 
 _VERSION_MARKERS = {
-    "live", "remaster", "remastered", "acoustic", "instrumental", "karaoke",
-    "radio edit", "demo", "mono", "stereo", "deluxe", "extended",
+    "live", "remaster", "remastered", "acoustic", "instrumental",
+    "karaoke", "radio edit", "demo", "mono", "stereo", "deluxe",
+    "extended", "现场版", "現場版", "重制版", "重製版", "伴奏",
+    "纯音乐", "純音樂", "原声", "原聲", "混音", "豪华版", "豪華版",
 }
+_VERSION_SUFFIX = re.compile(r"(?:^|[\s\[(（【\-–—])(?P<value>[^\])）】]+)(?=$|[\s\])）】])")
 
 
 def _catalog_title_parts(
     value: object,
 ) -> tuple[frozenset[str], frozenset[str]]:
     text = unicodedata.normalize("NFKC", str(value or "")).casefold().strip()
-    versions = frozenset(marker for marker in _VERSION_MARKERS if marker in text)
+    version_regions = [match.group("value") for match in _VERSION_SUFFIX.finditer(text)]
+    versions = frozenset(
+        marker
+        for marker in _VERSION_MARKERS
+        if any(
+            marker in region
+            if any(ord(character) > 127 for character in marker)
+            else re.search(rf"(?<![a-z]){re.escape(marker)}(?![a-z])", region)
+            for region in version_regions
+        )
+    )
     base = re.sub(r"\s*[（(][^()（）]*[）)]\s*$", "", text).strip()
     aliases = {
         normalized
@@ -659,99 +492,20 @@ def _artist_match_state(source: str, candidate: str) -> str:
     return "mismatched" if latin_only(source) and latin_only(candidate) else "unknown"
 
 
-def _confident_china_candidate(metadata: deez.TrackMetadata | deez.AlbumMetadata, candidate: dict, item_type: str) -> bool:
-    if _catalog_title_similarity(metadata.title, candidate.get("title")) < 0.96:
-        return False
-    artist_state = _artist_match_state(
-        _metadata_artists(metadata), " ".join(candidate.get("artists") or [])
-    )
-    if artist_state == "mismatched":
-        return False
-    source_year = _release_year(metadata.released)
-    candidate_year = candidate.get("release_year")
-    year_match = None if not source_year or not candidate_year else source_year == candidate_year
-    if year_match is False:
-        return False
-    if item_type == "album":
-        source_count = len(metadata.tracks)
-        candidate_count = candidate.get("track_count")
-        count_match = None if not source_count or not candidate_count else source_count == candidate_count
-        if count_match is False:
-            return False
-        return year_match is True and count_match is True
-
-    source_duration = _duration_seconds(metadata.duration)
-    candidate_duration = candidate.get("duration_seconds")
-    if not source_duration or not candidate_duration:
-        return False
-    duration_difference = abs(source_duration - candidate_duration)
-    album_score = _catalog_title_similarity(metadata.album, candidate.get("album"))
-    if artist_state == "unknown":
-        return duration_difference <= 2 and year_match is True and album_score >= 0.90
-    return duration_difference <= 5 and year_match is not False and album_score >= 0.85
-
-
-def match_china_platform(provider: str, catalog_id: int | str, item_type: str, platform: str) -> SpotifyMatchData:
-    """Conservatively match a selected catalog item to a Chinese platform."""
-    metadata = (
-        _track_metadata(TrackPosterRequest(provider=provider, catalog_id=catalog_id))
-        if item_type == "track"
-        else _album_metadata(AlbumPosterRequest(provider=provider, catalog_id=catalog_id))
-    )
-    search = china_music.qq_search if platform == "qq_music" else china_music.netease_search
-    artist_query = _metadata_artists(metadata)
-    queries = [
-        ("combined", f"{metadata.title} {artist_query}"),
-        ("title", metadata.title),
-        ("artist", artist_query),
+def _artist_comparison(
+    source_artists: list[str], candidate_artists: list[str]
+) -> tuple[float, str]:
+    pair_scores = [
+        _text_similarity(source, candidate)
+        for source in source_artists
+        for candidate in candidate_artists
     ]
-    candidates_by_url: dict[str, dict] = {}
-    candidate_origins: dict[str, set[str]] = {}
-    results_by_query: dict[str, list[dict]] = {}
-    try:
-        for origin, query in queries:
-            if query not in results_by_query:
-                results_by_query[query] = search(query, item_type)
-            for candidate in results_by_query[query]:
-                if candidate.get("url"):
-                    candidates_by_url.setdefault(candidate["url"], candidate)
-                    candidate_origins.setdefault(candidate["url"], set()).add(origin)
-    except china_music.ChinaMusicError as exc:
-        raise UpstreamError(str(exc)) from exc
-    for url, candidate in candidates_by_url.items():
-        artist_state = _artist_match_state(
-            artist_query, " ".join(candidate.get("artists") or [])
-        )
-        has_artist_evidence = (
-            artist_state == "matched" or "artist" in candidate_origins[url]
-        )
-        if (
-            has_artist_evidence
-            and _confident_china_candidate(metadata, candidate, item_type)
-        ):
-            return SpotifyMatchData(type=item_type, **candidate)
-    raise PlatformLinkNoMatchError(f"No confident {platform} match was found")
-
-
-def match_platform_link(
-    provider: str, catalog_id: int | str, item_type: str, platform: str
-) -> SpotifyMatchData:
-    """Match a selected source item to one QR destination behind one public contract.
-
-    Platform-specific catalog clients and confidence checks stay here so callers never need
-    to branch on a destination. Spotify source items are resolved directly; Deezer-to-Spotify
-    remains a conservative cross-catalog match.
-    """
-
-    if platform == "apple_music":
-        return SpotifyMatchData.model_validate(
-            match_apple_music(provider, catalog_id, item_type).model_dump()
-        )
-    if platform == "spotify":
-        if provider == "spotify":
-            return resolve_spotify_url(f"spotify:{item_type}:{catalog_id}")
-        return match_deezer_to_spotify(catalog_id, item_type)
-    return match_china_platform(provider, catalog_id, item_type, platform)
+    score = max(pair_scores, default=0.0)
+    if score >= 0.88:
+        return score, "matched"
+    return score, _artist_match_state(
+        " ".join(source_artists), " ".join(candidate_artists)
+    )
 
 
 def _candidate_title_similarity(left: object, right: object) -> tuple[float, bool]:
@@ -779,14 +533,15 @@ def _candidate_score(
     if title_score < 0.45:
         return None
 
-    source_artist = _metadata_artists(metadata)
-    candidate_artist = " ".join(candidate.get("artists") or [])
-    artist_score = _text_similarity(source_artist, candidate_artist)
-    artist_state = _artist_match_state(source_artist, candidate_artist)
+    source_artists = [str(artist) for artist in metadata.artists]
+    candidate_artists = [str(artist) for artist in candidate.get("artists") or []]
+    artist_score, artist_state = _artist_comparison(
+        source_artists, candidate_artists
+    )
     if artist_state == "unknown":
         artist_score = 0.45
     if "artist" in origins:
-        artist_score = min(1.0, artist_score + 0.25)
+        artist_score = min(1.0, artist_score + 0.20)
 
     source_year = _release_year(metadata.released)
     candidate_year = candidate.get("release_year")
@@ -795,7 +550,7 @@ def _candidate_score(
         if not source_year or not candidate_year
         else float(source_year == candidate_year)
     )
-    score = title_score * 0.55 + artist_score * 0.25 + year_score * 0.08
+    score = title_score * 0.50 + artist_score * 0.24 + year_score * 0.08
 
     if item_type == "track":
         album_score, _album_version_conflict = _candidate_title_similarity(
@@ -806,9 +561,16 @@ def _candidate_score(
         duration_score = (
             0.5
             if not source_duration or not candidate_duration
-            else max(0.0, 1 - abs(source_duration - candidate_duration) / 60)
+            else (
+                1.0 if abs(source_duration - candidate_duration) <= 2
+                else 0.8 if abs(source_duration - candidate_duration) <= 5
+                else 0.35 if abs(source_duration - candidate_duration) <= 15
+                else 0.0
+            )
         )
-        score += album_score * 0.07 + duration_score * 0.05
+        score += album_score * 0.08 + duration_score * 0.10
+        if _album_version_conflict:
+            score -= 0.05
     else:
         source_count = len(metadata.tracks)
         candidate_count = candidate.get("track_count")
@@ -820,13 +582,21 @@ def _candidate_score(
         score += count_score * 0.12
 
     if version_conflict:
-        score -= 0.15
+        score -= 0.25
+    if source_year and candidate_year and source_year != candidate_year:
+        score -= 0.10 if item_type == "track" else 0.20
     return score
 
 
 def _apple_music_candidate(result: dict) -> dict | None:
     try:
-        return _apple_music_result_data(result).model_dump(mode="json")
+        candidate = _apple_music_result_data(result).model_dump(mode="json")
+        candidate["platform_id"] = (
+            result.get("trackId")
+            if candidate["type"] == "track"
+            else result.get("collectionId")
+        )
+        return candidate
     except PlatformLinkNoMatchError:
         return None
 
@@ -847,32 +617,31 @@ def _spotify_candidate(result: dict, item_type: str) -> dict | None:
         "duration_seconds": result.get("duration_seconds"),
         "track_count": result.get("track_count"),
         "cover_url": result.get("cover_url"),
+        "isrc": result.get("isrc"),
+        "platform_id": result.get("id"),
     }
 
 
-def _platform_candidate_search(
-    platform: str,
-    query: str,
-    item_type: str,
+def _search_apple_music(query: str, item_type: str) -> list[dict]:
+    entity = "song" if item_type == "track" else "album"
+    return [
+        candidate
+        for result in _apple_music_results(query, entity)
+        if (candidate := _apple_music_candidate(result)) is not None
+    ]
+
+
+def _search_spotify(query: str, item_type: str) -> list[dict]:
+    return [
+        candidate
+        for result in spotify_client.search(query, item_type, 10)
+        if (candidate := _spotify_candidate(result, item_type)) is not None
+    ]
+
+
+def _search_china_platform(
+    search: Callable[[str, str], list[dict]], query: str, item_type: str
 ) -> list[dict]:
-    if platform == "apple_music":
-        entity = "song" if item_type == "track" else "album"
-        return [
-            candidate
-            for result in _apple_music_results(query, entity)
-            if (candidate := _apple_music_candidate(result)) is not None
-        ]
-    if platform == "spotify":
-        return [
-            candidate
-            for result in spotify_client.search(query, item_type, 10)
-            if (candidate := _spotify_candidate(result, item_type)) is not None
-        ]
-    search = (
-        china_music.qq_search
-        if platform == "qq_music"
-        else china_music.netease_search
-    )
     try:
         return [
             {"type": item_type, **candidate}
@@ -882,75 +651,224 @@ def _platform_candidate_search(
         raise UpstreamError(str(exc)) from exc
 
 
-def platform_link_candidates(
+def _source_metadata(provider: str, catalog_id: int | str, item_type: str):
+    return (
+        _track_metadata(TrackPosterRequest(provider=provider, catalog_id=catalog_id))
+        if item_type == "track"
+        else _album_metadata(AlbumPosterRequest(provider=provider, catalog_id=catalog_id))
+    )
+
+
+def _resolve_apple_music(url: str) -> PlatformLinkMatchData:
+    return PlatformLinkMatchData.model_validate(resolve_apple_music_url(url).model_dump())
+
+
+def _resolve_spotify_source(
+    provider: str, catalog_id: int | str, item_type: str
+) -> PlatformLinkMatchData | None:
+    if provider != "spotify":
+        return None
+    return resolve_spotify_url(f"spotify:{item_type}:{catalog_id}")
+
+
+def _destination_adapter(platform: str) -> DestinationAdapter:
+    adapters = {
+        "apple_music": DestinationAdapter(
+            search=_search_apple_music, resolve=_resolve_apple_music
+        ),
+        "spotify": DestinationAdapter(
+            search=_search_spotify,
+            resolve=resolve_spotify_url,
+            supports_isrc=True,
+            resolve_source=_resolve_spotify_source,
+        ),
+        "qq_music": DestinationAdapter(
+            search=lambda query, item_type: _search_china_platform(
+                china_music.qq_search, query, item_type
+            ),
+            resolve=lambda url: resolve_china_platform_url("qq_music", url),
+        ),
+        "netease_music": DestinationAdapter(
+            search=lambda query, item_type: _search_china_platform(
+                china_music.netease_search, query, item_type
+            ),
+            resolve=lambda url: resolve_china_platform_url("netease_music", url),
+        ),
+    }
+    return adapters[platform]
+
+
+def _source_isrc(
+    provider: str, catalog_id: int | str, metadata: deez.TrackMetadata
+) -> str | None:
+    value = getattr(metadata, "isrc", None)
+    if value:
+        return str(value)
+    if provider != "deezer":
+        return None
+    try:
+        response = cover_client.get(f"https://api.deezer.com/track/{catalog_id}")
+        response.raise_for_status()
+        result = response.json().get("isrc")
+        return str(result) if result else None
+    except (httpx.HTTPError, ValueError):
+        return None
+
+
+def _matching_queries(metadata, item_type: str, isrc: str | None) -> list[tuple[str, str]]:
+    artist = _metadata_artists(metadata)
+    queries: list[tuple[str, str]] = []
+    if item_type == "track" and isrc:
+        queries.append(("isrc", f"isrc:{isrc}"))
+    queries.extend(
+        [
+            ("combined", f"{metadata.title} {artist}"),
+            ("title", metadata.title),
+            ("artist", artist),
+        ]
+    )
+    return list(dict.fromkeys(queries))
+
+
+def _collect_destination_candidates(
+    adapter: DestinationAdapter, metadata, item_type: str, isrc: str | None
+) -> list[tuple[dict, set[str]]]:
+    candidates: dict[str, dict] = {}
+    origins: dict[str, set[str]] = {}
+    for origin, query in _matching_queries(
+        metadata, item_type, isrc if adapter.supports_isrc else None
+    ):
+        for candidate in adapter.search(query, item_type):
+            url = str(candidate.get("url") or "")
+            if not url:
+                continue
+            identity = str(candidate.get("platform_id") or url)
+            candidates.setdefault(identity, candidate)
+            origins.setdefault(identity, set()).add(origin)
+    return [
+        (candidate, origins[identity])
+        for identity, candidate in candidates.items()
+    ]
+
+
+def _has_hard_conflict(metadata, candidate: dict, item_type: str) -> bool:
+    title_score, version_conflict = _candidate_title_similarity(
+        metadata.title, candidate.get("title")
+    )
+    if title_score < 0.88 or version_conflict:
+        return True
+    _artist_score, artist_state = _artist_comparison(
+        [str(artist) for artist in metadata.artists],
+        [str(artist) for artist in candidate.get("artists") or []],
+    )
+    if artist_state == "mismatched":
+        return True
+    source_year = _release_year(metadata.released)
+    candidate_year = candidate.get("release_year")
+    if item_type == "album":
+        source_count = len(metadata.tracks)
+        candidate_count = candidate.get("track_count")
+        return bool(
+            source_year and candidate_year and source_year != candidate_year
+            or source_count and candidate_count and source_count != candidate_count
+        )
+    source_duration = _duration_seconds(metadata.duration)
+    candidate_duration = candidate.get("duration_seconds")
+    return bool(
+        source_duration
+        and candidate_duration
+        and abs(source_duration - candidate_duration) > 15
+    )
+
+
+def _can_confirm(
+    metadata,
+    ranked: list[tuple[float, dict, set[str]]],
+    item_type: str,
+    isrc: str | None,
+) -> dict | None:
+    if not ranked:
+        return None
+    score, candidate, origins = ranked[0]
+    if isrc and candidate.get("isrc") == isrc:
+        return candidate
+    if _has_hard_conflict(metadata, candidate, item_type):
+        return None
+    _artist_score, artist_state = _artist_comparison(
+        [str(artist) for artist in metadata.artists],
+        [str(artist) for artist in candidate.get("artists") or []],
+    )
+    if artist_state == "mismatched":
+        return None
+    if artist_state == "unknown" and "artist" not in origins:
+        return None
+    threshold = 0.84
+    if score < threshold:
+        return None
+    if len(ranked) > 1 and score - ranked[1][0] < 0.04:
+        return None
+    return candidate
+
+
+def platform_match_options(
     provider: str,
     catalog_id: int | str,
     item_type: str,
     platform: str,
     limit: int = 8,
-) -> list[SpotifyMatchData]:
-    """Return ranked alternatives without silently confirming a weak match."""
+) -> PlatformMatchOptionsData:
+    """Run one shared matching pipeline for every QR destination."""
 
-    metadata = (
-        _track_metadata(
-            TrackPosterRequest(provider=provider, catalog_id=catalog_id)
-        )
-        if item_type == "track"
-        else _album_metadata(
-            AlbumPosterRequest(provider=provider, catalog_id=catalog_id)
-        )
+    adapter = _destination_adapter(platform)
+    direct_match = (
+        adapter.resolve_source(provider, catalog_id, item_type)
+        if adapter.resolve_source is not None
+        else None
     )
-    artist_query = _metadata_artists(metadata)
-    queries = [
-        ("combined", f"{metadata.title} {artist_query}"),
-        ("title", metadata.title),
-        ("artist", artist_query),
-    ]
-    candidates_by_url: dict[str, dict] = {}
-    candidate_origins: dict[str, set[str]] = {}
-    results_by_query: dict[str, list[dict]] = {}
-    for origin, query in queries:
-        if query not in results_by_query:
-            results_by_query[query] = _platform_candidate_search(
-                platform, query, item_type
-            )
-        for candidate in results_by_query[query]:
-            url = candidate.get("url")
-            if not url:
-                continue
-            candidates_by_url.setdefault(url, candidate)
-            candidate_origins.setdefault(url, set()).add(origin)
+    if direct_match is not None:
+        match = direct_match
+        return PlatformMatchOptionsData(match=match, candidates=[match])
 
-    ranked = []
-    for url, candidate in candidates_by_url.items():
-        score = _candidate_score(
-            metadata, candidate, item_type, candidate_origins[url]
+    metadata = _source_metadata(provider, catalog_id, item_type)
+    isrc = (
+        _source_isrc(provider, catalog_id, metadata)
+        if item_type == "track" and adapter.supports_isrc
+        else None
+    )
+    collected = _collect_destination_candidates(adapter, metadata, item_type, isrc)
+    ranked: list[tuple[float, dict, set[str]]] = []
+    for candidate, origins in collected:
+        exact_isrc = bool(isrc and candidate.get("isrc") == isrc)
+        score = (
+            2.0
+            if exact_isrc
+            else _candidate_score(metadata, candidate, item_type, origins)
         )
         if score is not None:
-            ranked.append((score, candidate))
+            ranked.append((score, candidate, origins))
     ranked.sort(key=lambda item: item[0], reverse=True)
-    return [
-        SpotifyMatchData.model_validate(candidate)
-        for _score, candidate in ranked[:limit]
-    ]
+    confirmed = _can_confirm(metadata, ranked, item_type, isrc)
+    return PlatformMatchOptionsData(
+        match=(
+            PlatformLinkMatchData.model_validate(confirmed) if confirmed is not None else None
+        ),
+        candidates=[
+            PlatformLinkMatchData.model_validate(candidate)
+            for _score, candidate, _origins in ranked[:limit]
+        ],
+    )
 
 
-def resolve_china_platform_url(platform: str, url: str) -> SpotifyMatchData:
+def resolve_china_platform_url(platform: str, url: str) -> PlatformLinkMatchData:
     resolve = china_music.qq_resolve if platform == "qq_music" else china_music.netease_resolve
     try:
-        return SpotifyMatchData(**resolve(url))
+        return PlatformLinkMatchData(**resolve(url))
     except china_music.ChinaMusicError as exc:
         raise PlatformLinkNoMatchError(str(exc)) from exc
 
 
-def resolve_platform_url(platform: str, url: str) -> SpotifyMatchData:
-    if platform == "apple_music":
-        return SpotifyMatchData.model_validate(
-            resolve_apple_music_url(url).model_dump()
-        )
-    if platform == "spotify":
-        return resolve_spotify_url(url)
-    return resolve_china_platform_url(platform, url)
+def resolve_platform_url(platform: str, url: str) -> PlatformLinkMatchData:
+    return _destination_adapter(platform).resolve(url)
 
 
 def clear_metadata_cache() -> None:

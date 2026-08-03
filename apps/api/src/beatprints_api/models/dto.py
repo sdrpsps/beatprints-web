@@ -597,8 +597,8 @@ class AppleMusicMatchData(BaseModel):
     cover_url: HttpUrl | None = None
 
 
-class SpotifyMatchData(BaseModel):
-    """由 Deezer 条目自动匹配到的 Spotify 公开链接。"""
+class PlatformLinkMatchData(BaseModel):
+    """目标音乐平台中歌曲或专辑的规范公开链接及当前资料。"""
 
     url: HttpUrl
     title: str
@@ -609,3 +609,10 @@ class SpotifyMatchData(BaseModel):
     duration_seconds: int | None = None
     track_count: int | None = None
     cover_url: HttpUrl | None = None
+
+
+class PlatformMatchOptionsData(BaseModel):
+    """One destination lookup, split into an optional confirmation and ranked choices."""
+
+    match: PlatformLinkMatchData | None = None
+    candidates: list[PlatformLinkMatchData] = Field(default_factory=list)
