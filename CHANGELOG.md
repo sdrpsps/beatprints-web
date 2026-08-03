@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.1.1](https://github.com/sdrpsps/beatprints-web/compare/v1.1.0...v1.1.1) (2026-08-03)
+
+
+### Bug Fixes
+
+* remove unavailable lrcapi lyrics source ([80b6e58](https://github.com/sdrpsps/beatprints-web/commit/80b6e585fdab3ce72353dd8826a202f1f34d65fe))
+
+
+### Code Refactoring
+
+* make frontend music integrations pluggable ([054562c](https://github.com/sdrpsps/beatprints-web/commit/054562cddc106ed867ddd4f02217d87261df5383))
+* make music integrations pluggable ([dbeab48](https://github.com/sdrpsps/beatprints-web/commit/dbeab487457753db22660155ef109812e598f213))
+* modularize catalog integrations ([622ed11](https://github.com/sdrpsps/beatprints-web/commit/622ed11425062ee2d7050a8d87c2fe65910e990b))
+* remove legacy rendering duplication ([f185577](https://github.com/sdrpsps/beatprints-web/commit/f185577c2ff13f39c19d699b58e17051f1d2697b))
+* separate music integrations from services ([1f37ee4](https://github.com/sdrpsps/beatprints-web/commit/1f37ee40bd6ee3296a3e372b551c3cb94f3d9f7c))
+* split backend orchestration and DTOs ([d5aee9c](https://github.com/sdrpsps/beatprints-web/commit/d5aee9cc0c23dc95fc23d9206721e9ad3020fd89))
+* unify platform matching ([562c9eb](https://github.com/sdrpsps/beatprints-web/commit/562c9eb2828ce9437cbbb6c706c79f6071d162e5))
+
 ## [1.1.0](https://github.com/sdrpsps/beatprints-web/compare/v1.0.1...v1.1.0) (2026-07-31)
 
 
