@@ -613,6 +613,44 @@ def test_album_candidates_rank_exact_track_count_first(monkeypatch) -> None:
     assert str(matches[0].url) == matching["url"]
 
 
+def test_album_candidates_include_catalog_title_suffix_without_auto_matching(
+    monkeypatch,
+) -> None:
+    metadata = AlbumMetadata(
+        title="Groupies吉他手",
+        artists=["陈绮贞"],
+        released="2002-08-01",
+        tracks=[f"Track {index}" for index in range(13)],
+        cover="https://example.com/cover.jpg",
+        label="",
+    )
+    candidate = {
+        "title": "吉他手",
+        "artists": ["Cheer Chen"],
+        "release_year": 2002,
+        "track_count": 13,
+        "url": "https://open.spotify.com/album/35QdFULbzmzRWMeH7bHGQR",
+        "type": "album",
+    }
+    monkeypatch.setattr(
+        beatprints_service, "_album_metadata", lambda _request: metadata
+    )
+    monkeypatch.setattr(
+        beatprints_service,
+        "_destination_adapter",
+        lambda _platform: DestinationAdapter(
+            search=lambda _query, _item_type: [candidate], resolve=lambda _url: None
+        ),
+    )
+
+    result = beatprints_service.platform_match_options(
+        "netease_music", "21302", "album", "spotify"
+    )
+
+    assert result.match is None
+    assert [str(match.url) for match in result.candidates] == [candidate["url"]]
+
+
 def test_close_top_candidates_require_user_confirmation(monkeypatch) -> None:
     first = {
         "title": "Summer Breeze",

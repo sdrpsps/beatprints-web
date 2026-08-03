@@ -155,13 +155,33 @@ def _candidate_title_similarity(left: object, right: object) -> tuple[float, boo
     return similarity, left_versions != right_versions
 
 
+def _candidate_search_title_similarity(left: object, right: object) -> float:
+    """Broaden candidate discovery without changing automatic confirmation."""
+
+    similarity, version_conflict = _candidate_title_similarity(left, right)
+    if version_conflict:
+        return similarity
+    left_aliases, _left_versions = _catalog_title_parts(left)
+    right_aliases, _right_versions = _catalog_title_parts(right)
+    contains_equivalent_title = any(
+        min(len(left_alias), len(right_alias)) >= 3
+        and (left_alias in right_alias or right_alias in left_alias)
+        for left_alias in left_aliases
+        for right_alias in right_aliases
+    )
+    return max(similarity, 0.6 if contains_equivalent_title else 0.0)
+
+
 def _candidate_score(
     metadata: deez.TrackMetadata | deez.AlbumMetadata,
     candidate: dict,
     item_type: str,
     origins: set[str],
 ) -> float | None:
-    title_score, version_conflict = _candidate_title_similarity(
+    _, version_conflict = _candidate_title_similarity(
+        metadata.title, candidate.get("title")
+    )
+    title_score = _candidate_search_title_similarity(
         metadata.title, candidate.get("title")
     )
     if title_score < 0.45:
