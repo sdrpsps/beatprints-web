@@ -5,29 +5,12 @@ from beatprints_api.exceptions import UpstreamError
 from beatprints_api.integrations.lyrics import (
     default_lyrics_source,
     get_lyrics_source,
-    lyrics_sources,
 )
 from beatprints_api.models.catalog import (
     LyricsLine,
     LyricsPreviewData,
-    LyricsSourceData,
-    LyricsSourcesData,
 )
 from beatprints_api.models.poster import TrackPosterRequest
-
-
-def sources() -> LyricsSourcesData:
-    default_source = default_lyrics_source()
-    return LyricsSourcesData(
-        sources=[
-            LyricsSourceData(
-                key=source.key,
-                label=source.label,
-                default=source.key == default_source.key,
-            )
-            for source in lyrics_sources()
-        ]
-    )
 
 
 def preview(

@@ -34,17 +34,24 @@ def get_lyrics_source(key: str) -> LyricsSourceAdapter:
 
 
 def lyrics_sources() -> tuple[LyricsSourceAdapter, ...]:
-    return tuple(_adapters[key] for key in sorted(_adapters))
+    return tuple(_adapters.values())
 
 
 def default_lyrics_source() -> LyricsSourceAdapter:
+    key = default_lyrics_source_key()
+    if key is None:
+        raise RuntimeError("No lyrics source is enabled")
+    return _adapters[key]
+
+
+def default_lyrics_source_key() -> str | None:
     if _default_key is not None:
-        return _adapters[_default_key]
-    if _adapters:
-        return _adapters[sorted(_adapters)[0]]
-    raise RuntimeError("No lyrics source is enabled")
+        return _default_key
+    return next(iter(_adapters), None)
 
 
 # Importing an adapter is the sole enablement mechanism. Temporarily removing a
 # source requires commenting out one import here; no core service changes.
-from beatprints_api.integrations.lyrics import lrclib  # noqa: E402, F401
+from beatprints_api.integrations.lyrics import qq_music as _qq_music  # noqa: E402, F401
+from beatprints_api.integrations.lyrics import netease as _netease  # noqa: E402, F401
+from beatprints_api.integrations.lyrics import lrclib as _lrclib  # noqa: E402, F401

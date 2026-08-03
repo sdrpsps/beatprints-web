@@ -8,9 +8,14 @@ from beatprints_api.api import dependencies
 from beatprints_api.api import middleware as api_middleware
 from beatprints_api.api.routes import catalog, posters
 from beatprints_api.config import settings
+from beatprints_api.exceptions import (
+    LyricsNotFoundError,
+    UnsupportedLyricsSourceError,
+    UpstreamError,
+)
+from beatprints_api.integrations.catalog.spotify import SpotifyNotConfiguredError
 from beatprints_api.main import app, create_app
 from beatprints_api.models import PlatformLinkMatchData, PlatformMatchOptionsData
-from beatprints_api.integrations.catalog.spotify import SpotifyNotConfiguredError
 
 client = TestClient(app)
 
@@ -318,25 +323,55 @@ def test_lyrics_preview_preserves_catalog_reference(monkeypatch) -> None:
     }
 
 
-def test_lyrics_sources_list_enabled_adapters(monkeypatch) -> None:
-    monkeypatch.setattr(
-        catalog.beatprints_service,
-        "lyrics_sources",
-        lambda: {
-            "sources": [
-                {"key": "lrclib", "label": "LRCLIB", "default": True},
-            ]
+@pytest.mark.parametrize("path", ["/v1/integrations", "/v1/lyrics/sources"])
+def test_frontend_registry_discovery_routes_do_not_exist(path: str) -> None:
+    assert client.get(path).status_code == 404
+
+
+def test_lyrics_no_match_is_not_reported_as_upstream_failure(monkeypatch) -> None:
+    def no_match(*_args, **_kwargs):
+        raise LyricsNotFoundError("No confident lyrics match was found")
+
+    monkeypatch.setattr(catalog.beatprints_service, "preview_lyrics", no_match)
+
+    response = client.get(
+        "/v1/lyrics",
+        params={
+            "provider": "deezer",
+            "catalog_id": "5416564",
+            "source": "netease",
         },
     )
 
-    response = client.get("/v1/lyrics/sources")
+    assert response.status_code == 404
+    assert response.json()["message"] == "No confident lyrics match was found"
 
-    assert response.status_code == 200
-    assert response.json()["data"] == {
-        "sources": [
-            {"key": "lrclib", "label": "LRCLIB", "default": True},
-        ]
-    }
+
+@pytest.mark.parametrize(
+    ("error", "expected_status"),
+    [
+        (UnsupportedLyricsSourceError("Unknown lyrics source"), 404),
+        (UpstreamError("Lyrics source unavailable"), 502),
+    ],
+)
+def test_lyrics_source_errors_keep_distinct_statuses(
+    monkeypatch, error: Exception, expected_status: int
+) -> None:
+    def fail(*_args, **_kwargs):
+        raise error
+
+    monkeypatch.setattr(catalog.beatprints_service, "preview_lyrics", fail)
+
+    response = client.get(
+        "/v1/lyrics",
+        params={
+            "provider": "deezer",
+            "catalog_id": "5416564",
+            "source": "unknown",
+        },
+    )
+
+    assert response.status_code == expected_status
 
 
 @pytest.mark.parametrize(

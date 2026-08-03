@@ -1,0 +1,21 @@
+{
+  "result": {
+    "songs": [
+      {
+        "id": 101,
+        "name": "Fixture Song (Live)",
+        "duration": 195000,
+        "artists": [{"name": "Fixture Artist"}],
+        "album": {"name": "Fixture Album"}
+      },
+      {
+        "id": 102,
+        "name": "Fixture Song",
+        "duration": 195348,
+        "artists": [{"name": "本地艺人"}],
+        "album": {"name": "Fixture Album"}
+      }
+    ]
+  },
+  "code": 200
+}

@@ -121,14 +121,13 @@ docker compose logs -f beatprints-api
 
 ## 1. 只传歌曲查询词
 
-服务会用 `provider` 指定的平台获取元数据和封面。歌词来源由独立适配器提供；使用
-`/v1/lyrics/sources` 获取已启用来源，再将其 key 传给歌词预览。没有指定 `lyrics_range`
+服务会用 `provider` 指定的平台获取元数据和封面。歌词来源由独立适配器提供；客户端
+将所选歌词来源 key 传给歌词预览。没有指定 `lyrics_range`
 时，兼容接口仍通过默认来源选择前四行非空歌词。
 
 前端歌词选择器可以先读取所选歌曲的规范化歌词：
 
 ```bash
-curl "http://localhost:8000/v1/lyrics/sources"
 curl "http://localhost:8000/v1/lyrics?provider=deezer&catalog_id=5416564&source=lrclib"
 ```
 
@@ -136,8 +135,8 @@ curl "http://localhost:8000/v1/lyrics?provider=deezer&catalog_id=5416564&source=
 界面选择完成后应将最多四行最终文字作为 `lyrics` 提交，确保生成内容与选择一致；
 提交空字符串表示明确不显示歌词，并避免触发后端默认选择前四行的兼容行为。
 
-当前内置来源为 LRCLIB。新增歌词来源时，只需在歌词来源注册表中添加其适配器导入；
-前端会从 `/v1/lyrics/sources` 读取启用来源。
+当前歌词来源依次为 `qq_music`、`netease` 和 `lrclib`。前端静态 registry 负责展示顺序
+和默认项，后端 registry 负责校验来源并执行查询；QQ 音乐是默认歌词来源。
 
 ```bash
 curl -X POST http://localhost:8000/v1/posters/track \

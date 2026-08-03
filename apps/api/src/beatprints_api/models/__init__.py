@@ -1,8 +1,6 @@
 from beatprints_api.models.catalog import (
     LyricsLine,
     LyricsPreviewData,
-    LyricsSourceData,
-    LyricsSourcesData,
     SearchAlbumSummary,
     SearchResult,
 )
@@ -31,8 +29,6 @@ __all__ = [
     "HealthData",
     "LyricsLine",
     "LyricsPreviewData",
-    "LyricsSourceData",
-    "LyricsSourcesData",
     "PosterPlatform",
     "PosterPlatformLinks",
     "PlatformMatchOptionsData",
