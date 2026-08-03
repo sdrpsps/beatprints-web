@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/sdrpsps/beatprints-web/compare/v1.1.0...v1.1.1) (2026-08-03)
+
+
+### Bug Fixes
+
+* remove unavailable lrcapi lyrics source ([80b6e58](https://github.com/sdrpsps/beatprints-web/commit/80b6e585fdab3ce72353dd8826a202f1f34d65fe))
+
 ## [1.1.0](https://github.com/sdrpsps/beatprints-web/compare/v1.0.1...v1.1.0) (2026-07-31)
 
 
