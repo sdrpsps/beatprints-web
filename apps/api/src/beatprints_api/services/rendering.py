@@ -13,9 +13,10 @@ from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
 import httpx
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from BeatPrints import image as beatprints_image, poster, write
+from BeatPrints.utils import filename as poster_filename
 from beatprints_api.exceptions import UpstreamError
 from beatprints_api.integrations.catalog import get_catalog_adapter
 from beatprints_api.integrations.destinations import (
@@ -232,6 +233,88 @@ def _prepare_metadata_for_rendering(metadata):
     return metadata
 
 
+@dataclass(frozen=True)
+class AlbumTrackLayout:
+    columns: tuple[tuple[str, ...], ...]
+    widths: tuple[int, ...]
+    font_size: int
+    gap: int
+
+
+def _album_track_layout(tracks: list[str], indexing: bool) -> AlbumTrackLayout:
+    """Fit every album track into the shared BeatPrints tracklist area."""
+
+    display_tracks = tuple(
+        f"{number}. {track}" if indexing else str(track)
+        for number, track in enumerate(tracks, start=1)
+    )
+    max_rows = poster.s.MAX_ROWS
+    columns = tuple(
+        display_tracks[index : index + max_rows]
+        for index in range(0, len(display_tracks), max_rows)
+    )
+    font = write.font("Light")
+
+    for font_size in range(poster.s.TRACKS, 9, -1):
+        widths = tuple(
+            max(write.text_width(track, font, font_size) for track in column)
+            for column in columns
+        )
+        gap = min(poster.s.SPACING, max(8, round(font_size * 0.8)))
+        if sum(widths) + gap * (len(widths) - 1) <= poster.s.MAX_WIDTH:
+            return AlbumTrackLayout(columns, widths, font_size, gap)
+
+    # The API accepts arbitrary catalog titles. Keep every item even for an
+    # unusually dense list; this is preferable to silently changing the album.
+    font_size = 9
+    widths = tuple(
+        max(write.text_width(track, font, font_size) for track in column)
+        for column in columns
+    )
+    return AlbumTrackLayout(columns, widths, font_size, 8)
+
+
+def _render_album_poster(
+    directory: Path,
+    metadata,
+    *,
+    indexing: bool,
+    accent: bool,
+    theme: str,
+    cover_path: Path,
+) -> None:
+    """Render albums without BeatPrints' destructive track-list organizer."""
+
+    color, template = beatprints_image.get_theme(theme)
+    cover = beatprints_image.cover(metadata.cover, str(cover_path))
+    scannable = beatprints_image.scannable(theme)
+    track_layout = _album_track_layout(metadata.tracks, indexing)
+
+    with Image.open(template) as poster_image:
+        poster_image = poster_image.convert("RGB")
+        draw = ImageDraw.Draw(poster_image)
+        poster_image.paste(cover, poster.p.COVER)
+        poster_image.paste(scannable, poster.p.SCANCODE, scannable)
+        beatprints_image.draw_palette(draw, cover, accent)
+        poster.Poster(str(directory))._draw_template(draw, metadata, color)
+
+        x, y = poster.p.TRACKS
+        for column, width in zip(track_layout.columns, track_layout.widths):
+            write.text(
+                draw,
+                (x, y),
+                "\n".join(column),
+                color,
+                write.font("Light"),
+                track_layout.font_size,
+                anchor="lt",
+                spacing=2,
+            )
+            x += width + track_layout.gap
+
+        poster_image.save(directory / poster_filename(metadata.title, metadata.artists[0]))
+
+
 def render_track(
     request: TrackPosterRequest, metadata, selected_lyrics: str
 ) -> PosterResult:
@@ -273,12 +356,13 @@ def render_album(request: AlbumPosterRequest, metadata) -> PosterResult:
         download_cover(metadata.cover, cover_path)
         qr_color = cover_qr_color(cover_path) if platform_link is not None else None
         with provider_rendering(provider, platform_link, qr_color):
-            poster.Poster(str(directory)).album(
+            _render_album_poster(
+                directory,
                 metadata=metadata,
                 indexing=request.indexing,
                 accent=request.accent,
                 theme=request.theme,
-                pcover=str(cover_path),
+                cover_path=cover_path,
             )
         content, filename = _poster_bytes(directory)
         return PosterResult(content, filename, {})

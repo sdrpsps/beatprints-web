@@ -43,3 +43,31 @@ def test_rendering_prepares_empty_optional_catalog_text() -> None:
     assert result.artists == [" "]
     assert result.released == " "
     assert result.label == " "
+
+
+def test_album_track_layout_keeps_every_track_when_titles_are_wide() -> None:
+    tracks = [
+        "我亲爱的偏执狂",
+        "太聪明",
+        "小步舞曲",
+        "1234567",
+        "随便说说",
+        "躺在你的衣柜 (Guitar)",
+        "A Practice",
+        "吉他手",
+        "黑眼圈",
+        "就算全世界与我为敌",
+        "小尘埃",
+        "不应该",
+        "躺在你的衣柜 (Piano)",
+    ]
+
+    layout = rendering._album_track_layout(tracks, indexing=True)
+
+    assert [track for column in layout.columns for track in column] == [
+        f"{number}. {track}" for number, track in enumerate(tracks, start=1)
+    ]
+    assert (
+        sum(layout.widths) + layout.gap * (len(layout.widths) - 1)
+        <= rendering.poster.s.MAX_WIDTH
+    )
