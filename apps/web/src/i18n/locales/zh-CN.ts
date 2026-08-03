@@ -45,9 +45,11 @@ export const zhCN = {
     searchFailed: "没有完成搜索",
     trackCountUnit: "首",
     lyrics: "选择歌词",
-    lyricsHelp: "可选。不选择则海报不显示歌词，也可以从整首歌词中选择最多四行。",
+    lyricsHelp:
+      "可选。不选择则海报不显示歌词，也可以从整首歌词中选择最多四行。",
     manualLyrics: "手动填写",
     catalogLyrics: "从歌词中选择",
+    lyricsSourceLabel: "歌词来源",
     instrumentalTitle: "纯音乐文字",
     instrumentalHelp:
       "默认不显示文字，也可以填写最多四行、合计不超过 200 字的短句。",
@@ -68,8 +70,7 @@ export const zhCN = {
     finishEditTitle: "完成编辑",
     editLineTitle: "编辑这一行",
     platform: "添加平台入口",
-    platformHelp:
-      "可选。只添加一个二维码目的地；不选择就不会显示平台标识。",
+    platformHelp: "可选。只添加一个二维码目的地；不选择就不会显示平台标识。",
     qrPlatformLabel: "二维码平台",
     platformNone: "不添加",
     platformLinkSuffix: "链接",
@@ -80,8 +81,10 @@ export const zhCN = {
     appleMusicMatchingHelp: "正按已选的曲目或专辑资料查找对应版本。",
     appleMusicMatched: "已匹配 Apple Music 版本",
     openAppleMusic: "打开",
+    openPlatform: "打开",
     manualAppleMusicLink: "手动输入链接",
-    appleMusicManualHelp: "仅替换 Apple Music 二维码的目标；歌曲资料仍使用当前选定作品。",
+    appleMusicManualHelp:
+      "仅替换 Apple Music 二维码的目标；歌曲资料仍使用当前选定作品。",
     fetchAppleMusicInfo: "获取歌曲信息",
     appleMusicCoverAlt: "{{title}} Apple Music 封面",
     spotifyMatching: "正在匹配 Spotify 版本",
@@ -105,7 +108,8 @@ export const zhCN = {
     manualPlatformLink: "手动输入链接",
     platformCoverAlt: "{{title}} 封面",
     retry: "重试",
-    spotifyManualHelp: "仅替换 Spotify Code 的目标；歌曲资料仍使用当前选定作品。",
+    spotifyManualHelp:
+      "仅替换 Spotify Code 的目标；歌曲资料仍使用当前选定作品。",
     appleMusicNotMatched: "没有找到可确认的 Apple Music 版本",
     qqMusic: "QQ 音乐",
     neteaseMusic: "网易云音乐",
@@ -132,8 +136,7 @@ export const zhCN = {
     startOver: "换一个作品",
     outputAriaLabel: "海报输出",
     settingsChanged: "设置已更改",
-    staleOutputNotice:
-      "当前保留的是上一次生成结果。重新生成后才会应用新设置。",
+    staleOutputNotice: "当前保留的是上一次生成结果。重新生成后才会应用新设置。",
     generatingNotice: "保留当前结果，完成后会自动替换。",
     emptyOutputTitle: "海报将在这里生成",
     emptyOutputDescription: "选择作品并完成左侧设置",
@@ -146,12 +149,16 @@ export const zhCN = {
       error422: "提交的内容不完整，请检查后再试。",
       error502: "音乐服务暂时没有返回可用内容，可以重试或手动填写。",
       error503: "所选音乐来源暂时不可用，请切换来源后重试。",
-      appleMusicNoMatch: "没有找到足够确定的 Apple Music 匹配，请换一个作品或不添加平台入口。",
-      appleMusicMatchError: "Apple Music 匹配失败，请稍后重试或不添加平台入口。",
+      appleMusicNoMatch:
+        "没有找到足够确定的 Apple Music 匹配，请换一个作品或不添加平台入口。",
+      appleMusicMatchError:
+        "Apple Music 匹配失败，请稍后重试或不添加平台入口。",
       platformMatchError: "平台匹配失败，请稍后重试或不添加平台入口。",
-      platformLinkResolveError: "无法读取此平台链接，请检查链接或换一个链接重试。",
+      platformLinkResolveError:
+        "无法读取此平台链接，请检查链接或换一个链接重试。",
       platformCandidatesError: "候选版本搜索失败，请稍后重试或手动输入链接。",
-      platformCandidateResolveError: "无法读取所选版本，请选择其他结果或手动输入链接。",
+      platformCandidateResolveError:
+        "无法读取所选版本，请选择其他结果或手动输入链接。",
       platformCandidateType: "所选链接的作品类型与当前海报不一致。",
       spotifyMatchError: "Spotify 匹配失败，请稍后重试或不添加平台入口。",
       urlErrorInvalid: "请输入完整的平台链接。",

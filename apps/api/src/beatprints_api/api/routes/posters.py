@@ -10,11 +10,14 @@ from fastapi.responses import Response
 
 from beatprints_api.api.dependencies import require_api_key
 from beatprints_api.config import settings
-from beatprints_api.exceptions import InvalidInputError, UpstreamServiceError
+from beatprints_api.exceptions import (
+    IntegrationNotConfiguredError,
+    InvalidInputError,
+    UpstreamServiceError,
+)
 from beatprints_api.logging import log_event
 from beatprints_api.models import ApiResponse, AlbumPosterRequest, TrackPosterRequest
 from beatprints_api.services import beatprints as beatprints_service
-from beatprints_api.spotify import SpotifyError, SpotifyNotConfiguredError
 
 router = APIRouter(
     prefix="/v1/posters",
@@ -220,10 +223,8 @@ async def _generate(
             result = await run_in_threadpool(generator, request)
     except ValueError as exc:
         raise InvalidInputError(str(exc)) from exc
-    except SpotifyNotConfiguredError as exc:
+    except IntegrationNotConfiguredError as exc:
         raise UpstreamServiceError(str(exc), unavailable=True) from exc
-    except SpotifyError as exc:
-        raise UpstreamServiceError(str(exc)) from exc
     except beatprints_service.UpstreamError as exc:
         raise UpstreamServiceError(str(exc)) from exc
 
@@ -255,7 +256,7 @@ async def _generate(
     summary="生成歌曲海报",
     description=(
         "生成包含歌曲标题、歌手、时长、歌词、封面和调色板的 PNG。\n\n"
-        "`provider` 只控制 Deezer/Spotify 元数据来源；`qr_platform` 单独控制"
+        "`provider` 只控制元数据来源；`qr_platform` 单独控制"
         "左下角显示哪个音乐平台。未提供 `qr_platform` 时不显示平台标识或二维码。"
         "每张海报最多显示一个二维码，其颜色从封面提取，并在白色背景上保持安全"
         "对比度。"
@@ -279,8 +280,8 @@ async def track_poster(
             description=(
                 "`query`、`catalog_id`、`metadata` 必须且只能填写其中一个；"
                 "`provider` 选择元数据来源；`qr_platform` 可选，并明确选择唯一的"
-                "二维码平台。不填 `qr_platform` 就不显示。除 Spotify 元数据源自动"
-                "链接外，所选平台必须在 `platform_links` 中提供对应链接。"
+                "二维码平台。不填 `qr_platform` 就不显示。是否可复用来源链接由"
+                "已选择的目的地 integration 决定；否则须在 `platform_links` 中提供链接。"
             ),
             openapi_examples=TRACK_EXAMPLES,
         ),
@@ -294,7 +295,7 @@ async def track_poster(
     summary="生成专辑海报",
     description=(
         "生成包含专辑标题、歌手、曲目列表、封面和调色板的 PNG。\n\n"
-        "`provider` 只控制 Deezer/Spotify 元数据来源；`qr_platform` 单独控制"
+        "`provider` 只控制元数据来源；`qr_platform` 单独控制"
         "左下角显示哪个音乐平台。未提供 `qr_platform` 时不显示平台标识或二维码。"
         "每张海报最多显示一个二维码，其颜色从封面提取，并在白色背景上保持安全"
         "对比度。"
@@ -318,8 +319,8 @@ async def album_poster(
             description=(
                 "`query`、`catalog_id`、`metadata` 必须且只能填写其中一个；"
                 "`provider` 选择元数据来源；`qr_platform` 可选，并明确选择唯一的"
-                "二维码平台。不填 `qr_platform` 就不显示。除 Spotify 元数据源自动"
-                "链接外，所选平台必须在 `platform_links` 中提供对应链接。"
+                "二维码平台。不填 `qr_platform` 就不显示。是否可复用来源链接由"
+                "已选择的目的地 integration 决定；否则须在 `platform_links` 中提供链接。"
             ),
             openapi_examples=ALBUM_EXAMPLES,
         ),

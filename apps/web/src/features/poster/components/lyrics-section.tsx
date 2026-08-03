@@ -11,6 +11,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { LyricsPicker } from "@/features/poster/components/lyrics-picker"
+import { LyricsSourcePicker } from "@/features/poster/components/lyrics-source-picker"
 import {
   SectionHeading,
   studioSectionClass,
@@ -33,6 +34,7 @@ export function LyricsSection({ studio }: { studio: Studio }) {
             : t("poster.lyricsHelp")
         }
       />
+      <LyricsSourcePicker studio={studio} />
       <LyricsStatus studio={studio} />
       {!studio.instrumental && studio.lyrics.length > 0 ? (
         <ToggleGroup

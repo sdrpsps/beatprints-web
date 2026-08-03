@@ -1,11 +1,7 @@
 export type PosterKind = "track" | "album"
-export type CatalogProvider = "deezer" | "spotify"
+export type CatalogProvider = string
 export type SearchProvider = CatalogProvider | "all"
-export type PosterPlatform =
-  | "spotify"
-  | "apple_music"
-  | "qq_music"
-  | "netease_music"
+export type PosterPlatform = string
 export type Theme =
   | "Light"
   | "Dark"
@@ -42,9 +38,16 @@ export type LyricsLine = {
   text: string
 }
 
+export type LyricsSource = {
+  key: string
+  label: string
+  default: boolean
+}
+
 export type LyricsPreview = {
   provider: CatalogProvider
   catalog_id: number | string
+  source: string
   instrumental: boolean
   lines: LyricsLine[]
 }
@@ -60,6 +63,11 @@ export type PlatformLinkMatch = {
   duration_seconds?: number
   track_count?: number
   cover_url?: string
+}
+
+export type PlatformMatchOptions = {
+  match?: PlatformLinkMatch
+  candidates: PlatformLinkMatch[]
 }
 
 export type PosterPreferences = {
@@ -85,5 +93,5 @@ export type PosterRequest = {
   indexing?: boolean
   shuffle?: boolean
   qr_platform?: PosterPlatform
-  platform_links?: Partial<Record<PosterPlatform, string>>
+  platform_links?: Record<PosterPlatform, string>
 }

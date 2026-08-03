@@ -45,9 +45,11 @@ export const zhTW = {
     searchFailed: "沒有完成搜尋",
     trackCountUnit: "首",
     lyrics: "選擇歌詞",
-    lyricsHelp: "可選。不選擇則海報不顯示歌詞，也可以從整首歌詞中選擇最多四行。",
+    lyricsHelp:
+      "可選。不選擇則海報不顯示歌詞，也可以從整首歌詞中選擇最多四行。",
     manualLyrics: "手動填寫",
     catalogLyrics: "從歌詞中選擇",
+    lyricsSourceLabel: "歌詞來源",
     instrumentalTitle: "純音樂文字",
     instrumentalHelp:
       "預設不顯示文字，也可以填寫最多四行、合計不超過 200 字的短句。",
@@ -68,8 +70,7 @@ export const zhTW = {
     finishEditTitle: "完成編輯",
     editLineTitle: "編輯這一行",
     platform: "新增平台入口",
-    platformHelp:
-      "可選。只新增一個 QR Code 目的地；不選擇就不會顯示平台標誌。",
+    platformHelp: "可選。只新增一個 QR Code 目的地；不選擇就不會顯示平台標誌。",
     qrPlatformLabel: "QR Code 平台",
     platformNone: "不新增",
     platformLinkSuffix: "連結",
@@ -80,8 +81,10 @@ export const zhTW = {
     appleMusicMatchingHelp: "正依已選曲目或專輯資料尋找對應版本。",
     appleMusicMatched: "已比對 Apple Music 版本",
     openAppleMusic: "開啟",
+    openPlatform: "開啟",
     manualAppleMusicLink: "手動輸入連結",
-    appleMusicManualHelp: "只會替換 Apple Music QR Code 目的地；歌曲資料仍使用目前選定作品。",
+    appleMusicManualHelp:
+      "只會替換 Apple Music QR Code 目的地；歌曲資料仍使用目前選定作品。",
     fetchAppleMusicInfo: "取得歌曲資訊",
     appleMusicCoverAlt: "{{title}} Apple Music 封面",
     spotifyMatching: "正在比對 Spotify 版本",
@@ -105,7 +108,8 @@ export const zhTW = {
     manualPlatformLink: "手動輸入連結",
     platformCoverAlt: "{{title}} 封面",
     retry: "重試",
-    spotifyManualHelp: "只會替換 Spotify Code 目的地；歌曲資料仍使用目前選定作品。",
+    spotifyManualHelp:
+      "只會替換 Spotify Code 目的地；歌曲資料仍使用目前選定作品。",
     appleMusicNotMatched: "找不到可確認的 Apple Music 版本",
     qqMusic: "QQ 音樂",
     neteaseMusic: "網易雲音樂",
@@ -132,8 +136,7 @@ export const zhTW = {
     startOver: "換一個作品",
     outputAriaLabel: "海報輸出",
     settingsChanged: "設定已變更",
-    staleOutputNotice:
-      "目前保留的是上一次生成結果。重新生成後才會套用新設定。",
+    staleOutputNotice: "目前保留的是上一次生成結果。重新生成後才會套用新設定。",
     generatingNotice: "保留目前結果，完成後會自動替換。",
     emptyOutputTitle: "海報將在這裡生成",
     emptyOutputDescription: "選擇作品並完成左側設定",
@@ -146,12 +149,16 @@ export const zhTW = {
       error422: "提交的內容不完整，請檢查後再試。",
       error502: "音樂服務暫時沒有回傳可用內容，可以重試或手動填寫。",
       error503: "所選音樂來源暫時不可用，請切換來源後重試。",
-      appleMusicNoMatch: "找不到足夠確定的 Apple Music 比對結果，請換一個作品或不新增平台入口。",
-      appleMusicMatchError: "Apple Music 比對失敗，請稍後再試或不新增平台入口。",
+      appleMusicNoMatch:
+        "找不到足夠確定的 Apple Music 比對結果，請換一個作品或不新增平台入口。",
+      appleMusicMatchError:
+        "Apple Music 比對失敗，請稍後再試或不新增平台入口。",
       platformMatchError: "平台比對失敗，請稍後再試或不新增平台入口。",
-      platformLinkResolveError: "無法讀取此平台連結，請檢查連結或改用其他連結。",
+      platformLinkResolveError:
+        "無法讀取此平台連結，請檢查連結或改用其他連結。",
       platformCandidatesError: "候選版本搜尋失敗，請稍後再試或手動輸入連結。",
-      platformCandidateResolveError: "無法讀取所選版本，請選擇其他結果或手動輸入連結。",
+      platformCandidateResolveError:
+        "無法讀取所選版本，請選擇其他結果或手動輸入連結。",
       platformCandidateType: "所選連結的作品類型與目前海報不一致。",
       spotifyMatchError: "Spotify 比對失敗，請稍後再試或不新增平台入口。",
       urlErrorInvalid: "請輸入完整的平台連結。",

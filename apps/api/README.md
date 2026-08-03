@@ -121,18 +121,23 @@ docker compose logs -f beatprints-api
 
 ## 1. 只传歌曲查询词
 
-服务会用 `provider` 指定的平台获取元数据和封面，并用 LRClib 获取歌词。默认平台是
-Spotify；没有指定 `lyrics_range` 时使用前四行非空歌词。
+服务会用 `provider` 指定的平台获取元数据和封面。歌词来源由独立适配器提供；使用
+`/v1/lyrics/sources` 获取已启用来源，再将其 key 传给歌词预览。没有指定 `lyrics_range`
+时，兼容接口仍通过默认来源选择前四行非空歌词。
 
 前端歌词选择器可以先读取所选歌曲的规范化歌词：
 
 ```bash
-curl "http://localhost:8000/v1/lyrics?provider=deezer&catalog_id=5416564"
+curl "http://localhost:8000/v1/lyrics/sources"
+curl "http://localhost:8000/v1/lyrics?provider=deezer&catalog_id=5416564&source=lrclib"
 ```
 
 响应中的 `lines` 按原歌词顺序包含一开始编号的非空行；`instrumental=true` 表示纯音乐。
 界面选择完成后应将最多四行最终文字作为 `lyrics` 提交，确保生成内容与选择一致；
 提交空字符串表示明确不显示歌词，并避免触发后端默认选择前四行的兼容行为。
+
+当前内置来源为 LRCLIB。新增歌词来源时，只需在歌词来源注册表中添加其适配器导入；
+前端会从 `/v1/lyrics/sources` 读取启用来源。
 
 ```bash
 curl -X POST http://localhost:8000/v1/posters/track \
@@ -230,35 +235,35 @@ curl -X POST http://localhost:8000/v1/posters/track \
 上述请求只会显示 Apple Music 二维码，其他链接不会同时渲染。这样调用方可以保存一组跨平台
 链接，并针对同一首歌曲分别生成不同平台版本的海报。
 
-`qr_platform` 支持 `spotify`、`apple_music`、`qq_music` 和 `netease_music`。选定平台后，
+`qr_platform` 支持注册表中当前启用的目标平台（目前为 `spotify`、`apple_music`、`qq_music` 和
+`netease_music`）。选定平台后，
 `platform_links` 必须包含该平台的链接。链接支持平台网页地址、Universal Link 或 Deep
 Link。推荐优先传平台分享功能生成的 HTTPS/Universal Link：扫码设备安装了对应 App 时通常
 会直接唤起 App，未安装时仍可回退到网页。
 
 使用 Spotify 作为 `provider`、同时明确选择
 `"qr_platform": "spotify"` 时，可以省略 `platform_links.spotify`，服务会使用 Spotify
-元数据返回的歌曲或专辑链接。所有目标平台都使用同一套链接匹配接口；`platform` 为
-`spotify`、`apple_music`、`qq_music` 或 `netease_music`：
+元数据返回的歌曲或专辑链接。所有目标平台都使用同一套链接匹配接口；`platform` 是注册表中
+启用的目标键。启用列表集中在 `beatprints_api/integrations/destinations/registry.py`：
 
 ```bash
-curl "http://localhost:8000/v1/platform-links/apple_music?provider=deezer&catalog_id=5416564&type=track"
+curl "http://localhost:8000/v1/platform-links/apple_music/options?provider=deezer&catalog_id=5416564&type=track"
 ```
 
-该接口始终先读取未经改变的 `provider + catalog_id`，再用目标平台各自的严格规则确认匹配；
-无可信结果返回 404，绝不会把近似同名作品静默用作二维码。Spotify 同源条目直接复用其规范链接；
-Deezer 到 Spotify 的歌曲优先使用 ISRC，其他情况使用标题、艺人、发行信息、时长或曲目数的严格
-组合校验。调用方将成功结果的 `url` 写入对应 `platform_links.<platform>` 后生成海报。未指定
+该接口始终先读取未经改变的 `provider + catalog_id`，再使用所有目标平台共享的匹配规则。
+平台适配器只负责检索、链接解析和 Spotify ISRC 等额外能力；统一引擎负责标题版本、艺人、
+发行信息、时长、曲目数和歧义判断。响应同时包含可选的 `match` 和同次检索得到的 `candidates`，
+不会把近似同名作品静默确认。调用方将成功结果的 `url` 写入对应 `platform_links.<platform>` 后生成海报。未指定
 `qr_platform` 时，数据源是 Spotify 也不会自动显示二维码。
 
-自动结果不存在、被用户拒绝或需要手动输入链接时，使用同一资源族的候选与解析端点：
+自动结果不存在、被用户拒绝或需要手动输入链接时，使用响应中的候选或解析端点：
 
 ```bash
-curl "http://localhost:8000/v1/platform-links/apple_music/candidates?provider=deezer&catalog_id=5416564&type=track&limit=8"
 curl --get "http://localhost:8000/v1/platform-links/spotify/resolve" \
   --data-urlencode "url=https://open.spotify.com/track/7lp5evZr7qEDwlv5PS8b6i"
 ```
 
-`/candidates` 提供可由用户确认的排序候选；`/resolve` 读取所选公开链接的当前资料，用于刷新目标
+`/options` 提供自动确认与可由用户确认的排序候选；`/resolve` 读取所选公开链接的当前资料，用于刷新目标
 平台确认卡片。两者均支持四个平台，且不会改写海报使用的 Spotify / Deezer 来源资料、歌词或封面。
 
 选择 Spotify 且链接是标准的 Spotify 歌曲或专辑链接时，海报左下角会使用 Spotify

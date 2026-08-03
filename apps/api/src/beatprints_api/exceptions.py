@@ -21,3 +21,27 @@ class UpstreamServiceError(AppError):
             code=status_code * 100,
             message=message,
         )
+
+
+class UpstreamError(RuntimeError):
+    """Raised when an upstream catalog, lyrics, or artwork service fails."""
+
+
+class PlatformLinkNoMatchError(UpstreamError):
+    """Raised when a public destination link cannot be resolved."""
+
+
+class UnsupportedDestinationError(ValueError):
+    """Raised when a disabled or unknown destination is requested."""
+
+
+class UnsupportedCatalogSourceError(ValueError):
+    """Raised when a disabled or unknown source catalog is requested."""
+
+
+class UnsupportedLyricsSourceError(ValueError):
+    """Raised when a disabled or unknown lyrics source is requested."""
+
+
+class IntegrationNotConfiguredError(RuntimeError):
+    """Raised when an enabled integration lacks its required credentials."""

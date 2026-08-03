@@ -3,61 +3,23 @@ import re
 import threading
 import time
 from typing import Literal
-from urllib.parse import quote
 
 import httpx
+from PIL import Image
+
+from BeatPrints import deez, image as beatprints_image
+from beatprints_api.config import settings
+from beatprints_api.exceptions import IntegrationNotConfiguredError, UpstreamError
+from beatprints_api.integrations.catalog.base import CatalogAdapter
+from beatprints_api.integrations.catalog.registry import register
 
 
-class SpotifyError(RuntimeError):
+class SpotifyError(UpstreamError):
     """Raised when Spotify is unavailable or rejects a request."""
 
 
-class SpotifyNotConfiguredError(SpotifyError):
+class SpotifyNotConfiguredError(SpotifyError, IntegrationNotConfiguredError):
     """Raised when Spotify credentials were not configured."""
-
-
-class SpotifyCodeClient:
-    """Fetches Spotify's own scan-ready code artwork for a Spotify URI.
-
-    Spotify Codes are not part of the public Web API and have no official Python
-    SDK. Spotify's own code service returns the image that its mobile scanner
-    recognizes, so keeping this small adapter local is safer than depending on
-    an unmaintained third-party code generator.
-    """
-
-    SCANNABLES_URL = "https://scannables.scdn.co/uri/plain"
-    MAX_IMAGE_BYTES = 2 * 1024 * 1024
-
-    def __init__(self) -> None:
-        self._http = httpx.Client(
-            timeout=httpx.Timeout(10.0, connect=5.0),
-            limits=httpx.Limits(
-                max_connections=10,
-                max_keepalive_connections=5,
-                keepalive_expiry=30.0,
-            ),
-            headers={"User-Agent": "BeatPrints-API/0.1"},
-        )
-        atexit.register(self._http.close)
-
-    def png(self, uri: str, width: int) -> bytes:
-        """Return Spotify's standard black-on-white PNG code for ``uri``."""
-
-        url = (
-            f"{self.SCANNABLES_URL}/png/ffffff/black/{width}/" f"{quote(uri, safe=':')}"
-        )
-        try:
-            response = self._http.get(url)
-            response.raise_for_status()
-        except httpx.HTTPError as exc:
-            raise SpotifyError(f"Could not generate Spotify Code: {exc}") from exc
-
-        content_type = response.headers.get("content-type", "").split(";", 1)[0]
-        if content_type != "image/png":
-            raise SpotifyError("Spotify Code service returned an unexpected image type")
-        if len(response.content) > self.MAX_IMAGE_BYTES:
-            raise SpotifyError("Spotify Code image exceeds the 2 MB limit")
-        return response.content
 
 
 class SpotifyClient:
@@ -182,6 +144,7 @@ class SpotifyClient:
             "cover": self._cover_url(album),
             "label": self._album_label(album),
             "link": track["external_urls"]["spotify"],
+            "isrc": (track.get("external_ids") or {}).get("isrc"),
         }
 
     def album_metadata(self, album_id: str) -> dict:
@@ -291,3 +254,57 @@ class SpotifyClient:
             "release_date_precision": item.get("release_date_precision"),
             "track_count": item.get("total_tracks"),
         }
+
+
+# Source catalog clients deliberately live outside the destination-adapter
+# package. Disabling the Spotify QR destination must not disable Spotify as a
+# metadata provider or accidentally register that destination through an import.
+spotify_client = SpotifyClient(
+    settings.spotify_client_id,
+    settings.spotify_client_secret,
+    settings.spotify_market,
+)
+def _normalized_label(value: object) -> str:
+    label = str(value or "").strip()
+    return "" if label.casefold() in {"unknown", "unknown label", "unknown records"} else label
+
+
+def track_metadata(catalog_id: int | str) -> deez.TrackMetadata:
+    value = spotify_client.track_metadata(str(catalog_id))
+    metadata = deez.TrackMetadata(
+        title=value["title"], artists=value["artists"], album=value["album"],
+        released=value["released"], duration=value["duration"], cover=value["cover"],
+        label=_normalized_label(value["label"]),
+    )
+    metadata.link = value["link"]
+    metadata.isrc = value.get("isrc")
+    return metadata
+
+
+def album_metadata(catalog_id: int | str) -> deez.AlbumMetadata:
+    value = spotify_client.album_metadata(str(catalog_id))
+    metadata = deez.AlbumMetadata(
+        title=value["title"], artists=value["artists"], released=value["released"],
+        tracks=value["tracks"], cover=value["cover"], label=_normalized_label(value["label"]),
+    )
+    metadata.link = value["link"]
+    return metadata
+
+
+def cover_renderer(_url: str, path: str | None) -> Image.Image:
+    """Adapt Spotify's downloaded artwork to BeatPrints' cover hook."""
+
+    if path is None:
+        raise ValueError("Spotify rendering requires a downloaded cover")
+    with Image.open(path) as source:
+        cover = source.convert("RGB")
+    if cover.width != cover.height:
+        raise ValueError("Spotify artwork must be square and cannot be cropped")
+    return cover.resize(beatprints_image.s.COVER, Image.Resampling.LANCZOS)
+
+
+adapter = register(CatalogAdapter(
+    key="spotify", label="Spotify", configured=lambda: spotify_client.configured,
+    search=spotify_client.search, track_metadata=track_metadata, album_metadata=album_metadata,
+    cover_renderer=cover_renderer,
+))

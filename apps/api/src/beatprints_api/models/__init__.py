@@ -1,16 +1,22 @@
-from beatprints_api.models.dto import (
-    AppleMusicMatchData,
+from beatprints_api.models.catalog import (
+    LyricsLine,
+    LyricsPreviewData,
+    LyricsSourceData,
+    LyricsSourcesData,
+    SearchAlbumSummary,
+    SearchResult,
+)
+from beatprints_api.models.destinations import (
+    PlatformLinkMatchData,
+    PlatformMatchOptionsData,
+)
+from beatprints_api.models.poster import (
     AlbumMetadataInput,
     AlbumPosterRequest,
     CatalogProvider,
-    LyricsLine,
-    LyricsPreviewData,
     PosterPlatform,
     PosterPlatformLinks,
-    SearchAlbumSummary,
     SearchProvider,
-    SearchResult,
-    SpotifyMatchData,
     Theme,
     TrackMetadataInput,
     TrackPosterRequest,
@@ -19,19 +25,21 @@ from beatprints_api.models.response import ApiResponse, HealthData, ThemesData
 
 __all__ = [
     "AlbumMetadataInput",
-    "AppleMusicMatchData",
     "AlbumPosterRequest",
     "ApiResponse",
     "CatalogProvider",
     "HealthData",
     "LyricsLine",
     "LyricsPreviewData",
+    "LyricsSourceData",
+    "LyricsSourcesData",
     "PosterPlatform",
     "PosterPlatformLinks",
+    "PlatformMatchOptionsData",
     "SearchAlbumSummary",
     "SearchProvider",
     "SearchResult",
-    "SpotifyMatchData",
+    "PlatformLinkMatchData",
     "Theme",
     "ThemesData",
     "TrackMetadataInput",

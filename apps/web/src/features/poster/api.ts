@@ -2,8 +2,10 @@ import i18next from "i18next"
 
 import type {
   PlatformLinkMatch,
+  PlatformMatchOptions,
   CatalogProvider,
   LyricsPreview,
+  LyricsSource,
   PosterKind,
   PosterPlatform,
   PosterRequest,
@@ -78,35 +80,26 @@ export async function searchCatalog(
 export async function fetchLyrics(
   provider: CatalogProvider,
   catalogId: number | string,
+  source: string,
   signal?: AbortSignal,
 ) {
   const params = new URLSearchParams({
     provider,
     catalog_id: String(catalogId),
+    source,
   })
   return getJson<LyricsPreview>(`/v1/lyrics?${params}`, signal)
+}
+
+export function fetchLyricsSources(signal?: AbortSignal) {
+  return getJson<{ sources: LyricsSource[] }>("/v1/lyrics/sources", signal)
 }
 
 /**
  * Resolve the optional QR destination from the exact source item the listener selected.
  * The endpoint is intentionally platform-agnostic; provider-specific matching remains server-side.
  */
-export async function matchPlatformLink(
-  platform: PosterPlatform,
-  provider: CatalogProvider,
-  catalogId: number | string,
-  kind: PosterKind,
-  signal?: AbortSignal,
-) {
-  const params = new URLSearchParams({
-    provider,
-    catalog_id: String(catalogId),
-    type: kind,
-  })
-  return getJson<PlatformLinkMatch>(`/v1/platform-links/${platform}?${params}`, signal)
-}
-
-export async function fetchPlatformCandidates(
+export async function fetchPlatformMatchOptions(
   platform: PosterPlatform,
   provider: CatalogProvider,
   catalogId: number | string,
@@ -119,8 +112,8 @@ export async function fetchPlatformCandidates(
     type: kind,
     limit: "8",
   })
-  return getJson<PlatformLinkMatch[]>(
-    `/v1/platform-links/${platform}/candidates?${params}`,
+  return getJson<PlatformMatchOptions>(
+    `/v1/platform-links/${platform}/options?${params}`,
     signal,
   )
 }

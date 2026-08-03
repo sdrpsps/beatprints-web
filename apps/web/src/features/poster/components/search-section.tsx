@@ -3,17 +3,19 @@ import { AlertCircleIcon, SearchIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Field, FieldGroup, FieldLabel, FieldTitle } from "@/components/ui/field"
+import {
+  Field,
+  FieldGroup,
+  FieldLabel,
+  FieldTitle,
+} from "@/components/ui/field"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group"
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@/components/ui/toggle-group"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Spinner } from "@/components/ui/spinner"
 import {
   CatalogResultList,
@@ -24,13 +26,9 @@ import {
   studioSectionClass,
   type Studio,
 } from "@/features/poster/components/studio-shared"
+import { enabledCatalogSources } from "@/features/poster/catalogs/registry"
 import type { CatalogProvider } from "@/features/poster/types"
 import { cn } from "@/lib/utils"
-
-const providerItems = [
-  { value: "spotify", label: "Spotify" },
-  { value: "deezer", label: "Deezer" },
-] satisfies { value: CatalogProvider; label: string }[]
 
 export function SearchSection({ studio }: { studio: Studio }) {
   const { t } = useTranslation()
@@ -41,10 +39,7 @@ export function SearchSection({ studio }: { studio: Studio }) {
 
   return (
     <section
-      className={cn(
-        studioSectionClass,
-        !studio.selected && "border-b-0 pb-0",
-      )}
+      className={cn(studioSectionClass, !studio.selected && "border-b-0 pb-0")}
     >
       <SectionHeading
         number="01"
@@ -83,7 +78,9 @@ export function SearchSection({ studio }: { studio: Studio }) {
                   type="submit"
                   variant="default"
                   size="sm"
-                  disabled={!studio.query.trim() || studio.searchState === "loading"}
+                  disabled={
+                    !studio.query.trim() || studio.searchState === "loading"
+                  }
                 >
                   {studio.searchState === "loading" ? (
                     <Spinner data-icon="inline-start" />
@@ -120,8 +117,8 @@ function SourceFilter({ studio }: { studio: Studio }) {
         size="sm"
         aria-label={t("poster.source")}
       >
-        {providerItems.map((item) => (
-          <ToggleGroupItem key={item.value} value={item.value}>
+        {enabledCatalogSources().map((item) => (
+          <ToggleGroupItem key={item.key} value={item.key}>
             {item.label}
           </ToggleGroupItem>
         ))}

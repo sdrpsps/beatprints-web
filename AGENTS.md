@@ -27,6 +27,40 @@ mapping, current backend capabilities, and known integration gaps. Preserve thes
   drive the interface's visual identity; avoid generic AI-product and dashboard conventions.
 - BeatPrints is licensed CC BY-NC-SA 4.0 for non-commercial use and requires attribution.
 
+### Pluggable integration architecture
+
+All integrations with external music capabilities are plug-ins, not branches in a central
+provider, region, or product-name switch. This requirement applies to QR destinations, catalog
+search sources, lyrics sources, artwork/code renderers, and any future third-party music service.
+
+1. Give each integration its own module and a small explicit contract. An integration may own
+   its transport, normalization, public-link parsing, source-specific capabilities, and visual
+   code/mark behavior; it must not share a region-based catch-all module with unrelated platforms.
+2. Keep all enabled integrations in one registry whose imports are the complete enablement list.
+   Temporarily disabling an integration must require commenting/removing its one registry import,
+   not editing central conditionals, route enums, request fields, or renderer branches. Avoid
+   indirect imports that would re-register a disabled plug-in.
+3. Core journeys consume the contract and registry lookup only. They must not branch on a
+   platform's name, market, or geography. Platform-specific exceptions belong inside that
+   platform's plug-in; generic fallback behavior belongs in shared infrastructure.
+4. Separate source roles from destination roles. For example, disabling a Spotify QR destination
+   must not disable Spotify catalog metadata. A source item's identity and user-selected output
+   destination remain separate throughout the flow.
+5. Keep public request payloads and route dispatch extensible: use destination-keyed maps and
+   registry validation rather than fixed per-platform object fields or hard-coded route literals.
+   UI availability must come from the same enabled-integration configuration or a backend-exposed
+   registry, so a disabled integration is not offered to users.
+6. Preserve a consistent user contract across enabled integrations: explicit source selection,
+   conservative matching, ranked/manual fallback, current-metadata resolution, disabled states,
+   and equivalent track/album behavior where applicable. Do not silently choose a weak result.
+7. Add regression coverage for the registry, every enabled integration, and the disabled/unknown
+   path whenever this architecture changes. Test an integration's normalization independently
+   with recorded fixtures when practical.
+
+Apply these rules to future search-provider optimizations and multi-source lyrics work: source
+selection, priority/fallback, normalization, provenance, and failure handling belong behind
+independent source adapters and a shared orchestration contract, never in provider-name conditionals.
+
 ### Cross-platform link matching
 
 When implementing or changing a QR platform destination, preserve the established matching
@@ -135,6 +169,14 @@ component system.
 
 When a directory does not exist yet, create it only when the first real file needs it.
 Avoid speculative abstractions and barrel files.
+
+### Component and hook size
+
+Treat 150 lines as a soft maintainability threshold for frontend components and hooks. When a
+component or hook grows beyond it, first assess whether it contains independently testable or
+understandable responsibilities that should become focused components, hooks, or helpers. Split by
+real responsibility and clear data flow; do not mechanically fragment cohesive code just to meet a
+line count.
 
 ### Quality gates
 
