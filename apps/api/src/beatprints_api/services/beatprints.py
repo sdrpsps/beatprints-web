@@ -2,17 +2,14 @@ import random
 import re
 import time
 import unicodedata
-from contextlib import contextmanager
 from datetime import date
 from difflib import SequenceMatcher
-from pathlib import Path
 
 from beatprints_api.integrations.destinations import DestinationAdapter, get_destination_adapter
 from beatprints_api.exceptions import PlatformLinkNoMatchError, UpstreamError
 from beatprints_api.models.dto import (
     AlbumPosterRequest,
     LyricsPreviewData,
-    PosterPlatformLinks,
     PlatformLinkMatchData,
     PlatformMatchOptionsData,
     TrackPosterRequest,
@@ -406,99 +403,6 @@ def resolve_platform_url(platform: str, url: str):
 
 def clear_metadata_cache() -> None:
     catalog_service.clear_metadata_cache()
-
-
-def _poster_bytes(directory: Path) -> tuple[bytes, str]:
-    generated = list(directory.glob("*.png"))
-    if len(generated) != 1:
-        raise RuntimeError("BeatPrints did not generate exactly one poster")
-    path = generated[0]
-    return path.read_bytes(), path.name
-
-
-def _selected_platform_link(
-    links: PosterPlatformLinks | None,
-    selected_platform: str | None,
-    provider: str | None,
-    source_link: str | None,
-) -> tuple[DestinationAdapter, str] | None:
-    if selected_platform is None:
-        return None
-    adapter = _destination_adapter(selected_platform)
-    values = links.root if links is not None else {}
-    link = values.get(selected_platform)
-    if link is None and source_link and provider and adapter.reuses_source_link(provider):
-        link = source_link
-    if link is None:
-        raise ValueError(
-            f"platform_links.{selected_platform} is required for "
-            f"qr_platform={selected_platform}"
-        )
-    return adapter, str(link)
-
-
-def _relative_luminance(color: tuple[int, int, int]) -> float:
-    channels = []
-    for value in color:
-        channel = value / 255
-        channels.append(
-            channel / 12.92
-            if channel <= 0.04045
-            else ((channel + 0.055) / 1.055) ** 2.4
-        )
-    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
-
-
-def _contrast_with_white(color: tuple[int, int, int]) -> float:
-    return 1.05 / (_relative_luminance(color) + 0.05)
-
-
-def _cover_qr_color(cover_path: Path) -> tuple[int, int, int]:
-    with Image.open(cover_path) as cover:
-        palette = extract_palette(cover, size=8)
-
-    def saturation(color: tuple[int, int, int]) -> float:
-        return colorsys.rgb_to_hsv(*(channel / 255 for channel in color))[1]
-
-    high_contrast = [color for color in palette if _contrast_with_white(color) >= 4.5]
-    if high_contrast:
-        return max(high_contrast, key=saturation)
-
-    selected = max(palette, key=saturation)
-    for step in range(19, -1, -1):
-        factor = step / 20
-        darkened = tuple(round(channel * factor) for channel in selected)
-        if _contrast_with_white(darkened) >= 4.5:
-            return darkened
-    return 0, 0, 0
-
-
-@contextmanager
-def _provider_rendering(
-    provider: str | None,
-    platform_link: tuple[DestinationAdapter, str] | None,
-    qr_color: tuple[int, int, int] | None,
-):
-    """Temporarily adapt BeatPrints' fixed Deezer rendering to a catalog provider."""
-
-    with rendering_lock:
-        original_cover = beatprints_image.cover
-        original_scannable = beatprints_image.scannable
-        beatprints_image.scannable = empty_scannable
-        if provider is not None:
-            cover_renderer = get_catalog_adapter(provider).cover_renderer
-            if cover_renderer is not None:
-                beatprints_image.cover = cover_renderer
-        if platform_link is not None and qr_color is not None:
-            adapter, link = platform_link
-            beatprints_image.scannable = adapter.scannable(link) or fallback_scannable(
-                adapter.label, link, qr_color
-            )
-        try:
-            yield
-        finally:
-            beatprints_image.cover = original_cover
-            beatprints_image.scannable = original_scannable
 
 
 def preview_lyrics(provider: str, catalog_id: int | str) -> LyricsPreviewData:
