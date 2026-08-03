@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.2.0](https://github.com/sdrpsps/beatprints-web/compare/v1.1.2...v1.2.0) (2026-08-03)
+
+
+### Features
+
+* add QQ and NetEase catalog sources ([7b0d264](https://github.com/sdrpsps/beatprints-web/commit/7b0d264f4fca3482b80e827ffd8f78e92fc46a66))
+* add QQ and NetEase music sources ([9ceb1fc](https://github.com/sdrpsps/beatprints-web/commit/9ceb1fcdf929e0175d17d4dc8d8b83699087c5a1))
+* **api:** add NetEase and QQ Music lyrics sources ([f9b50eb](https://github.com/sdrpsps/beatprints-web/commit/f9b50ebfe1f246f2a1b597ce43573aa7d9237257))
+
+
+### Bug Fixes
+
+* enrich missing poster labels ([2ba55df](https://github.com/sdrpsps/beatprints-web/commit/2ba55df415faabb07f10a74d3cc9f1b4a6edf31f))
+* localize integration display names ([08012fc](https://github.com/sdrpsps/beatprints-web/commit/08012fc38e02b01df57d286d539e27e5489c4796))
+* match QQ albums without empty queries ([3a5f67a](https://github.com/sdrpsps/beatprints-web/commit/3a5f67a099ef994a57c16da559c490305304fdbe))
+* preserve all album tracks in posters ([23f6fe2](https://github.com/sdrpsps/beatprints-web/commit/23f6fe2b05f0e203ff4b96b552a846fd8ab8416b))
+* retain partial album title candidates ([5c4fd28](https://github.com/sdrpsps/beatprints-web/commit/5c4fd288c17e6c0f7e4ecb000ed2e9419f1f1815))
+* **web:** order poster destinations explicitly ([07b3d65](https://github.com/sdrpsps/beatprints-web/commit/07b3d65559371f23a264f2f4b69ce9cd03ce6ea2))
+
+
+### Code Refactoring
+
+* **web:** manage integration sources with static registries ([3ed07dc](https://github.com/sdrpsps/beatprints-web/commit/3ed07dcce57979cc5d295b6d316606c18ee0a6c6))
+
 ## [1.1.2](https://github.com/sdrpsps/beatprints-web/compare/v1.1.1...v1.1.2) (2026-08-03)
 
 
