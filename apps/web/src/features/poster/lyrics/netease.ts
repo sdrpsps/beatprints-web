@@ -2,7 +2,7 @@ import { registerLyricsSource } from "@/features/poster/lyrics/store"
 
 registerLyricsSource({
   key: "netease",
-  label: "网易云音乐",
+  labelKey: "poster.integrationNames.neteaseMusic",
   order: 1,
   default: false,
 })

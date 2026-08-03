@@ -1,5 +1,7 @@
+import type { IntegrationLabelKey } from "@/features/poster/integration-labels"
+
 export type CatalogSource = {
   key: string
-  label: string
+  labelKey: IntegrationLabelKey
   default: boolean
 }

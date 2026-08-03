@@ -20,7 +20,8 @@ import { getDestination } from "@/features/poster/destinations/registry"
 
 export function PlatformCandidates({ studio }: { studio: Studio }) {
   const { t } = useTranslation()
-  const label = getDestination(studio.qrPlatform)?.label ?? studio.qrPlatform
+  const destination = getDestination(studio.qrPlatform)
+  const label = destination ? t(destination.labelKey) : studio.qrPlatform
 
   if (studio.platformCandidateState === "loading") {
     return (

@@ -36,6 +36,14 @@ export const zhCN = {
     searching: "正在查找",
     source: "搜索来源",
     allSources: "全部来源",
+    integrationNames: {
+      spotify: "Spotify",
+      deezer: "Deezer",
+      appleMusic: "Apple Music",
+      qqMusic: "QQ 音乐",
+      neteaseMusic: "网易云音乐",
+      lrclib: "LRCLIB",
+    },
     selectWork: "选择作品",
     selectedWork: "已选作品",
     loadingSearchResults: "正在加载搜索结果",
@@ -111,8 +119,6 @@ export const zhCN = {
     spotifyManualHelp:
       "仅替换 Spotify Code 的目标；歌曲资料仍使用当前选定作品。",
     appleMusicNotMatched: "没有找到可确认的 Apple Music 版本",
-    qqMusic: "QQ 音乐",
-    neteaseMusic: "网易云音乐",
     appearance: "确定海报外观",
     appearanceHelp:
       "选择生成器支持的主题，并决定是否使用封面提取的底部强调色。",

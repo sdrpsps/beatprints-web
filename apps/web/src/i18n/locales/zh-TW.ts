@@ -36,6 +36,14 @@ export const zhTW = {
     searching: "正在尋找",
     source: "搜尋來源",
     allSources: "全部來源",
+    integrationNames: {
+      spotify: "Spotify",
+      deezer: "Deezer",
+      appleMusic: "Apple Music",
+      qqMusic: "QQ 音樂",
+      neteaseMusic: "網易雲音樂",
+      lrclib: "LRCLIB",
+    },
     selectWork: "選擇作品",
     selectedWork: "已選作品",
     loadingSearchResults: "正在載入搜尋結果",
@@ -111,8 +119,6 @@ export const zhTW = {
     spotifyManualHelp:
       "只會替換 Spotify Code 目的地；歌曲資料仍使用目前選定作品。",
     appleMusicNotMatched: "找不到可確認的 Apple Music 版本",
-    qqMusic: "QQ 音樂",
-    neteaseMusic: "網易雲音樂",
     appearance: "確定海報外觀",
     appearanceHelp:
       "選擇生成器支援的主題，並決定是否使用封面擷取的底部強調色。",

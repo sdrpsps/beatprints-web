@@ -17,7 +17,10 @@ export function PlatformSection({ studio }: { studio: Studio }) {
 
   const items = [
     { value: "none", label: t("poster.platformNone") },
-    ...enabledDestinations().map(({ key, label }) => ({ value: key, label })),
+    ...enabledDestinations().map(({ key, labelKey }) => ({
+      value: key,
+      label: t(labelKey),
+    })),
   ]
 
   return (

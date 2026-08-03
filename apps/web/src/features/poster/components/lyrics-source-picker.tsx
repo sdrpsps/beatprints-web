@@ -23,7 +23,7 @@ export function LyricsSourcePicker({ studio }: { studio: Studio }) {
       >
         {studio.lyricsSources.map((source) => (
           <ToggleGroupItem key={source.key} value={source.key}>
-            {source.label}
+            {t(source.labelKey)}
           </ToggleGroupItem>
         ))}
       </ToggleGroup>

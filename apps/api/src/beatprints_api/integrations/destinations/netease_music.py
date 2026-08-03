@@ -108,4 +108,4 @@ def resolve(url: str) -> PlatformLinkMatchData:
     )
 
 
-adapter = register(DestinationAdapter(key="netease_music", label="网易云", search=search, resolve=resolve, scannable=lambda link: icon_qr_scannable(link, ASSET_PATH)))
+adapter = register(DestinationAdapter(key="netease_music", label="网易云音乐", search=search, resolve=resolve, scannable=lambda link: icon_qr_scannable(link, ASSET_PATH)))

@@ -121,7 +121,7 @@ function SourceFilter({ studio }: { studio: Studio }) {
       >
         {enabledCatalogSources().map((item) => (
           <ToggleGroupItem key={item.key} value={item.key}>
-            {item.label}
+            {t(item.labelKey)}
           </ToggleGroupItem>
         ))}
       </ToggleGroup>

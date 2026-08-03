@@ -150,7 +150,7 @@ function CatalogResult({
       <ItemActions className="max-sm:basis-full max-sm:justify-end">
         <Badge variant={selected ? "default" : "secondary"}>
           {selected ? <CheckIcon data-icon="inline-start" /> : null}
-          {source?.label ?? result.provider}
+          {source ? t(source.labelKey) : result.provider}
         </Badge>
       </ItemActions>
     </Item>
