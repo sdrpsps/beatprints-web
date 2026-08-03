@@ -230,15 +230,16 @@ curl -X POST http://localhost:8000/v1/posters/track \
 上述请求只会显示 Apple Music 二维码，其他链接不会同时渲染。这样调用方可以保存一组跨平台
 链接，并针对同一首歌曲分别生成不同平台版本的海报。
 
-`qr_platform` 支持 `spotify`、`apple_music`、`qq_music` 和 `netease_music`。选定平台后，
+`qr_platform` 支持注册表中当前启用的目标平台（目前为 `spotify`、`apple_music`、`qq_music` 和
+`netease_music`）。选定平台后，
 `platform_links` 必须包含该平台的链接。链接支持平台网页地址、Universal Link 或 Deep
 Link。推荐优先传平台分享功能生成的 HTTPS/Universal Link：扫码设备安装了对应 App 时通常
 会直接唤起 App，未安装时仍可回退到网页。
 
 使用 Spotify 作为 `provider`、同时明确选择
 `"qr_platform": "spotify"` 时，可以省略 `platform_links.spotify`，服务会使用 Spotify
-元数据返回的歌曲或专辑链接。所有目标平台都使用同一套链接匹配接口；`platform` 为
-`spotify`、`apple_music`、`qq_music` 或 `netease_music`：
+元数据返回的歌曲或专辑链接。所有目标平台都使用同一套链接匹配接口；`platform` 是注册表中
+启用的目标键。启用列表集中在 `beatprints_api/destinations/registry.py`：
 
 ```bash
 curl "http://localhost:8000/v1/platform-links/apple_music/options?provider=deezer&catalog_id=5416564&type=track"

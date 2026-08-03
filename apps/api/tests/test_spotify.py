@@ -3,6 +3,8 @@ from io import BytesIO
 from PIL import Image
 import pytest
 
+from beatprints_api.destinations import apple_music, netease_music, qq_music, spotify
+from beatprints_api.destinations.scannable import fallback_scannable
 from beatprints_api.models import TrackPosterRequest
 from beatprints_api.services import beatprints as beatprints_service
 from beatprints_api.spotify import SpotifyClient, SpotifyNotConfiguredError
@@ -158,7 +160,9 @@ def test_spotify_source_link_is_added_to_platform_qr_codes() -> None:
         "https://open.spotify.com/track/spotify-track-id",
     )
 
-    assert link == ("Spotify", "https://open.spotify.com/track/spotify-track-id")
+    assert link is not None
+    assert link[0].key == "spotify"
+    assert link[1] == "https://open.spotify.com/track/spotify-track-id"
 
 
 def test_no_qr_platform_means_no_selected_link() -> None:
@@ -189,10 +193,9 @@ def test_rendering_hides_platform_area_without_manual_selection() -> None:
 
 
 def test_platform_scannable_uses_cover_color() -> None:
-    item = ("QQ 音乐", "https://y.qq.com/n/ryqq/songDetail/example")
     color = (82, 44, 126)
 
-    image = beatprints_service._platform_scannable(item, color)("Light")
+    image = fallback_scannable("Any platform", "https://example.com/track/1", color)("Light")
 
     assert image.mode == "RGBA"
     assert image.size == beatprints_service.beatprints_image.s.SCANCODE
@@ -206,18 +209,18 @@ def test_spotify_uri_accepts_canonical_track_and_album_urls() -> None:
     album_id = "1ATL5GLyefJaxhQzSPVrLX"
 
     assert (
-        beatprints_service._spotify_uri(
+        spotify._uri(
             f"https://open.spotify.com/track/{track_id}?si=example"
         )
         == f"spotify:track:{track_id}"
     )
     assert (
-        beatprints_service._spotify_uri(
+        spotify._uri(
             f"https://open.spotify.com/intl-zh/album/{album_id}"
         )
         == f"spotify:album:{album_id}"
     )
-    assert beatprints_service._spotify_uri("https://example.com/track/abc") is None
+    assert spotify._uri("https://example.com/track/abc") is None
 
 
 def test_spotify_code_scannable_uses_spotify_image_service_output(monkeypatch) -> None:
@@ -231,8 +234,8 @@ def test_spotify_code_scannable_uses_spotify_image_service_output(monkeypatch) -
         calls.append((uri, width))
         return payload.getvalue()
 
-    monkeypatch.setattr(beatprints_service.spotify_code_client, "png", png)
-    scannable = beatprints_service._spotify_code_scannable(
+    monkeypatch.setattr(spotify.spotify_code_client, "png", png)
+    scannable = spotify.scannable(
         "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC"
     )
 
@@ -247,8 +250,8 @@ def test_spotify_code_scannable_uses_spotify_image_service_output(monkeypatch) -
 def test_apple_music_scannable_uses_the_same_theme_color_rule_as_spotify_code() -> (
     None
 ):
-    scannable = beatprints_service._apple_music_scannable(
-        ("Apple Music", "https://music.apple.com/us/album/example/123456789"),
+    scannable = apple_music.adapter.scannable(
+        "https://music.apple.com/us/album/example/123456789"
     )
     image = scannable("Light")
     dark_image = scannable("Dark")
@@ -257,22 +260,17 @@ def test_apple_music_scannable_uses_the_same_theme_color_rule_as_spotify_code() 
     dark_color = beatprints_service.beatprints_image.t.THEMES["Dark"]
     assert image.mode == "RGBA"
     assert image.size == beatprints_service.beatprints_image.s.SCANCODE
-    assert image.getpixel((20, 60)) == light_color + (255,)
-    assert dark_image.getpixel((20, 60)) == dark_color + (255,)
     assert image.getpixel((98, 4))[3] == 0
     colors = image.getcolors(maxcolors=image.width * image.height) or []
     assert light_color + (255,) in {value for _count, value in colors}
+    dark_colors = dark_image.getcolors(maxcolors=dark_image.width * dark_image.height) or []
+    assert dark_color + (255,) in {value for _count, value in dark_colors}
 
 
 def test_china_music_scannables_use_theme_colored_supplied_symbols() -> None:
     color = beatprints_service.beatprints_image.t.THEMES["Light"]
-    for symbol in (
-        beatprints_service.QQ_MUSIC_SYMBOL_PATH,
-        beatprints_service.NETEASE_MUSIC_SYMBOL_PATH,
-    ):
-        image = beatprints_service._china_music_scannable(
-            ("Platform", "https://example.com/track/1"), symbol
-        )("Light")
+    for adapter in (qq_music.adapter, netease_music.adapter):
+        image = adapter.scannable("https://example.com/track/1")("Light")
         icon = image.crop((0, 23, 74, 97))
         colors = icon.getcolors(maxcolors=icon.width * icon.height) or []
         assert color + (255,) in {value for _count, value in colors}

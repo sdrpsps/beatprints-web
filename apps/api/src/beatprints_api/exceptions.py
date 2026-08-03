@@ -21,3 +21,15 @@ class UpstreamServiceError(AppError):
             code=status_code * 100,
             message=message,
         )
+
+
+class UpstreamError(RuntimeError):
+    """Raised when an upstream catalog, lyrics, or artwork service fails."""
+
+
+class PlatformLinkNoMatchError(UpstreamError):
+    """Raised when a public destination link cannot be resolved."""
+
+
+class UnsupportedDestinationError(ValueError):
+    """Raised when a disabled or unknown destination is requested."""

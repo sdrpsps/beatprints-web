@@ -1,10 +1,12 @@
 import pytest
 
 from BeatPrints.deez import AlbumMetadata, TrackMetadata
+from beatprints_api.destinations import netease_music, qq_music
+from beatprints_api.destinations.registry import destination_keys, get_destination_adapter
+from beatprints_api.exceptions import UnsupportedDestinationError
 from beatprints_api.services.beatprints import DestinationAdapter
 
 from beatprints_api.services import beatprints as beatprints_service
-from beatprints_api import china_music
 
 
 def album_metadata() -> AlbumMetadata:
@@ -18,15 +20,31 @@ def album_metadata() -> AlbumMetadata:
     )
 
 
+def test_enabled_destinations_are_registered_independently() -> None:
+    assert set(destination_keys()) == {
+        "spotify",
+        "apple_music",
+        "qq_music",
+        "netease_music",
+    }
+    for key in destination_keys():
+        adapter = get_destination_adapter(key)
+        assert adapter.key == key
+        assert adapter.search and adapter.resolve and adapter.scannable
+
+    with pytest.raises(UnsupportedDestinationError):
+        get_destination_adapter("disabled_destination")
+
+
 def test_qq_cover_urls_are_upgraded_to_https() -> None:
-    assert china_music._secure_url("http://y.gtimg.cn/cover.jpg") == "https://y.gtimg.cn/cover.jpg"
+    assert qq_music._secure_url("http://y.gtimg.cn/cover.jpg") == "https://y.gtimg.cn/cover.jpg"
 
 
 def test_catalog_year_supports_seconds_milliseconds_and_missing_values() -> None:
-    assert china_music._year(1_590_249_600) == 2020
-    assert china_music._year(1_590_249_600_000) == 2020
-    assert china_music._year("2020-05-24") == 2020
-    assert china_music._year(0) is None
+    assert qq_music._year(1_590_249_600) == 2020
+    assert qq_music._year(1_590_249_600_000) == 2020
+    assert qq_music._year("2020-05-24") == 2020
+    assert qq_music._year(0) is None
 
 
 def test_version_markers_do_not_match_inside_words() -> None:
@@ -45,19 +63,17 @@ def test_artist_comparison_ignores_collaborator_order() -> None:
 
 
 def test_qq_link_parser_rejects_lookalike_host() -> None:
-    assert china_music._id_from_url(
-        "https://example.com/songDetail/track-id", "qq_music"
-    ) is None
+    assert qq_music._id_from_url("https://example.com/songDetail/track-id") is None
 
 
 def test_netease_search_treats_malformed_result_as_empty(monkeypatch) -> None:
     monkeypatch.setattr(
-        china_music,
+        netease_music,
         "_get",
         lambda _url, **_params: {"result": "upstream returned no result object"},
     )
 
-    assert china_music.netease_search("missing", "track") == []
+    assert netease_music.search("missing", "track") == []
 
 
 def test_netease_search_uses_plain_catalog_endpoint(monkeypatch) -> None:
@@ -67,15 +83,15 @@ def test_netease_search_uses_plain_catalog_endpoint(monkeypatch) -> None:
         seen["url"] = url
         return {"result": {"songs": []}}
 
-    monkeypatch.setattr(china_music, "_get", get)
+    monkeypatch.setattr(netease_music, "_get", get)
 
-    assert china_music.netease_search("KUN", "track") == []
+    assert netease_music.search("KUN", "track") == []
     assert seen["url"] == "https://music.163.com/api/search/get"
 
 
 def test_qq_album_resolve_returns_current_artist_and_total(monkeypatch) -> None:
     monkeypatch.setattr(
-        china_music,
+        qq_music,
         "_get",
         lambda _url, **_params: {
             "data": {
@@ -88,12 +104,12 @@ def test_qq_album_resolve_returns_current_artist_and_total(monkeypatch) -> None:
         },
     )
 
-    result = china_music.qq_resolve(
+    result = qq_music.resolve(
         "https://y.qq.com/n/ryqq/albumDetail/002GS7yr33XVbv"
     )
 
-    assert result["artists"] == ["パイパー"]
-    assert result["track_count"] == 10
+    assert result.artists == ["パイパー"]
+    assert result.track_count == 10
 
 
 @pytest.mark.parametrize("platform", ["qq_music", "netease_music"])
@@ -106,13 +122,13 @@ def test_localized_album_is_found_by_title_fallback(monkeypatch, platform: str) 
         "cover_url": "https://example.com/cover.jpg",
         "url": "https://example.com/album/1",
     }
-    search = beatprints_service.china_music.qq_search if platform == "qq_music" else beatprints_service.china_music.netease_search
     monkeypatch.setattr(beatprints_service, "_album_metadata", lambda _request: album_metadata())
     monkeypatch.setattr(
-        beatprints_service.china_music,
-        "qq_search" if platform == "qq_music" else "netease_search",
-        lambda query, _item_type: (
-            [candidate] if query in {"Summer Breeze", "PIPER"} else []
+        beatprints_service,
+        "_destination_adapter",
+        lambda _platform: DestinationAdapter(
+            search=lambda query, item_type: [dict(candidate, type=item_type)] if query in {"Summer Breeze", "PIPER"} else [],
+            resolve=lambda _url: None,
         ),
     )
 
@@ -124,7 +140,6 @@ def test_localized_album_is_found_by_title_fallback(monkeypatch, platform: str) 
     assert match is not None
     assert match.title.startswith("SUMMER BREEZE")
     assert match.release_year == 1983
-    assert search is not None
 
 
 @pytest.mark.parametrize(
@@ -229,9 +244,12 @@ def test_cross_script_artist_search_prefers_original_over_same_name_cover(
         beatprints_service, "_track_metadata", lambda _request: metadata
     )
     monkeypatch.setattr(
-        beatprints_service.china_music,
-        "netease_search",
-        lambda query, _item_type: [original] if query == "KUN" else [cover],
+        beatprints_service,
+        "_destination_adapter",
+        lambda _platform: DestinationAdapter(
+            search=lambda query, item_type: [dict(original, type=item_type)] if query == "KUN" else [dict(cover, type=item_type)],
+            resolve=lambda _url: None,
+        ),
     )
 
     result = beatprints_service.platform_match_options(

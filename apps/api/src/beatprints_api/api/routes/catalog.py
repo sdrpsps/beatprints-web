@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
 
 from beatprints_api.api.dependencies import require_api_key
-from beatprints_api.exceptions import UpstreamServiceError
+from beatprints_api.exceptions import UnsupportedDestinationError, UpstreamServiceError
 from beatprints_api.models import (
     ApiResponse,
     CatalogProvider,
@@ -43,7 +43,7 @@ ERROR_RESPONSES = {
     responses=ERROR_RESPONSES,
 )
 async def platform_match_options(
-    platform: Literal["spotify", "apple_music", "qq_music", "netease_music"],
+    platform: str,
     provider: Annotated[CatalogProvider, Query()],
     catalog_id: Annotated[str, Query(min_length=1)],
     type: Annotated[Literal["track", "album"], Query()],
@@ -56,6 +56,8 @@ async def platform_match_options(
         )
     except SpotifyNotConfiguredError as exc:
         raise UpstreamServiceError(str(exc), unavailable=True) from exc
+    except UnsupportedDestinationError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     except beatprints_service.UpstreamError as exc:
         raise UpstreamServiceError(str(exc)) from exc
     return ApiResponse(code=0, data=result, message="success")
@@ -202,9 +204,7 @@ async def preview_lyrics(
     response_model_exclude_none=True,
 )
 async def resolve_platform_url(
-    platform: Literal[
-        "spotify", "apple_music", "qq_music", "netease_music"
-    ],
+    platform: str,
     url: Annotated[str, Query(min_length=1, max_length=2000)],
 ) -> ApiResponse[PlatformLinkMatchData]:
     try:
@@ -212,6 +212,8 @@ async def resolve_platform_url(
             beatprints_service.resolve_platform_url, platform, url
         )
     except beatprints_service.PlatformLinkNoMatchError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except UnsupportedDestinationError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except SpotifyNotConfiguredError as exc:
         raise UpstreamServiceError(str(exc), unavailable=True) from exc

@@ -1,7 +1,6 @@
 import atexit
 import colorsys
 import copy
-import io
 import ipaddress
 import random
 import re
@@ -16,29 +15,27 @@ from datetime import date
 from difflib import SequenceMatcher
 from functools import lru_cache
 from pathlib import Path
-from typing import Callable
-from urllib.parse import parse_qs, urljoin, urlparse
+from urllib.parse import urljoin, urlparse
 
 import deezer
 import httpx
-import qrcode
-from PIL import Image, ImageChops, ImageDraw, ImageFont
-from qrcode.constants import ERROR_CORRECT_M
+from PIL import Image
 
 from beatprints_api.config import settings
-from beatprints_api import china_music
+from beatprints_api.destinations import DestinationAdapter, get_destination_adapter
+from beatprints_api.destinations.scannable import empty_scannable, fallback_scannable
+from beatprints_api.exceptions import PlatformLinkNoMatchError, UpstreamError
 from beatprints_api.models.dto import (
     AlbumPosterRequest,
-    AppleMusicMatchData,
     LyricsLine,
     LyricsPreviewData,
     PosterPlatformLinks,
-    PlatformMatchOptionsData,
     PlatformLinkMatchData,
+    PlatformMatchOptionsData,
     TrackPosterRequest,
 )
 from beatprints_api.palette import extract_palette, install_pylette_compatibility_module
-from beatprints_api.spotify import SpotifyCodeClient, SpotifyClient
+from beatprints_api.spotify import spotify_client
 
 install_pylette_compatibility_module()
 
@@ -55,12 +52,6 @@ beatprints_image.get_palette = extract_palette
 
 MAX_COVER_BYTES = 15 * 1024 * 1024
 ALLOWED_COVER_TYPES = {"image/jpeg", "image/png", "image/webp"}
-spotify_client = SpotifyClient(
-    settings.spotify_client_id,
-    settings.spotify_client_secret,
-    settings.spotify_market,
-)
-spotify_code_client = SpotifyCodeClient()
 cover_client = httpx.Client(
     follow_redirects=False,
     timeout=httpx.Timeout(15.0, connect=5.0),
@@ -73,29 +64,6 @@ cover_client = httpx.Client(
 )
 atexit.register(cover_client.close)
 rendering_lock = threading.Lock()
-PLATFORM_LABELS = {
-    "spotify": "Spotify",
-    "apple_music": "Apple Music",
-    "qq_music": "QQ 音乐",
-    "netease_music": "网易云",
-}
-SPOTIFY_CODE_SCALE = 1.06
-SPOTIFY_CODE_WIDTH = 560
-SPOTIFY_CODE_HEIGHT = 120
-APPLE_MUSIC_SYMBOL_PATH = (
-    Path(__file__).resolve().parents[1] / "assets" / "apple-music-symbol.png"
-)
-QQ_MUSIC_SYMBOL_PATH = Path(__file__).resolve().parents[1] / "assets" / "qq-music-symbol.png"
-NETEASE_MUSIC_SYMBOL_PATH = Path(__file__).resolve().parents[1] / "assets" / "netease-music-symbol.png"
-APPLE_MUSIC_SEARCH_URL = "https://itunes.apple.com/search"
-
-
-class UpstreamError(RuntimeError):
-    """Raised when a metadata, lyrics, or cover provider fails."""
-
-
-class PlatformLinkNoMatchError(UpstreamError):
-    """Raised when a QR destination link cannot be confidently matched or resolved."""
 
 
 @dataclass(frozen=True)
@@ -103,16 +71,6 @@ class PosterResult:
     content: bytes
     filename: str
     timings_ms: dict[str, float]
-
-
-@dataclass(frozen=True)
-class DestinationAdapter:
-    """Hide destination catalog mechanics from the shared matching engine."""
-
-    search: Callable[[str, str], list[dict]]
-    resolve: Callable[[str], PlatformLinkMatchData]
-    supports_isrc: bool = False
-    resolve_source: Callable[[str, int | str, str], PlatformLinkMatchData | None] | None = None
 
 
 _uncached_font = write.font
@@ -183,76 +141,6 @@ def _release_year(value: object) -> int | None:
             return int(str(value)[:4])
         except ValueError:
             return None
-
-
-def _apple_music_results(query: str, entity: str) -> list[dict]:
-    try:
-        response = cover_client.get(
-            APPLE_MUSIC_SEARCH_URL,
-            params={
-                "term": query,
-                "media": "music",
-                "entity": entity,
-                "country": settings.apple_music_storefront,
-                "limit": 10,
-            },
-        )
-        response.raise_for_status()
-        results = response.json().get("results", [])
-    except (httpx.HTTPError, ValueError) as exc:
-        raise UpstreamError(f"Apple Music search failed: {exc}") from exc
-    return [result for result in results if isinstance(result, dict)]
-
-
-def _apple_music_result_data(result: dict) -> AppleMusicMatchData:
-    is_track = result.get("wrapperType") == "track"
-    title = result.get("trackName") if is_track else result.get("collectionName")
-    url = result.get("trackViewUrl") if is_track else result.get("collectionViewUrl")
-    if not isinstance(title, str) or not isinstance(url, str):
-        raise PlatformLinkNoMatchError("Apple Music did not return a usable catalog item")
-    return AppleMusicMatchData(
-        url=url,
-        title=title,
-        artists=[result["artistName"]] if isinstance(result.get("artistName"), str) else [],
-        album=result.get("collectionName") if is_track else None,
-        release_year=_release_year(result.get("releaseDate")),
-        duration_seconds=(
-            round(result["trackTimeMillis"] / 1000)
-            if is_track and isinstance(result.get("trackTimeMillis"), int)
-            else None
-        ),
-        track_count=None if is_track else result.get("trackCount"),
-        cover_url=result.get("artworkUrl100"),
-        type="track" if is_track else "album",
-    )
-
-
-def resolve_apple_music_url(url: str) -> AppleMusicMatchData:
-    """Return public Apple Music metadata for a manually supplied Apple URL."""
-
-    parsed = urlparse(url)
-    host = (parsed.hostname or "").lower()
-    if not (host == "music.apple.com" or host.endswith(".music.apple.com")):
-        raise PlatformLinkNoMatchError("URL is not an Apple Music link")
-    track_ids = parse_qs(parsed.query).get("i", [])
-    identifier = track_ids[0] if track_ids else next(
-        (part for part in reversed(parsed.path.split("/")) if part.isdigit()), None
-    )
-    if not identifier:
-        raise PlatformLinkNoMatchError("Apple Music link does not contain a catalog ID")
-    try:
-        response = cover_client.get(
-            "https://itunes.apple.com/lookup",
-            params={"id": identifier, "country": settings.apple_music_storefront},
-        )
-        response.raise_for_status()
-        results = response.json().get("results", [])
-    except (httpx.HTTPError, ValueError) as exc:
-        raise UpstreamError(f"Apple Music lookup failed: {exc}") from exc
-    for result in results:
-        if isinstance(result, dict) and result.get("wrapperType") in {"track", "collection"}:
-            return _apple_music_result_data(result)
-    raise PlatformLinkNoMatchError("Apple Music link did not resolve to a catalog item")
 
 
 def _is_public_host(hostname: str) -> bool:
@@ -400,39 +288,6 @@ def _album_metadata(request: AlbumPosterRequest) -> deez.AlbumMetadata:
     if request.shuffle:
         random.shuffle(metadata.tracks)
     return metadata
-
-
-def resolve_spotify_url(url: str) -> PlatformLinkMatchData:
-    """Read current Spotify metadata for a manually supplied Spotify URL."""
-
-    uri = _spotify_uri(url)
-    if uri is None:
-        raise PlatformLinkNoMatchError(
-            "URL is not a supported Spotify track or album link"
-        )
-    _prefix, item_type, catalog_id = uri.split(":", maxsplit=2)
-    if item_type == "track":
-        value = spotify_client.track_metadata(catalog_id)
-        return PlatformLinkMatchData(
-            url=value["link"],
-            title=value["title"],
-            artists=value["artists"],
-            album=value["album"],
-            release_year=_release_year(value["released"]),
-            duration_seconds=_duration_seconds(value["duration"]),
-            cover_url=value["cover"],
-            type="track",
-        )
-    value = spotify_client.album_metadata(catalog_id)
-    return PlatformLinkMatchData(
-        url=value["link"],
-        title=value["title"],
-        artists=value["artists"],
-        release_year=_release_year(value["released"]),
-        track_count=len(value["tracks"]),
-        cover_url=value["cover"],
-        type="album",
-    )
 
 
 _VERSION_MARKERS = {
@@ -588,69 +443,6 @@ def _candidate_score(
     return score
 
 
-def _apple_music_candidate(result: dict) -> dict | None:
-    try:
-        candidate = _apple_music_result_data(result).model_dump(mode="json")
-        candidate["platform_id"] = (
-            result.get("trackId")
-            if candidate["type"] == "track"
-            else result.get("collectionId")
-        )
-        return candidate
-    except PlatformLinkNoMatchError:
-        return None
-
-
-def _spotify_candidate(result: dict, item_type: str) -> dict | None:
-    url = result.get("link")
-    title = result.get("title")
-    if not url or not title:
-        return None
-    album = result.get("album") or {}
-    return {
-        "url": url,
-        "title": title,
-        "artists": result.get("artists") or [],
-        "type": item_type,
-        "album": album.get("title") if item_type == "track" else None,
-        "release_year": result.get("release_year"),
-        "duration_seconds": result.get("duration_seconds"),
-        "track_count": result.get("track_count"),
-        "cover_url": result.get("cover_url"),
-        "isrc": result.get("isrc"),
-        "platform_id": result.get("id"),
-    }
-
-
-def _search_apple_music(query: str, item_type: str) -> list[dict]:
-    entity = "song" if item_type == "track" else "album"
-    return [
-        candidate
-        for result in _apple_music_results(query, entity)
-        if (candidate := _apple_music_candidate(result)) is not None
-    ]
-
-
-def _search_spotify(query: str, item_type: str) -> list[dict]:
-    return [
-        candidate
-        for result in spotify_client.search(query, item_type, 10)
-        if (candidate := _spotify_candidate(result, item_type)) is not None
-    ]
-
-
-def _search_china_platform(
-    search: Callable[[str, str], list[dict]], query: str, item_type: str
-) -> list[dict]:
-    try:
-        return [
-            {"type": item_type, **candidate}
-            for candidate in search(query, item_type)
-        ]
-    except china_music.ChinaMusicError as exc:
-        raise UpstreamError(str(exc)) from exc
-
-
 def _source_metadata(provider: str, catalog_id: int | str, item_type: str):
     return (
         _track_metadata(TrackPosterRequest(provider=provider, catalog_id=catalog_id))
@@ -659,43 +451,10 @@ def _source_metadata(provider: str, catalog_id: int | str, item_type: str):
     )
 
 
-def _resolve_apple_music(url: str) -> PlatformLinkMatchData:
-    return PlatformLinkMatchData.model_validate(resolve_apple_music_url(url).model_dump())
-
-
-def _resolve_spotify_source(
-    provider: str, catalog_id: int | str, item_type: str
-) -> PlatformLinkMatchData | None:
-    if provider != "spotify":
-        return None
-    return resolve_spotify_url(f"spotify:{item_type}:{catalog_id}")
-
-
 def _destination_adapter(platform: str) -> DestinationAdapter:
-    adapters = {
-        "apple_music": DestinationAdapter(
-            search=_search_apple_music, resolve=_resolve_apple_music
-        ),
-        "spotify": DestinationAdapter(
-            search=_search_spotify,
-            resolve=resolve_spotify_url,
-            supports_isrc=True,
-            resolve_source=_resolve_spotify_source,
-        ),
-        "qq_music": DestinationAdapter(
-            search=lambda query, item_type: _search_china_platform(
-                china_music.qq_search, query, item_type
-            ),
-            resolve=lambda url: resolve_china_platform_url("qq_music", url),
-        ),
-        "netease_music": DestinationAdapter(
-            search=lambda query, item_type: _search_china_platform(
-                china_music.netease_search, query, item_type
-            ),
-            resolve=lambda url: resolve_china_platform_url("netease_music", url),
-        ),
-    }
-    return adapters[platform]
+    """Compatibility seam for the shared engine and its isolated tests."""
+
+    return get_destination_adapter(platform)
 
 
 def _source_isrc(
@@ -859,15 +618,7 @@ def platform_match_options(
     )
 
 
-def resolve_china_platform_url(platform: str, url: str) -> PlatformLinkMatchData:
-    resolve = china_music.qq_resolve if platform == "qq_music" else china_music.netease_resolve
-    try:
-        return PlatformLinkMatchData(**resolve(url))
-    except china_music.ChinaMusicError as exc:
-        raise PlatformLinkNoMatchError(str(exc)) from exc
-
-
-def resolve_platform_url(platform: str, url: str) -> PlatformLinkMatchData:
+def resolve_platform_url(platform: str, url: str):
     return _destination_adapter(platform).resolve(url)
 
 
@@ -907,41 +658,25 @@ def _spotify_cover(_url: str, path: str | None) -> Image.Image:
     return cover.resize(beatprints_image.s.COVER, Image.Resampling.LANCZOS)
 
 
-def _empty_scannable(_theme: str = "Light") -> Image.Image:
-    return Image.new("RGBA", beatprints_image.s.SCANCODE, (0, 0, 0, 0))
-
-
 def _selected_platform_link(
     links: PosterPlatformLinks | None,
     selected_platform: str | None,
     provider: str | None,
     source_link: str | None,
-) -> tuple[str, str] | None:
+) -> tuple[DestinationAdapter, str] | None:
     if selected_platform is None:
         return None
-    values = (
-        links.model_dump(mode="json", exclude_none=True) if links is not None else {}
-    )
-    if (
-        selected_platform == "spotify"
-        and provider == "spotify"
-        and source_link
-        and "spotify" not in values
-    ):
-        values["spotify"] = source_link
+    adapter = _destination_adapter(selected_platform)
+    values = links.root if links is not None else {}
     link = values.get(selected_platform)
+    if link is None and source_link and provider and adapter.reuses_source_link(provider):
+        link = source_link
     if link is None:
-        return None
-    return PLATFORM_LABELS[selected_platform], link
-
-
-def _qr_font(size: int) -> ImageFont.FreeTypeFont:
-    font_paths = write.font("Regular")
-    path = next(
-        (path for path in font_paths if "NotoSansSC" in path),
-        next(iter(font_paths)),
-    )
-    return ImageFont.truetype(path, size)
+        raise ValueError(
+            f"platform_links.{selected_platform} is required for "
+            f"qr_platform={selected_platform}"
+        )
+    return adapter, str(link)
 
 
 def _relative_luminance(color: tuple[int, int, int]) -> float:
@@ -980,263 +715,10 @@ def _cover_qr_color(cover_path: Path) -> tuple[int, int, int]:
     return 0, 0, 0
 
 
-def _platform_scannable(
-    item: tuple[str, str],
-    color: tuple[int, int, int],
-):
-    def render(_theme: str = "Light") -> Image.Image:
-        width, height = beatprints_image.s.SCANCODE
-        canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(canvas)
-        label, link = item
-        qr = qrcode.QRCode(
-            version=None,
-            error_correction=ERROR_CORRECT_M,
-            box_size=4,
-            border=2,
-        )
-        qr.add_data(link)
-        qr.make(fit=True)
-        code = qr.make_image(fill_color=color, back_color="white").convert("RGBA")
-        qr_size = 112
-        code = code.resize((qr_size, qr_size), Image.Resampling.NEAREST)
-        canvas.alpha_composite(code, (0, (height - qr_size) // 2))
-        draw.text(
-            (136, height // 2),
-            label,
-            fill=color + (255,),
-            font=_qr_font(28),
-            anchor="lm",
-        )
-        return canvas
-
-    return render
-
-
-def _apple_music_icon(color: tuple[int, int, int], size: int) -> Image.Image:
-    """Tint the alpha mask derived from the supplied Apple Music SVG."""
-
-    try:
-        with Image.open(APPLE_MUSIC_SYMBOL_PATH) as source:
-            mask = source.convert("RGBA").getchannel("A")
-    except OSError as exc:
-        raise RuntimeError("Apple Music symbol asset is unavailable") from exc
-    mask = mask.resize((size, size), Image.Resampling.LANCZOS)
-    icon = Image.new("RGBA", (size, size), color + (0,))
-    icon.putalpha(mask)
-    return icon
-
-
-def _platform_icon(path: Path, color: tuple[int, int, int], size: int) -> Image.Image:
-    try:
-        with Image.open(path) as source:
-            rgba = source.convert("RGBA")
-            alpha = rgba.getchannel("A")
-            ink = ImageChops.invert(rgba.convert("L"))
-            mask = ImageChops.multiply(alpha, ink)
-    except OSError as exc:
-        raise RuntimeError(f"Platform symbol asset is unavailable: {path.name}") from exc
-    mask = mask.resize((size, size), Image.Resampling.LANCZOS)
-    icon = Image.new("RGBA", (size, size), color + (0,))
-    icon.putalpha(mask)
-    return icon
-
-
-def _china_music_scannable(item: tuple[str, str], icon_path: Path):
-    def render(theme: str = "Light") -> Image.Image:
-        width, height = beatprints_image.s.SCANCODE
-        color = beatprints_image.t.THEMES[theme]
-        canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-        _label, link = item
-        qr = qrcode.QRCode(version=None, error_correction=ERROR_CORRECT_M, box_size=4, border=2)
-        qr.add_data(link); qr.make(fit=True)
-        code = _transparent_qr(qr, color, 112)
-        icon = _platform_icon(icon_path, color, 74)
-        canvas.alpha_composite(icon, (0, (height - 74) // 2))
-        canvas.alpha_composite(code, (98, (height - 112) // 2))
-        return canvas
-    return render
-
-
-def _transparent_qr(
-    qr: qrcode.QRCode, color: tuple[int, int, int], target_size: int
-) -> Image.Image:
-    """Draw a transparent, poster-friendly dot QR with stable finder patterns."""
-
-    modules = qr.get_matrix()
-    module_count = len(modules)
-    scale = 4
-    size = target_size * scale
-    module_size = size / module_count
-    code = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(code)
-    border = qr.border
-    last_finder_start = module_count - border - 7
-
-    def in_finder(x: int, y: int) -> bool:
-        return (
-            (border <= x < border + 7 and border <= y < border + 7)
-            or (
-                last_finder_start <= x < last_finder_start + 7
-                and border <= y < border + 7
-            )
-            or (
-                border <= x < border + 7
-                and last_finder_start <= y < last_finder_start + 7
-            )
-        )
-
-    for y, row in enumerate(modules):
-        for x, enabled in enumerate(row):
-            if enabled:
-                left = round(x * module_size)
-                top = round(y * module_size)
-                right = round((x + 1) * module_size)
-                bottom = round((y + 1) * module_size)
-                if not in_finder(x, y):
-                    inset = round(module_size * 0.12)
-                    draw.ellipse(
-                        (
-                            left + inset,
-                            top + inset,
-                            right - inset - 1,
-                            bottom - inset - 1,
-                        ),
-                        fill=color + (255,),
-                    )
-    # Keep the finder pattern recognizably square for camera detectors, with only
-    # a small softening at its outer corners to match the dot treatment.
-    finder_radius = round(module_size * 0.3)
-    for x, y in (
-        (border, border),
-        (last_finder_start, border),
-        (border, last_finder_start),
-    ):
-        left = round(x * module_size)
-        top = round(y * module_size)
-        right = round((x + 7) * module_size) - 1
-        bottom = round((y + 7) * module_size) - 1
-        draw.rounded_rectangle(
-            (left, top, right, bottom), radius=finder_radius, fill=color + (255,)
-        )
-        inner_left = round((x + 1) * module_size)
-        inner_top = round((y + 1) * module_size)
-        inner_right = round((x + 6) * module_size) - 1
-        inner_bottom = round((y + 6) * module_size) - 1
-        draw.rounded_rectangle(
-            (inner_left, inner_top, inner_right, inner_bottom),
-            radius=round(module_size * 0.2),
-            fill=(0, 0, 0, 0),
-        )
-        center_left = round((x + 2) * module_size)
-        center_top = round((y + 2) * module_size)
-        center_right = round((x + 5) * module_size) - 1
-        center_bottom = round((y + 5) * module_size) - 1
-        draw.rounded_rectangle(
-            (center_left, center_top, center_right, center_bottom),
-            radius=round(module_size * 0.2),
-            fill=color + (255,),
-        )
-    return code.resize((target_size, target_size), Image.Resampling.LANCZOS)
-
-
-def _apple_music_scannable(item: tuple[str, str]):
-    """Render Apple Music artwork using the poster theme, like Spotify Code."""
-
-    def render(theme: str = "Light") -> Image.Image:
-        width, height = beatprints_image.s.SCANCODE
-        canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-        _label, link = item
-        color = beatprints_image.t.THEMES[theme]
-
-        qr = qrcode.QRCode(
-            version=None,
-            # Apple Music URLs are long. L minimizes module density so the code stays
-            # visually open at poster size; the rendered modules remain large enough
-            # for a clean, unobstructed print scan.
-            error_correction=qrcode.constants.ERROR_CORRECT_L,
-            box_size=4,
-            border=2,
-        )
-        qr.add_data(link)
-        qr.make(fit=True)
-        code_size = 112
-        code = _transparent_qr(qr, color, code_size)
-        icon_size = 74
-        icon = _apple_music_icon(color, icon_size)
-        canvas.alpha_composite(icon, (0, (height - icon_size) // 2))
-        qr_x = 98
-        qr_y = (height - code_size) // 2
-        canvas.alpha_composite(code, (qr_x, qr_y))
-        return canvas
-
-    return render
-
-
-def _spotify_uri(link: str) -> str | None:
-    """Return a canonical Spotify track or album URI for a supported web link."""
-
-    parsed = urlparse(link)
-    if parsed.scheme == "spotify":
-        parts = parsed.path.split(":")
-        if len(parts) == 2 and parts[0] in {"track", "album"}:
-            return link
-
-    host = (parsed.hostname or "").lower()
-    if host not in {"open.spotify.com", "play.spotify.com"}:
-        return None
-    parts = [part for part in parsed.path.split("/") if part]
-    for index, part in enumerate(parts[:-1]):
-        if part in {"track", "album"}:
-            item_id = parts[index + 1]
-            if re.fullmatch(r"[A-Za-z0-9]{22}", item_id):
-                return f"spotify:{part}:{item_id}"
-    return None
-
-
-def _spotify_code_scannable(link: str):
-    """Render a Spotify Code in BeatPrints' fixed bottom-left slot."""
-
-    uri = _spotify_uri(link)
-    if uri is None:
-        return None
-    width, height = SPOTIFY_CODE_WIDTH, SPOTIFY_CODE_HEIGHT
-    content = spotify_code_client.png(uri, width)
-    try:
-        with Image.open(io.BytesIO(content)) as source:
-            code = source.convert("L")
-    except OSError as exc:
-        raise UpstreamError("Spotify Code service returned an invalid PNG") from exc
-
-    def render(theme: str = "Light") -> Image.Image:
-        color = beatprints_image.t.THEMES[theme]
-        mask = code.point(lambda value: 255 - value)
-        content_box = mask.getbbox()
-        if content_box is None:
-            raise UpstreamError("Spotify Code image contains no scannable content")
-        mask = mask.crop(content_box)
-        colored = Image.new("RGBA", mask.size, color + (0,))
-        colored.putalpha(mask)
-        canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-        target_width = min(width, round(colored.width * SPOTIFY_CODE_SCALE))
-        target_height = round(colored.height * target_width / colored.width)
-        if target_height > height:
-            target_height = height
-            target_width = round(colored.width * target_height / colored.height)
-        fitted = colored.resize((target_width, target_height), Image.Resampling.LANCZOS)
-        canvas.alpha_composite(
-            fitted,
-            ((width - fitted.width) // 2, (height - fitted.height) // 2),
-        )
-        return canvas
-
-    return render
-
-
 @contextmanager
 def _provider_rendering(
     provider: str | None,
-    platform_link: tuple[str, str] | None,
+    platform_link: tuple[DestinationAdapter, str] | None,
     qr_color: tuple[int, int, int] | None,
 ):
     """Temporarily adapt BeatPrints' fixed Deezer rendering to a catalog provider."""
@@ -1244,23 +726,13 @@ def _provider_rendering(
     with rendering_lock:
         original_cover = beatprints_image.cover
         original_scannable = beatprints_image.scannable
-        beatprints_image.scannable = _empty_scannable
+        beatprints_image.scannable = empty_scannable
         if provider == "spotify":
             beatprints_image.cover = _spotify_cover
         if platform_link is not None and qr_color is not None:
-            spotify_code = (
-                _spotify_code_scannable(platform_link[1])
-                if platform_link[0] == "Spotify"
-                else None
-            )
-            beatprints_image.scannable = spotify_code or (
-                _apple_music_scannable(platform_link)
-                if platform_link[0] == "Apple Music"
-                else _china_music_scannable(platform_link, QQ_MUSIC_SYMBOL_PATH)
-                if platform_link[0] == "QQ 音乐"
-                else _china_music_scannable(platform_link, NETEASE_MUSIC_SYMBOL_PATH)
-                if platform_link[0] == "网易云"
-                else _platform_scannable(platform_link, qr_color)
+            adapter, link = platform_link
+            beatprints_image.scannable = adapter.scannable(link) or fallback_scannable(
+                adapter.label, link, qr_color
             )
         try:
             yield

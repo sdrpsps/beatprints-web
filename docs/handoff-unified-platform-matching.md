@@ -74,9 +74,11 @@ The shared engine owns:
 - top-two ambiguity rejection;
 - automatic confirmation.
 
-Platform-specific behavior should be added to an adapter. Matching thresholds and evidence rules
-should remain in the shared engine unless a platform exposes a genuinely unique stable identifier
-or exact-catalog capability.
+Platform-specific behavior should be added to an adapter. Each destination now lives in its own
+module under `beatprints_api/destinations/`; `registry.py` is the complete enabled list. Commenting
+out one adapter import there disables that destination's matching, resolution, and poster rendering
+together. Matching thresholds and evidence rules remain in the shared engine unless a platform
+exposes a genuinely unique stable identifier or exact-catalog capability.
 
 ## Important matching rules
 
@@ -108,14 +110,15 @@ The UI deliberately does not display internal scores or field-difference explana
 
 ## Key files
 
-- `apps/api/src/beatprints_api/services/beatprints.py`: adapters and shared engine.
+- `apps/api/src/beatprints_api/services/beatprints.py`: shared matching engine and poster generation.
+- `apps/api/src/beatprints_api/destinations/`: independent destination adapters and shared QR helpers.
+- `apps/api/src/beatprints_api/destinations/registry.py`: enabled-adapter imports and lookup.
 - `apps/api/src/beatprints_api/api/routes/catalog.py`: `/options` and `/resolve` routes.
 - `apps/api/src/beatprints_api/models/dto.py`: platform-neutral response models.
-- `apps/api/src/beatprints_api/china_music.py`: QQ/NetEase normalization and URL validation.
 - `apps/api/src/beatprints_api/spotify.py`: Spotify IDs and ISRC metadata.
 - `apps/web/src/features/poster/api.ts`: frontend platform-link client.
 - `apps/web/src/features/poster/use-poster-studio.ts`: matching and candidate state flow.
-- `apps/api/tests/test_china_music.py`: shared matching regression cases.
+- `apps/api/tests/test_destination_matching.py`: shared matching regression cases.
 - `apps/api/tests/test_api.py`: unified API contract coverage.
 
 ## Verification
@@ -140,11 +143,9 @@ environment command above or correct the local proxy configuration.
 
 ## Suggested follow-up work
 
-1. Move destination adapters into their own module if more destinations are added; the current
-   registry is intentionally local while only four small adapters exist.
-2. Add real recorded fixture responses for each destination, particularly Apple Music and
+1. Add real recorded fixture responses for each destination, particularly Apple Music and
    Spotify, so adapter normalization is tested independently of network services.
-3. Add album track-list comparison only when year and track count cannot disambiguate editions;
+2. Add album track-list comparison only when year and track count cannot disambiguate editions;
    avoid making it an unconditional extra upstream request.
-4. Implement the separately discussed multi-source lyrics selector as its own change. Preserve
+3. Implement the separately discussed multi-source lyrics selector as its own change. Preserve
    LRCLIB, keep the lyrics response simple, and submit the user's final four lines explicitly.

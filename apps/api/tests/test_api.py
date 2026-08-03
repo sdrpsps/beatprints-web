@@ -637,17 +637,9 @@ def test_openapi_includes_descriptions_and_request_examples() -> None:
     assert album_examples["spotify_qr_auto"]["value"]["qr_platform"] == "spotify"
     assert album_examples["netease_music_qr"]["value"]["qr_platform"] == "netease_music"
     platform_links = schema["components"]["schemas"]["PosterPlatformLinks"]
-    assert set(platform_links["properties"]) == {
-        "spotify",
-        "apple_music",
-        "qq_music",
-        "netease_music",
-    }
-    assert set(
-        schema["components"]["schemas"]["TrackPosterRequest"]["properties"][
-            "qr_platform"
-        ]["anyOf"][0]["enum"]
-    ) == {"spotify", "apple_music", "qq_music", "netease_music"}
+    assert platform_links["additionalProperties"]["format"] == "uri"
+    qr_platform_schema = schema["components"]["schemas"]["TrackPosterRequest"]["properties"]["qr_platform"]
+    assert qr_platform_schema["anyOf"][0]["type"] == "string"
     track_schema = schema["components"]["schemas"]["TrackPosterRequest"]
     album_schema = schema["components"]["schemas"]["AlbumPosterRequest"]
     assert track_schema["example"]["query"] == "Summer Breeze Piper"

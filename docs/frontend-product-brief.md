@@ -95,8 +95,8 @@ interval.
 The metadata provider and poster platform are separate concepts:
 
 - `provider` chooses where metadata is fetched: `deezer` or `spotify`.
-- `qr_platform` optionally chooses the one platform rendered on the poster:
-  `spotify`, `apple_music`, `qq_music`, or `netease_music`.
+- `qr_platform` optionally chooses the one enabled destination rendered on the poster.
+  The current registry enables `spotify`, `apple_music`, `qq_music`, and `netease_music`.
 
 When the user chooses no platform, omit `qr_platform`; the poster contains no platform label
 or QR code.
@@ -105,7 +105,7 @@ The frontend uses one API family for every QR destination. It must always pass t
 result's unchanged `provider + id`, never a new text query:
 
 ```http
-GET /v1/platform-links/<spotify|apple_music|qq_music|netease_music>/options
+GET /v1/platform-links/<enabled-destination>/options
   ?provider=<deezer|spotify>&catalog_id=<id>&type=<track|album>
 ```
 
@@ -122,7 +122,7 @@ can transition directly to the alternatives without another user action or anoth
 because confirmation and alternatives come from the same response. It shows these
 alternatives using the same cover/title/artist/context hierarchy as source search, with a “Select”
 action. Selecting a candidate calls
-`GET /v1/platform-links/<spotify|apple_music|qq_music|netease_music>/resolve?url=<public-url>` and uses the returned current metadata
+`GET /v1/platform-links/<enabled-destination>/resolve?url=<public-url>` and uses the returned current metadata
 for the platform confirmation card. Manual public-link entry remains the final fallback and uses
 the same resolve behavior. Candidate or manual resolution refreshes only the QR destination and
 confirmation card; the poster's source metadata, lyrics, cover, and catalog ID remain unchanged.

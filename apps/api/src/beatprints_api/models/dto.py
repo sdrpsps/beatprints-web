@@ -1,6 +1,6 @@
 from typing import Annotated, Literal
 
-from pydantic import AnyUrl, BaseModel, ConfigDict, Field, HttpUrl, model_validator
+from pydantic import AnyUrl, BaseModel, ConfigDict, Field, HttpUrl, RootModel, model_validator
 
 Theme = Annotated[
     Literal[
@@ -20,44 +20,15 @@ Theme = Annotated[
 
 CatalogProvider = Literal["deezer", "spotify"]
 SearchProvider = Literal["deezer", "spotify", "all"]
-PosterPlatform = Literal["spotify", "apple_music", "qq_music", "netease_music"]
+PosterPlatform = str
 
 
-class PosterPlatformLinks(BaseModel):
-    """海报左下角二维码对应的音乐平台直达链接。"""
-
-    spotify: Annotated[
-        AnyUrl | None,
-        Field(
-            description="Spotify 歌曲或专辑的网页链接、Universal Link 或 Deep Link。",
-            examples=["https://open.spotify.com/track/7lp5evZr7qEDwlv5PS8b6i"],
-        ),
-    ] = None
-    apple_music: Annotated[
-        AnyUrl | None,
-        Field(
-            description="Apple Music 歌曲或专辑的网页链接、Universal Link 或 Deep Link。",
-            examples=["https://music.apple.com/us/album/summer-breeze/1790520587"],
-        ),
-    ] = None
-    qq_music: Annotated[
-        AnyUrl | None,
-        Field(
-            description="QQ 音乐歌曲或专辑的网页链接、Universal Link 或 Deep Link。",
-            examples=["https://y.qq.com/n/ryqq/songDetail/001example"],
-        ),
-    ] = None
-    netease_music: Annotated[
-        AnyUrl | None,
-        Field(
-            description="网易云音乐歌曲或专辑的网页链接、Universal Link 或 Deep Link。",
-            examples=["https://music.163.com/song?id=123456"],
-        ),
-    ] = None
+class PosterPlatformLinks(RootModel[dict[str, AnyUrl]]):
+    """Destination-keyed public links for the one QR code on a poster."""
 
     @model_validator(mode="after")
     def require_at_least_one_link(self) -> "PosterPlatformLinks":
-        if not any((self.spotify, self.apple_music, self.qq_music, self.netease_music)):
+        if not self.root:
             raise ValueError("platform_links must contain at least one platform URL")
         return self
 
@@ -247,18 +218,11 @@ class PosterSource(BaseModel):
     def validate_qr_platform_link(self) -> "PosterSource":
         if self.qr_platform is None:
             return self
-        selected_link = (
-            getattr(self.platform_links, self.qr_platform)
-            if self.platform_links is not None
-            else None
+        values = self.platform_links.root if self.platform_links is not None else {}
+        source_link_may_be_reused = (
+            self.qr_platform == self.provider and getattr(self, "metadata", None) is None
         )
-        metadata = getattr(self, "metadata", None)
-        can_use_spotify_source = (
-            self.qr_platform == "spotify"
-            and self.provider == "spotify"
-            and metadata is None
-        )
-        if selected_link is None and not can_use_spotify_source:
+        if self.qr_platform not in values and not source_link_may_be_reused:
             raise ValueError(
                 f"platform_links.{self.qr_platform} is required for "
                 f"qr_platform={self.qr_platform}"
@@ -581,20 +545,6 @@ class LyricsPreviewData(BaseModel):
             ),
         ),
     ]
-
-
-class AppleMusicMatchData(BaseModel):
-    """由已选目录条目自动匹配到的 Apple Music 公开链接。"""
-
-    url: HttpUrl
-    title: str
-    artists: list[str]
-    type: Literal["track", "album"]
-    album: str | None = None
-    release_year: int | None = None
-    duration_seconds: int | None = None
-    track_count: int | None = None
-    cover_url: HttpUrl | None = None
 
 
 class PlatformLinkMatchData(BaseModel):

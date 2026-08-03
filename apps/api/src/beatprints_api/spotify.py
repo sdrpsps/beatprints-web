@@ -7,6 +7,8 @@ from urllib.parse import quote
 
 import httpx
 
+from beatprints_api.config import settings
+
 
 class SpotifyError(RuntimeError):
     """Raised when Spotify is unavailable or rejects a request."""
@@ -292,3 +294,14 @@ class SpotifyClient:
             "release_date_precision": item.get("release_date_precision"),
             "track_count": item.get("total_tracks"),
         }
+
+
+# Source catalog clients deliberately live outside the destination-adapter
+# package. Disabling the Spotify QR destination must not disable Spotify as a
+# metadata provider or accidentally register that destination through an import.
+spotify_client = SpotifyClient(
+    settings.spotify_client_id,
+    settings.spotify_client_secret,
+    settings.spotify_market,
+)
+spotify_code_client = SpotifyCodeClient()

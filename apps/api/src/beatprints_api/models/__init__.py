@@ -1,5 +1,4 @@
 from beatprints_api.models.dto import (
-    AppleMusicMatchData,
     AlbumMetadataInput,
     AlbumPosterRequest,
     CatalogProvider,
@@ -20,7 +19,6 @@ from beatprints_api.models.response import ApiResponse, HealthData, ThemesData
 
 __all__ = [
     "AlbumMetadataInput",
-    "AppleMusicMatchData",
     "AlbumPosterRequest",
     "ApiResponse",
     "CatalogProvider",
