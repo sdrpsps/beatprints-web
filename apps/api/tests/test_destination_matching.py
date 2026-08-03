@@ -3,7 +3,8 @@ import pytest
 from BeatPrints.deez import AlbumMetadata, TrackMetadata
 from beatprints_api.integrations.destinations import netease_music, qq_music
 from beatprints_api.integrations.destinations.registry import destination_keys, get_destination_adapter
-from beatprints_api.exceptions import UnsupportedDestinationError
+from beatprints_api.integrations.catalog.registry import catalog_adapters, get_catalog_adapter
+from beatprints_api.exceptions import UnsupportedCatalogSourceError, UnsupportedDestinationError
 from beatprints_api.services.beatprints import DestinationAdapter
 
 from beatprints_api.services import beatprints as beatprints_service
@@ -34,6 +35,16 @@ def test_enabled_destinations_are_registered_independently() -> None:
 
     with pytest.raises(UnsupportedDestinationError):
         get_destination_adapter("disabled_destination")
+
+
+def test_source_catalogs_are_registered_independently() -> None:
+    assert {adapter.key for adapter in catalog_adapters()} == {"deezer", "spotify"}
+    for adapter in catalog_adapters():
+        assert adapter.search and adapter.track_metadata and adapter.album_metadata
+        assert get_catalog_adapter(adapter.key) is adapter
+
+    with pytest.raises(UnsupportedCatalogSourceError):
+        get_catalog_adapter("disabled_source")
 
 
 def test_qq_cover_urls_are_upgraded_to_https() -> None:

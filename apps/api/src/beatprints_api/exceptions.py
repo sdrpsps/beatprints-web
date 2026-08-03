@@ -33,3 +33,11 @@ class PlatformLinkNoMatchError(UpstreamError):
 
 class UnsupportedDestinationError(ValueError):
     """Raised when a disabled or unknown destination is requested."""
+
+
+class UnsupportedCatalogSourceError(ValueError):
+    """Raised when a disabled or unknown source catalog is requested."""
+
+
+class IntegrationNotConfiguredError(RuntimeError):
+    """Raised when an enabled integration lacks its required credentials."""

@@ -4,7 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
 
 from beatprints_api.api.dependencies import require_api_key
-from beatprints_api.exceptions import UnsupportedDestinationError, UpstreamServiceError
+from beatprints_api.exceptions import (
+    IntegrationNotConfiguredError,
+    UnsupportedCatalogSourceError,
+    UnsupportedDestinationError,
+    UpstreamServiceError,
+)
 from beatprints_api.models import (
     ApiResponse,
     CatalogProvider,
@@ -16,7 +21,6 @@ from beatprints_api.models import (
     ThemesData,
 )
 from beatprints_api.services import beatprints as beatprints_service
-from beatprints_api.spotify import SpotifyNotConfiguredError
 
 router = APIRouter(
     prefix="/v1",
@@ -54,8 +58,10 @@ async def platform_match_options(
             beatprints_service.platform_match_options,
             provider, catalog_id, type, platform, limit,
         )
-    except SpotifyNotConfiguredError as exc:
+    except IntegrationNotConfiguredError as exc:
         raise UpstreamServiceError(str(exc), unavailable=True) from exc
+    except UnsupportedCatalogSourceError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     except UnsupportedDestinationError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except beatprints_service.UpstreamError as exc:
@@ -93,8 +99,8 @@ def themes() -> ApiResponse[ThemesData]:
     summary="搜索歌曲或专辑",
     description=(
         "按 provider 在音乐目录中搜索，返回的 provider + id 可以直接交给海报生成接口。"
-        "provider=spotify 需要服务端配置 Spotify Client Credentials；"
-        "provider=all 会合并当前已启用的来源。"
+        "provider 使用已启用的目录 integration key；provider=all 会合并"
+        "当前已配置的来源。"
     ),
     response_model=ApiResponse[list[SearchResult]],
     response_model_exclude_none=True,
@@ -117,7 +123,7 @@ async def search(
     provider: Annotated[
         SearchProvider,
         Query(
-            description="搜索数据源：deezer、spotify 或 all。",
+            description="搜索数据源：已启用的目录 integration key 或 all。",
             examples=["all"],
         ),
     ] = "spotify",
@@ -139,8 +145,10 @@ async def search(
             limit,
             provider,
         )
-    except SpotifyNotConfiguredError as exc:
+    except IntegrationNotConfiguredError as exc:
         raise UpstreamServiceError(str(exc), unavailable=True) from exc
+    except UnsupportedCatalogSourceError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     except beatprints_service.UpstreamError as exc:
         raise UpstreamServiceError(str(exc)) from exc
     except Exception as exc:
@@ -183,8 +191,10 @@ async def preview_lyrics(
             provider,
             catalog_id,
         )
-    except SpotifyNotConfiguredError as exc:
+    except IntegrationNotConfiguredError as exc:
         raise UpstreamServiceError(str(exc), unavailable=True) from exc
+    except UnsupportedCatalogSourceError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     except beatprints_service.UpstreamError as exc:
         raise UpstreamServiceError(str(exc)) from exc
     except Exception as exc:
@@ -215,7 +225,7 @@ async def resolve_platform_url(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except UnsupportedDestinationError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except SpotifyNotConfiguredError as exc:
+    except IntegrationNotConfiguredError as exc:
         raise UpstreamServiceError(str(exc), unavailable=True) from exc
     except beatprints_service.UpstreamError as exc:
         raise UpstreamServiceError(str(exc)) from exc

@@ -601,7 +601,7 @@ def test_openapi_includes_descriptions_and_request_examples() -> None:
         for parameter in search["parameters"]
         if parameter["name"] == "provider"
     )
-    assert set(provider["schema"]["enum"]) == {"deezer", "spotify", "all"}
+    assert provider["schema"]["type"] == "string"
     assert "503" in search["responses"]
     assert lyrics["responses"]["200"]["content"]["application/json"]["schema"]
     assert track["requestBody"]["content"]["application/json"]["schema"].get(

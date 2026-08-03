@@ -12,7 +12,8 @@ from beatprints_api.integrations.destinations.base import DestinationAdapter
 from beatprints_api.integrations.destinations.registry import register
 from beatprints_api.exceptions import PlatformLinkNoMatchError, UpstreamError
 from beatprints_api.models.dto import PlatformLinkMatchData
-from beatprints_api.spotify import spotify_client, spotify_code_client
+from beatprints_api.integrations.catalog.spotify import spotify_client
+from beatprints_api.integrations.destinations.spotify_code import spotify_code_client
 
 CODE_SCALE = 1.06
 CODE_WIDTH = 560

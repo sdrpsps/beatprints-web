@@ -18,8 +18,10 @@ Theme = Annotated[
     ),
 ]
 
-CatalogProvider = Literal["deezer", "spotify"]
-SearchProvider = Literal["deezer", "spotify", "all"]
+# Source catalogs are runtime-registered integrations.  Keeping these values as
+# strings lets a newly enabled adapter use the unchanged public request schema.
+CatalogProvider = str
+SearchProvider = str
 PosterPlatform = str
 
 
@@ -206,8 +208,8 @@ class PosterSource(BaseModel):
         Field(
             description=(
                 "明确选择要在海报左下角显示二维码的平台；不提供时不显示任何"
-                "平台标识或二维码。使用 Spotify 数据源并选择 spotify 时，"
-                "可以省略 platform_links.spotify。每张海报只显示一个平台，"
+                "平台标识或二维码。若所选目的地声明可复用来源链接，可省略对应"
+                "platform_links。每张海报只显示一个平台，"
                 "二维码和平台名称使用从封面提取并经过对比度保护的颜色。"
             ),
             examples=["spotify"],
@@ -411,9 +413,9 @@ class SearchResult(BaseModel):
         ),
     ]
     provider: Annotated[
-        Literal["deezer", "spotify"],
+        str,
         Field(
-            description="结果的数据来源。",
+            description="结果的数据来源（已启用的目录 integration key）。",
             examples=["spotify"],
         ),
     ]

@@ -5,6 +5,7 @@ import pytest
 
 from beatprints_api.integrations.destinations import apple_music, netease_music, qq_music, spotify
 from beatprints_api.integrations.destinations.scannable import fallback_scannable
+from beatprints_api.integrations.catalog import spotify as spotify_catalog
 from beatprints_api.models import TrackPosterRequest
 from beatprints_api.services import beatprints as beatprints_service
 from beatprints_api.spotify import SpotifyClient, SpotifyNotConfiguredError
@@ -68,7 +69,7 @@ def test_spotify_leaves_missing_label_blank_instead_of_fabricating_unknown() -> 
 
 def test_spotify_catalog_id_can_supply_poster_metadata(monkeypatch) -> None:
     monkeypatch.setattr(
-        beatprints_service.spotify_client,
+        spotify_catalog.spotify_client,
         "track_metadata",
         lambda track_id: {
             "title": "Summer Breeze",
@@ -117,7 +118,7 @@ def test_catalog_metadata_is_cached_without_sharing_mutable_objects(
         }
 
     monkeypatch.setattr(
-        beatprints_service.spotify_client,
+        spotify_catalog.spotify_client,
         "track_metadata",
         track_metadata,
     )
