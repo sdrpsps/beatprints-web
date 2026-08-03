@@ -2,6 +2,7 @@ export type PosterKind = "track" | "album"
 export type CatalogProvider = string
 export type SearchProvider = CatalogProvider | "all"
 export type PosterPlatform = string
+
 export type Theme =
   | "Light"
   | "Dark"
@@ -36,12 +37,6 @@ export type SearchResult = {
 export type LyricsLine = {
   index: number
   text: string
-}
-
-export type LyricsSource = {
-  key: string
-  label: string
-  default: boolean
 }
 
 export type LyricsPreview = {

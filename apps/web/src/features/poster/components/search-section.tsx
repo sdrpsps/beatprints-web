@@ -79,7 +79,9 @@ export function SearchSection({ studio }: { studio: Studio }) {
                   variant="default"
                   size="sm"
                   disabled={
-                    !studio.query.trim() || studio.searchState === "loading"
+                    !studio.query.trim() ||
+                    !studio.provider ||
+                    studio.searchState === "loading"
                   }
                 >
                   {studio.searchState === "loading" ? (
@@ -119,7 +121,7 @@ function SourceFilter({ studio }: { studio: Studio }) {
       >
         {enabledCatalogSources().map((item) => (
           <ToggleGroupItem key={item.key} value={item.key}>
-            {item.label}
+            {t(item.labelKey)}
           </ToggleGroupItem>
         ))}
       </ToggleGroup>

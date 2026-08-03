@@ -2,7 +2,9 @@ import { registerDestination } from "@/features/poster/destinations/store"
 
 registerDestination({
   key: "qq_music",
-  label: "QQ 音乐",
+  labelKey: "poster.integrationNames.qqMusic",
+  order: 0,
+  default: false,
   domains: ["y.qq.com", "qq.com"],
-  reusesSourceLink: () => false,
+  reusesSourceLink: (provider) => provider === "qq_music",
 })

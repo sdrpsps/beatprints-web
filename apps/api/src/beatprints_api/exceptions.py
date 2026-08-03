@@ -27,6 +27,10 @@ class UpstreamError(RuntimeError):
     """Raised when an upstream catalog, lyrics, or artwork service fails."""
 
 
+class LyricsNotFoundError(UpstreamError):
+    """Raised when a lyrics source completed normally without a confident match."""
+
+
 class PlatformLinkNoMatchError(UpstreamError):
     """Raised when a public destination link cannot be resolved."""
 

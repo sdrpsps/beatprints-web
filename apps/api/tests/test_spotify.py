@@ -3,12 +3,20 @@ from io import BytesIO
 from PIL import Image
 import pytest
 
-from beatprints_api.integrations.destinations import apple_music, netease_music, qq_music, spotify
+from beatprints_api.integrations.destinations import (
+    apple_music,
+    netease_music,
+    qq_music,
+    spotify,
+)
 from beatprints_api.integrations.destinations.scannable import fallback_scannable
 from beatprints_api.integrations.catalog import spotify as spotify_catalog
 from beatprints_api.models import TrackPosterRequest
 from beatprints_api.services import beatprints as beatprints_service
-from beatprints_api.integrations.catalog.spotify import SpotifyClient, SpotifyNotConfiguredError
+from beatprints_api.integrations.catalog.spotify import (
+    SpotifyClient,
+    SpotifyNotConfiguredError,
+)
 
 
 def test_spotify_requires_credentials() -> None:
@@ -50,6 +58,18 @@ def test_spotify_formats_track_search_result() -> None:
 
 def test_spotify_uses_album_label_when_available() -> None:
     assert SpotifyClient._album_label({"label": "Epic", "copyrights": []}) == "Epic"
+
+
+def test_spotify_preserves_exclusive_license_label() -> None:
+    assert SpotifyClient._album_label(
+        {
+            "label": (
+                "Shenhe Media Limited under exclusive license to "
+                "88rising Records LLC"
+            ),
+            "copyrights": [],
+        }
+    ) == "Shenhe Media Limited under exclusive license to 88rising Records LLC"
 
 
 def test_spotify_derives_deprecated_label_from_phonographic_copyright() -> None:
@@ -144,11 +164,25 @@ def test_multilingual_fonts_are_cached_per_weight() -> None:
     assert first is second
 
 
-def test_spotify_source_link_is_added_to_platform_qr_codes() -> None:
+@pytest.mark.parametrize(
+    ("provider", "platform", "source_link"),
+    [
+        ("spotify", "spotify", "https://open.spotify.com/track/spotify-track-id"),
+        ("qq_music", "qq_music", "https://y.qq.com/n/ryqq/songDetail/qq-track-id"),
+        (
+            "netease_music",
+            "netease_music",
+            "https://music.163.com/#/song?id=netease-track-id",
+        ),
+    ],
+)
+def test_matching_source_link_is_added_to_platform_qr_codes(
+    provider: str, platform: str, source_link: str
+) -> None:
     request = TrackPosterRequest(
-        provider="spotify",
-        catalog_id="spotify-track-id",
-        qr_platform="spotify",
+        provider=provider,
+        catalog_id="source-id",
+        qr_platform=platform,
         platform_links={
             "apple_music": "https://music.apple.com/us/album/example/123456789"
         },
@@ -158,12 +192,12 @@ def test_spotify_source_link_is_added_to_platform_qr_codes() -> None:
         request.platform_links,
         request.qr_platform,
         request.provider,
-        "https://open.spotify.com/track/spotify-track-id",
+        source_link,
     )
 
     assert link is not None
-    assert link[0].key == "spotify"
-    assert link[1] == "https://open.spotify.com/track/spotify-track-id"
+    assert link[0].key == platform
+    assert link[1] == source_link
 
 
 def test_no_qr_platform_means_no_selected_link() -> None:
@@ -196,7 +230,9 @@ def test_rendering_hides_platform_area_without_manual_selection() -> None:
 def test_platform_scannable_uses_cover_color() -> None:
     color = (82, 44, 126)
 
-    image = fallback_scannable("Any platform", "https://example.com/track/1", color)("Light")
+    image = fallback_scannable("Any platform", "https://example.com/track/1", color)(
+        "Light"
+    )
 
     assert image.mode == "RGBA"
     assert image.size == beatprints_service.beatprints_image.s.SCANCODE
@@ -210,15 +246,11 @@ def test_spotify_uri_accepts_canonical_track_and_album_urls() -> None:
     album_id = "1ATL5GLyefJaxhQzSPVrLX"
 
     assert (
-        spotify._uri(
-            f"https://open.spotify.com/track/{track_id}?si=example"
-        )
+        spotify._uri(f"https://open.spotify.com/track/{track_id}?si=example")
         == f"spotify:track:{track_id}"
     )
     assert (
-        spotify._uri(
-            f"https://open.spotify.com/intl-zh/album/{album_id}"
-        )
+        spotify._uri(f"https://open.spotify.com/intl-zh/album/{album_id}")
         == f"spotify:album:{album_id}"
     )
     assert spotify._uri("https://example.com/track/abc") is None
@@ -248,9 +280,7 @@ def test_spotify_code_scannable_uses_spotify_image_service_output(monkeypatch) -
     assert image.getpixel((212, 60)) == (50, 47, 48, 255)
 
 
-def test_apple_music_scannable_uses_the_same_theme_color_rule_as_spotify_code() -> (
-    None
-):
+def test_apple_music_scannable_uses_the_same_theme_color_rule_as_spotify_code() -> None:
     scannable = apple_music.adapter.scannable(
         "https://music.apple.com/us/album/example/123456789"
     )
@@ -264,7 +294,9 @@ def test_apple_music_scannable_uses_the_same_theme_color_rule_as_spotify_code() 
     assert image.getpixel((98, 4))[3] == 0
     colors = image.getcolors(maxcolors=image.width * image.height) or []
     assert light_color + (255,) in {value for _count, value in colors}
-    dark_colors = dark_image.getcolors(maxcolors=dark_image.width * dark_image.height) or []
+    dark_colors = (
+        dark_image.getcolors(maxcolors=dark_image.width * dark_image.height) or []
+    )
     assert dark_color + (255,) in {value for _count, value in dark_colors}
 
 

@@ -6,6 +6,7 @@ from fastapi.concurrency import run_in_threadpool
 from beatprints_api.api.dependencies import require_api_key
 from beatprints_api.exceptions import (
     IntegrationNotConfiguredError,
+    LyricsNotFoundError,
     UnsupportedCatalogSourceError,
     UnsupportedDestinationError,
     UnsupportedLyricsSourceError,
@@ -15,7 +16,6 @@ from beatprints_api.models import (
     ApiResponse,
     CatalogProvider,
     LyricsPreviewData,
-    LyricsSourcesData,
     SearchProvider,
     SearchResult,
     PlatformLinkMatchData,
@@ -32,6 +32,7 @@ router = APIRouter(
 
 ERROR_RESPONSES = {
     401: {"model": ApiResponse[object], "description": "API Key 缺失或错误。"},
+    404: {"model": ApiResponse[object], "description": "请求的来源或匹配结果不存在。"},
     422: {"model": ApiResponse[object], "description": "请求参数校验失败。"},
     502: {"model": ApiResponse[object], "description": "音乐目录请求失败。"},
     503: {
@@ -164,16 +165,6 @@ async def search(
 
 
 @router.get(
-    "/lyrics/sources",
-    summary="获取已启用的歌词来源",
-    response_model=ApiResponse[LyricsSourcesData],
-    responses={401: ERROR_RESPONSES[401]},
-)
-def lyrics_sources() -> ApiResponse[LyricsSourcesData]:
-    return ApiResponse(code=0, data=beatprints_service.lyrics_sources(), message="success")
-
-
-@router.get(
     "/lyrics",
     summary="预览歌曲歌词",
     description=(
@@ -200,7 +191,7 @@ async def preview_lyrics(
         str | None,
         Query(
             min_length=1,
-            description="歌词来源 key，来自 /v1/lyrics/sources。",
+            description="歌词来源 key，必须是后端当前启用的歌词来源。",
         ),
     ] = None,
 ) -> ApiResponse[LyricsPreviewData]:
@@ -216,6 +207,8 @@ async def preview_lyrics(
     except UnsupportedCatalogSourceError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except UnsupportedLyricsSourceError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except LyricsNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except beatprints_service.UpstreamError as exc:
         raise UpstreamServiceError(str(exc)) from exc

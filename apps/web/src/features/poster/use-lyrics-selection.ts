@@ -30,7 +30,10 @@ export function useLyricsSelection({
   )
   const [manualLyrics, setManualLyricsState] = useState("")
   const [instrumentalText, setInstrumentalTextState] = useState("")
-  const sources = useLyricsSources({ kind, selected, t })
+  const sources = useLyricsSources({
+    kind,
+    selected,
+  })
   const preview = useLyricsPreview({
     kind,
     selected,
@@ -55,13 +58,16 @@ export function useLyricsSelection({
     if (preview.lyricsState === "success") {
       setLyricsModeState(preview.instrumental ? "manual" : "catalog")
     }
-    if (preview.lyricsState === "error") {
+    if (
+      preview.lyricsState === "error" ||
+      sources.sourcesState === "error"
+    ) {
       setLyricsModeState("manual")
     }
-  }, [preview.instrumental, preview.lyricsState])
+  }, [preview.instrumental, preview.lyricsState, sources.sourcesState])
 
   const lyricsState =
-    sources.sourcesState === "loading" ? sources.sourcesState : preview.lyricsState
+    sources.sourcesState === "success" ? preview.lyricsState : sources.sourcesState
   const lyricsError = sources.sourcesError ?? preview.lyricsError
 
   function toggleLyric(index: number, checked: boolean) {

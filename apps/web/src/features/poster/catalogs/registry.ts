@@ -1,7 +1,7 @@
-// This is the complete frontend enablement list for source catalogs.
-// Commenting one import removes it from the picker without changing the flow.
+// These imports are the complete frontend enablement and display-order list.
+import "@/features/poster/catalogs/qq-music"
+import "@/features/poster/catalogs/netease-music"
 import "@/features/poster/catalogs/spotify"
-import "@/features/poster/catalogs/deezer"
 
 export {
   enabledCatalogSources,

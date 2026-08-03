@@ -21,7 +21,7 @@ Product surfaces and exported-work attribution must not imply unrestricted comme
 The user searches by song, artist, album, or an approximate combination. The frontend calls:
 
 ```http
-GET /v1/search?query=<query>&type=track&provider=<deezer|spotify|all>&limit=<1..20>
+GET /v1/search?query=<query>&type=track&provider=<qq_music|netease_music|spotify|all>&limit=<1..20>
 ```
 
 Search results already contain the data needed for a useful selection card:
@@ -42,7 +42,7 @@ has been selected because the backend query path searches again and uses the fir
 
 The result list needs loading, no-results, upstream-unavailable, source-not-configured, and
 retry states. Spotify may return HTTP 503 when server credentials are not configured;
-`provider=all` still returns Deezer results when Spotify is unavailable.
+`provider=all` still returns QQ Music and NetEase Music results when Spotify is unavailable.
 
 ### 2. Confirm the matched recording
 
@@ -69,13 +69,14 @@ The generation endpoint currently supports:
   string explicitly omits lyrics from the poster;
 - `lyrics_range`: an inclusive `start-end` string such as `11-14`; the selected range must
   resolve to exactly four non-empty LRClib lines;
-- neither field: the backend selects the first four non-empty LRClib lines;
+- neither field: the backend selects the first four non-empty QQ Music lyric lines;
 - instrumental recordings: `instrumental_text` is rendered instead.
 
-The frontend reads normalized lyrics for the exact selected recording with:
+The frontend keeps its enabled lyric sources in a static registry, then reads normalized lyrics
+for the exact selected recording with:
 
 ```http
-GET /v1/lyrics?provider=<deezer|spotify>&catalog_id=<selected-result-id>
+GET /v1/lyrics?provider=<qq_music|netease_music|spotify>&catalog_id=<selected-result-id>&source=<source-key>
 ```
 
 The endpoint returns ordered, non-empty lyric lines with stable one-based indices and an
@@ -94,9 +95,13 @@ interval.
 
 The metadata provider and poster platform are separate concepts:
 
-- `provider` chooses where metadata is fetched: `deezer` or `spotify`.
-- `qr_platform` optionally chooses the one enabled destination rendered on the poster.
-  The current registry enables `spotify`, `apple_music`, `qq_music`, and `netease_music`.
+- `provider` chooses where metadata is fetched: `qq_music`, `netease_music`, or `spotify`.
+- `qr_platform` optionally chooses one destination from the frontend's static registry.
+
+The frontend maintains static catalog, lyric, and destination registries. They supply labels,
+preferred defaults, and destination capabilities such as accepted public-link domains and source
+providers whose canonical links can be reused directly. A destination's preferred default does
+not override the product-level initial choice of no QR destination.
 
 When the user chooses no platform, omit `qr_platform`; the poster contains no platform label
 or QR code.
@@ -106,7 +111,7 @@ result's unchanged `provider + id`, never a new text query:
 
 ```http
 GET /v1/platform-links/<enabled-destination>/options
-  ?provider=<deezer|spotify>&catalog_id=<id>&type=<track|album>
+  ?provider=<qq_music|netease_music|spotify>&catalog_id=<id>&type=<track|album>
 ```
 
 The backend retrieves that exact source item and runs one shared matching engine for every
@@ -114,7 +119,9 @@ destination. Destination adapters only implement catalog search, link resolution
 metadata mapping, and optional platform capabilities such as Spotify ISRC lookup. The shared
 engine applies title/version, artist, release, duration, track-count, ranking, and ambiguity rules.
 The response contains an optional confirmed `match` and ranked `candidates` from the same lookup.
-Spotify source-to-Spotify destinations reuse the canonical source entry.
+When the selected source and QR destination are the same enabled platform, the destination
+reuses that source item's canonical link. Cross-platform destinations continue through the
+conservative matching, candidate, and manual-link journey.
 
 Candidate search deliberately has broader recall than automatic confirmation. It ranks by title,
 artist, album, year, duration, and track count, but never silently confirms a weak result. The UI

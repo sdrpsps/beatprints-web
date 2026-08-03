@@ -19,7 +19,7 @@ def create_app(web_root: Path | None = None) -> FastAPI:
         title="BeatPrints API",
         version=settings.build_version,
         description=(
-            "通过可切换的音乐平台和 LRClib 自动补全资料，或使用调用方提供的完整资料，"
+            "通过可切换的音乐平台和歌词来源自动补全资料，或使用调用方提供的完整资料，"
             "生成 BeatPrints 风格的歌曲与专辑 PNG 海报。\n\n"
             "除 PNG 成功响应外，JSON 响应统一使用 code、data、message 结构。"
         ),

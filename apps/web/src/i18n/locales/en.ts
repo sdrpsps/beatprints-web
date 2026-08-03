@@ -40,6 +40,14 @@ export const en = {
     searching: "Searching",
     source: "Search source",
     allSources: "All sources",
+    integrationNames: {
+      spotify: "Spotify",
+      deezer: "Deezer",
+      appleMusic: "Apple Music",
+      qqMusic: "QQ Music",
+      neteaseMusic: "NetEase Music",
+      lrclib: "LRCLIB",
+    },
     selectWork: "Select work",
     selectedWork: "Selected work",
     loadingSearchResults: "Loading search results",
@@ -122,8 +130,6 @@ export const en = {
     spotifyManualHelp:
       "Only replaces the Spotify Code destination; the selected work still supplies the song metadata.",
     appleMusicNotMatched: "No confident Apple Music release found",
-    qqMusic: "QQ Music",
-    neteaseMusic: "NetEase Music",
     appearance: "Choose poster appearance",
     appearanceHelp:
       "Select a supported theme and decide whether to use cover accent color.",

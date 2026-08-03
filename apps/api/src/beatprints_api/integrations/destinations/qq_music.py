@@ -45,7 +45,11 @@ def _cover(album_id: object) -> str:
 
 def _secure_url(value: object) -> str | None:
     url = str(value or "").strip()
-    return f"https:{url}" if url.startswith("//") else url.replace("http://", "https://", 1) or None
+    return (
+        f"https:{url}"
+        if url.startswith("//")
+        else url.replace("http://", "https://", 1) or None
+    )
 
 
 def search(query: str, item_type: str) -> list[dict]:
@@ -58,24 +62,40 @@ def search(query: str, item_type: str) -> list[dict]:
         t=0 if item_type == "track" else 8,
     )
     data = payload.get("data") or {}
-    rows = (data.get("song") or {}).get("list", []) if item_type == "track" else (data.get("album") or {}).get("list", [])
+    rows = (
+        (data.get("song") or {}).get("list", [])
+        if item_type == "track"
+        else (data.get("album") or {}).get("list", [])
+    )
     result: list[dict] = []
     for row in rows:
         if item_type == "track" and row.get("songmid"):
-            result.append({
-                "platform_id": row["songmid"], "title": row.get("songname"),
-                "artists": _artists(row.get("singer")), "album": row.get("albumname"),
-                "duration_seconds": row.get("interval"), "release_year": _year(row.get("pubtime")),
-                "cover_url": _cover(row.get("albummid")),
-                "url": f"https://y.qq.com/n/ryqq/songDetail/{row['songmid']}", "type": "track",
-            })
+            result.append(
+                {
+                    "platform_id": row["songmid"],
+                    "title": row.get("songname"),
+                    "artists": _artists(row.get("singer")),
+                    "album": row.get("albumname"),
+                    "duration_seconds": row.get("interval"),
+                    "release_year": _year(row.get("pubtime")),
+                    "cover_url": _cover(row.get("albummid")),
+                    "url": f"https://y.qq.com/n/ryqq/songDetail/{row['songmid']}",
+                    "type": "track",
+                }
+            )
         elif item_type == "album" and row.get("albumMID"):
-            result.append({
-                "platform_id": row["albumMID"], "title": row.get("albumName"),
-                "artists": _artists(row.get("singer_list")), "release_year": _year(row.get("publicTime")),
-                "track_count": row.get("song_count"), "cover_url": _secure_url(row.get("albumPic")),
-                "url": f"https://y.qq.com/n/ryqq/albumDetail/{row['albumMID']}", "type": "album",
-            })
+            result.append(
+                {
+                    "platform_id": row["albumMID"],
+                    "title": row.get("albumName"),
+                    "artists": _artists(row.get("singer_list")),
+                    "release_year": _year(row.get("publicTime")),
+                    "track_count": row.get("song_count"),
+                    "cover_url": _secure_url(row.get("albumPic")),
+                    "url": f"https://y.qq.com/n/ryqq/albumDetail/{row['albumMID']}",
+                    "type": "album",
+                }
+            )
     return result
 
 
@@ -94,26 +114,70 @@ def _id_from_url(url: str) -> tuple[str, str] | None:
 def resolve(url: str) -> PlatformLinkMatchData:
     parsed = _id_from_url(url)
     if not parsed:
-        raise PlatformLinkNoMatchError("URL is not a supported QQ Music track or album link")
+        raise PlatformLinkNoMatchError(
+            "URL is not a supported QQ Music track or album link"
+        )
     item_type, item_id = parsed
     if item_type == "track":
-        data = _get("https://c.y.qq.com/v8/fcg-bin/fcg_play_single_song.fcg", songmid=item_id, format="json").get("data") or []
+        data = (
+            _get(
+                "https://c.y.qq.com/v8/fcg-bin/fcg_play_single_song.fcg",
+                songmid=item_id,
+                format="json",
+            ).get("data")
+            or []
+        )
         if not data:
             raise PlatformLinkNoMatchError("QQ Music track was not found")
         row = data[0]
         album = row.get("album") or {}
         return PlatformLinkMatchData(
-            title=row.get("title"), artists=_artists(row.get("singer")), album=album.get("name"),
-            duration_seconds=row.get("interval"), release_year=_year(row.get("time_public")),
-            cover_url=_cover(album.get("mid")), url=f"https://y.qq.com/n/ryqq/songDetail/{item_id}", type="track",
+            title=row.get("title"),
+            artists=_artists(row.get("singer")),
+            album=album.get("name"),
+            duration_seconds=row.get("interval"),
+            release_year=_year(row.get("time_public")),
+            cover_url=_cover(album.get("mid")),
+            url=f"https://y.qq.com/n/ryqq/songDetail/{item_id}",
+            type="track",
         )
-    row = _get("https://c.y.qq.com/v8/fcg-bin/fcg_v8_album_info_cp.fcg", albummid=item_id, format="json").get("data") or {}
+    row = (
+        _get(
+            "https://c.y.qq.com/v8/fcg-bin/fcg_v8_album_info_cp.fcg",
+            albummid=item_id,
+            format="json",
+        ).get("data")
+        or {}
+    )
     singer_name = str(row.get("singername") or "").strip()
     return PlatformLinkMatchData(
-        title=row.get("name"), artists=[singer_name] if singer_name else [], release_year=_year(row.get("aDate")),
-        track_count=row.get("total_song_num") or len(row.get("list") or []), cover_url=_cover(item_id),
-        url=f"https://y.qq.com/n/ryqq/albumDetail/{item_id}", type="album",
+        title=row.get("name"),
+        artists=[singer_name] if singer_name else [],
+        release_year=_year(row.get("aDate")),
+        track_count=row.get("total_song_num") or len(row.get("list") or []),
+        cover_url=_cover(item_id),
+        url=f"https://y.qq.com/n/ryqq/albumDetail/{item_id}",
+        type="album",
     )
 
 
-adapter = register(DestinationAdapter(key="qq_music", label="QQ 音乐", search=search, resolve=resolve, scannable=lambda link: icon_qr_scannable(link, ASSET_PATH)))
+def _resolve_source(
+    provider: str, catalog_id: int | str, item_type: str
+) -> PlatformLinkMatchData | None:
+    if provider != "qq_music":
+        return None
+    path = "songDetail" if item_type == "track" else "albumDetail"
+    return resolve(f"https://y.qq.com/n/ryqq/{path}/{catalog_id}")
+
+
+adapter = register(
+    DestinationAdapter(
+        key="qq_music",
+        label="QQ 音乐",
+        search=search,
+        resolve=resolve,
+        scannable=lambda link: icon_qr_scannable(link, ASSET_PATH),
+        resolve_source=_resolve_source,
+        reuses_source_link=lambda provider: provider == "qq_music",
+    )
+)

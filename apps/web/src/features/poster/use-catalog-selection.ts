@@ -23,9 +23,10 @@ export function useCatalogSelection({
   markOutputStale,
 }: CatalogSelectionOptions) {
   const [query, setQuery] = useState("")
-  const [provider, setProviderState] = useState<CatalogProvider>(
-    () => enabledCatalogSources()[0]?.key ?? "",
-  )
+  const [provider, setProviderState] = useState<CatalogProvider>(() => {
+    const sources = enabledCatalogSources()
+    return sources.find((source) => source.default)?.key ?? sources[0]?.key ?? ""
+  })
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [searchState, setSearchState] = useState<AsyncState>("idle")
   const [searchError, setSearchError] = useState<string>()

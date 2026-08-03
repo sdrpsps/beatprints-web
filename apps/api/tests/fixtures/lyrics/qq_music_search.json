@@ -1,0 +1,23 @@
+{
+  "code": 0,
+  "data": {
+    "song": {
+      "list": [
+        {
+          "songmid": "live-mid",
+          "songname": "Fixture Song (Live)",
+          "singer": [{"name": "Fixture Artist"}],
+          "albumname": "Fixture Album",
+          "interval": 195
+        },
+        {
+          "songmid": "studio-mid",
+          "songname": "Fixture Song",
+          "singer": [{"name": "本地艺人"}],
+          "albumname": "Fixture Album",
+          "interval": 195
+        }
+      ]
+    }
+  }
+}

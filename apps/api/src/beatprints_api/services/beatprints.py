@@ -18,7 +18,6 @@ PosterResult = rendering_service.PosterResult
 search_catalog = catalog_service.search_catalog
 clear_metadata_cache = catalog_service.clear_metadata_cache
 preview_lyrics = matching_service.preview_lyrics
-lyrics_sources = lyrics_service.sources
 resolve_platform_url = matching_service.resolve_platform_url
 generate_track = posters_service.generate_track
 generate_album = posters_service.generate_album
