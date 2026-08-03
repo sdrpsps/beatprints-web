@@ -7,13 +7,13 @@ import httpx
 from qrcode.constants import ERROR_CORRECT_L
 
 from beatprints_api.config import settings
-from beatprints_api.destinations.base import DestinationAdapter
-from beatprints_api.destinations.registry import register
-from beatprints_api.destinations.scannable import icon_qr_scannable
+from beatprints_api.integrations.destinations.base import DestinationAdapter
+from beatprints_api.integrations.destinations.registry import register
+from beatprints_api.integrations.destinations.scannable import icon_qr_scannable
 from beatprints_api.exceptions import PlatformLinkNoMatchError, UpstreamError
 from beatprints_api.models.dto import PlatformLinkMatchData
 
-ASSET_PATH = Path(__file__).resolve().parents[1] / "assets" / "apple-music-symbol.png"
+ASSET_PATH = Path(__file__).resolve().parents[2] / "assets" / "apple-music-symbol.png"
 SEARCH_URL = "https://itunes.apple.com/search"
 LOOKUP_URL = "https://itunes.apple.com/lookup"
 http_client = httpx.Client(timeout=15.0)

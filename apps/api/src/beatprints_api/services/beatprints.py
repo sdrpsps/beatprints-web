@@ -22,8 +22,8 @@ import httpx
 from PIL import Image
 
 from beatprints_api.config import settings
-from beatprints_api.destinations import DestinationAdapter, get_destination_adapter
-from beatprints_api.destinations.scannable import empty_scannable, fallback_scannable
+from beatprints_api.integrations.destinations import DestinationAdapter, get_destination_adapter
+from beatprints_api.integrations.destinations.scannable import empty_scannable, fallback_scannable
 from beatprints_api.exceptions import PlatformLinkNoMatchError, UpstreamError
 from beatprints_api.models.dto import (
     AlbumPosterRequest,

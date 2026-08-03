@@ -239,7 +239,7 @@ Link。推荐优先传平台分享功能生成的 HTTPS/Universal Link：扫码�
 使用 Spotify 作为 `provider`、同时明确选择
 `"qr_platform": "spotify"` 时，可以省略 `platform_links.spotify`，服务会使用 Spotify
 元数据返回的歌曲或专辑链接。所有目标平台都使用同一套链接匹配接口；`platform` 是注册表中
-启用的目标键。启用列表集中在 `beatprints_api/destinations/registry.py`：
+启用的目标键。启用列表集中在 `beatprints_api/integrations/destinations/registry.py`：
 
 ```bash
 curl "http://localhost:8000/v1/platform-links/apple_music/options?provider=deezer&catalog_id=5416564&type=track"

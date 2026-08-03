@@ -3,8 +3,8 @@ from io import BytesIO
 from PIL import Image
 import pytest
 
-from beatprints_api.destinations import apple_music, netease_music, qq_music, spotify
-from beatprints_api.destinations.scannable import fallback_scannable
+from beatprints_api.integrations.destinations import apple_music, netease_music, qq_music, spotify
+from beatprints_api.integrations.destinations.scannable import fallback_scannable
 from beatprints_api.models import TrackPosterRequest
 from beatprints_api.services import beatprints as beatprints_service
 from beatprints_api.spotify import SpotifyClient, SpotifyNotConfiguredError

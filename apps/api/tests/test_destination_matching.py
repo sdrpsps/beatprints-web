@@ -1,8 +1,8 @@
 import pytest
 
 from BeatPrints.deez import AlbumMetadata, TrackMetadata
-from beatprints_api.destinations import netease_music, qq_music
-from beatprints_api.destinations.registry import destination_keys, get_destination_adapter
+from beatprints_api.integrations.destinations import netease_music, qq_music
+from beatprints_api.integrations.destinations.registry import destination_keys, get_destination_adapter
 from beatprints_api.exceptions import UnsupportedDestinationError
 from beatprints_api.services.beatprints import DestinationAdapter
 

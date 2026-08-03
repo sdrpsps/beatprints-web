@@ -75,7 +75,7 @@ The shared engine owns:
 - automatic confirmation.
 
 Platform-specific behavior should be added to an adapter. Each destination now lives in its own
-module under `beatprints_api/destinations/`; `registry.py` is the complete enabled list. Commenting
+module under `beatprints_api/integrations/destinations/`; `registry.py` is the complete enabled list. Commenting
 out one adapter import there disables that destination's matching, resolution, and poster rendering
 together. Matching thresholds and evidence rules remain in the shared engine unless a platform
 exposes a genuinely unique stable identifier or exact-catalog capability.
@@ -111,8 +111,8 @@ The UI deliberately does not display internal scores or field-difference explana
 ## Key files
 
 - `apps/api/src/beatprints_api/services/beatprints.py`: shared matching engine and poster generation.
-- `apps/api/src/beatprints_api/destinations/`: independent destination adapters and shared QR helpers.
-- `apps/api/src/beatprints_api/destinations/registry.py`: enabled-adapter imports and lookup.
+- `apps/api/src/beatprints_api/integrations/destinations/`: independent destination adapters and shared QR helpers.
+- `apps/api/src/beatprints_api/integrations/destinations/registry.py`: enabled-adapter imports and lookup.
 - `apps/api/src/beatprints_api/api/routes/catalog.py`: `/options` and `/resolve` routes.
 - `apps/api/src/beatprints_api/models/dto.py`: platform-neutral response models.
 - `apps/api/src/beatprints_api/spotify.py`: Spotify IDs and ISRC metadata.
