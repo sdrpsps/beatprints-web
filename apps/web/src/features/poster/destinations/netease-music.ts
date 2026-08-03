@@ -5,5 +5,5 @@ registerDestination({
   labelKey: "poster.integrationNames.neteaseMusic",
   default: false,
   domains: ["music.163.com", "163.com"],
-  reusesSourceLink: () => false,
+  reusesSourceLink: (provider) => provider === "netease_music",
 })

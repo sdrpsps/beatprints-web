@@ -1,6 +1,14 @@
 from typing import Annotated, Literal
 
-from pydantic import AnyUrl, BaseModel, ConfigDict, Field, HttpUrl, RootModel, model_validator
+from pydantic import (
+    AnyUrl,
+    BaseModel,
+    ConfigDict,
+    Field,
+    HttpUrl,
+    RootModel,
+    model_validator,
+)
 
 Theme = Annotated[
     Literal[
@@ -221,8 +229,14 @@ class PosterSource(BaseModel):
         if self.qr_platform is None:
             return self
         values = self.platform_links.root if self.platform_links is not None else {}
-        source_link_may_be_reused = (
-            self.qr_platform == self.provider and getattr(self, "metadata", None) is None
+        from beatprints_api.integrations.destinations.registry import (
+            get_destination_adapter,
+        )
+
+        source_link_may_be_reused = getattr(
+            self, "metadata", None
+        ) is None and get_destination_adapter(self.qr_platform).reuses_source_link(
+            self.provider
         )
         if self.qr_platform not in values and not source_link_may_be_reused:
             raise ValueError(
@@ -240,7 +254,9 @@ class PosterSource(BaseModel):
                 "Exactly one of query, catalog_id, or metadata must be supplied"
             )
         if metadata is None and not self.provider:
-            raise ValueError("provider is required when query or catalog_id is supplied")
+            raise ValueError(
+                "provider is required when query or catalog_id is supplied"
+            )
 
 
 class TrackPosterRequest(PosterSource):

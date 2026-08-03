@@ -1,7 +1,7 @@
 import { registerCatalogSource } from "@/features/poster/catalogs/store"
 
 registerCatalogSource({
-  key: "spotify",
-  labelKey: "poster.integrationNames.spotify",
-  default: false,
+  key: "qq_music",
+  labelKey: "poster.integrationNames.qqMusic",
+  default: true,
 })

@@ -128,7 +128,7 @@ docker compose logs -f beatprints-api
 前端歌词选择器可以先读取所选歌曲的规范化歌词：
 
 ```bash
-curl "http://localhost:8000/v1/lyrics?provider=deezer&catalog_id=5416564&source=lrclib"
+curl "http://localhost:8000/v1/lyrics?provider=qq_music&catalog_id=001example&source=lrclib"
 ```
 
 响应中的 `lines` 按原歌词顺序包含一开始编号的非空行；`instrumental=true` 表示纯音乐。
@@ -246,7 +246,7 @@ Link。推荐优先传平台分享功能生成的 HTTPS/Universal Link：扫码�
 启用的目标键。启用列表集中在 `beatprints_api/integrations/destinations/registry.py`：
 
 ```bash
-curl "http://localhost:8000/v1/platform-links/apple_music/options?provider=deezer&catalog_id=5416564&type=track"
+curl "http://localhost:8000/v1/platform-links/apple_music/options?provider=qq_music&catalog_id=001example&type=track"
 ```
 
 该接口始终先读取未经改变的 `provider + catalog_id`，再使用所有目标平台共享的匹配规则。
@@ -263,7 +263,7 @@ curl --get "http://localhost:8000/v1/platform-links/spotify/resolve" \
 ```
 
 `/options` 提供自动确认与可由用户确认的排序候选；`/resolve` 读取所选公开链接的当前资料，用于刷新目标
-平台确认卡片。两者均支持四个平台，且不会改写海报使用的 Spotify / Deezer 来源资料、歌词或封面。
+平台确认卡片。两者均支持四个平台，且不会改写海报使用的 QQ 音乐、网易云音乐或 Spotify 来源资料、歌词或封面。
 
 选择 Spotify 且链接是标准的 Spotify 歌曲或专辑链接时，海报左下角会使用 Spotify
 提供的原生 Spotify Code PNG（可由 Spotify App 的“搜索 → 扫描”识别），而不是普通
@@ -308,13 +308,12 @@ GET /v1/search?query=Summer%20Breeze&type=track&provider=all&limit=5
 ```
 
 `provider=all` 中的 `limit` 对每个来源分别生效；Spotify 单次最多返回 10 条。未配置
-Spotify 时，`all` 会只返回 Deezer；明确指定 `provider=spotify` 则返回 HTTP 503。
+Spotify 时，`all` 仍会返回 QQ 音乐和网易云音乐结果；明确指定 `provider=spotify` 则返回 HTTP 503。
 
-生成接口统一使用 `provider + catalog_id`。Deezer 和 Spotify 是同等级 provider；
-以后新增 Apple Music、QQ 音乐等平台时，也不需要改变请求结构。
+生成接口统一使用 `provider + catalog_id`。QQ 音乐、网易云音乐和 Spotify 是同等级 provider；
+以后新增目录平台时，也不需要改变请求结构。
 
-Spotify 海报分支会保持封面原有构图和色彩。BeatPrints 内置的 Deezer 图标现在默认隐藏，
-只有明确提供 `qr_platform` 时才会在原位置显示指定平台的彩色二维码。Spotify 完整专辑响应
+Spotify 海报分支会保持封面原有构图和色彩。只有明确提供 `qr_platform` 时才会显示指定平台的彩色二维码。Spotify 完整专辑响应
 中的 `label` 已被官方标记为 deprecated，因此服务会先使用真实 `label`，字段缺失时再从
 录音版权信息中提取厂牌；仍无法确定时留空，不显示误导性的 `Unknown Label`。
 

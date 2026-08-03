@@ -26,7 +26,7 @@ BeatPrints Web 在原生成器之外补充了：
 
 - 可以在浏览器中完成整个创作流程的 React 界面；
 - 用于搜索音乐、读取歌词和生成海报的 FastAPI 服务；
-- Deezer、Spotify 与多个二维码目标平台的目录集成；
+- QQ 音乐、网易云音乐、Spotify 与多个二维码目标平台的目录集成；
 - Docker Compose、统一生产镜像和自动发布工具。
 
 如果你只需要原始生成器，或想了解海报排版能力本身，请访问
@@ -36,7 +36,7 @@ BeatPrints，或者把它作为 HTTP 服务部署，则可以直接使用本项�
 ## BeatPrints 是什么
 
 BeatPrints Web 是原始 BeatPrints 的可自部署 Web 使用方式。它不生成虚构的音乐内容，
-而是从 Deezer 或 Spotify 获取真实的封面与曲目信息，让你确认准确版本后，再调用
+而是从 QQ 音乐、网易云音乐或 Spotify 获取真实的封面与曲目信息，让你确认准确版本后，再调用
 BeatPrints 完成海报渲染。
 
 一次单曲海报的创作过程很简单：
@@ -49,7 +49,7 @@ BeatPrints 完成海报渲染。
 服务端不会保存你的海报。
 
 > [!IMPORTANT]
-> 音乐资料来源与海报平台入口是两件不同的事。`provider` 决定从 Deezer 或 Spotify
+> 音乐资料来源与海报平台入口是两件不同的事。`provider` 决定从 QQ 音乐、网易云音乐或 Spotify
 > 获取元数据；`qr_platform` 只决定海报是否带有 Spotify、Apple Music、QQ 音乐或
 > 网易云音乐入口。不选择平台时，海报不会显示平台标识或二维码。
 
@@ -92,7 +92,7 @@ make dev
 - OpenAPI：<http://localhost:8000/docs>
 
 Spotify 搜索是可选能力。需要时，在 `.env` 中配置
-`SPOTIFY_CLIENT_ID` 和 `SPOTIFY_CLIENT_SECRET`；未配置时仍可使用 Deezer。
+`SPOTIFY_CLIENT_ID` 和 `SPOTIFY_CLIENT_SECRET`；未配置时仍可使用 QQ 音乐或网易云音乐。
 
 ### 常用命令
 

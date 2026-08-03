@@ -5,5 +5,5 @@ registerDestination({
   labelKey: "poster.integrationNames.qqMusic",
   default: false,
   domains: ["y.qq.com", "qq.com"],
-  reusesSourceLink: () => false,
+  reusesSourceLink: (provider) => provider === "qq_music",
 })

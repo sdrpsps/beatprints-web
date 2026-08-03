@@ -233,6 +233,38 @@ def test_selected_qr_platform_requires_its_link() -> None:
     assert "platform_links.apple_music is required" in response.text
 
 
+@pytest.mark.parametrize(
+    ("provider", "platform", "catalog_id"),
+    [
+        ("spotify", "spotify", "spotify-track-id"),
+        ("qq_music", "qq_music", "qq-track-id"),
+        ("netease_music", "netease_music", "netease-track-id"),
+    ],
+)
+def test_same_source_qr_platform_does_not_require_a_platform_link(
+    monkeypatch, provider: str, platform: str, catalog_id: str
+) -> None:
+    monkeypatch.setattr(
+        posters.beatprints_service,
+        "generate_track",
+        lambda _request: posters.beatprints_service.PosterResult(
+            b"\x89PNG\r\n\x1a\n", "poster.png", {}
+        ),
+    )
+
+    response = client.post(
+        "/v1/posters/track",
+        json={
+            "provider": provider,
+            "catalog_id": catalog_id,
+            "qr_platform": platform,
+            "lyrics": "",
+        },
+    )
+
+    assert response.status_code == 200
+
+
 def test_search_returns_rich_frontend_data(monkeypatch) -> None:
     monkeypatch.setattr(
         catalog.beatprints_service,
@@ -377,10 +409,14 @@ def test_lyrics_source_errors_keep_distinct_statuses(
 @pytest.mark.parametrize(
     ("platform", "item_type"),
     [
-        ("spotify", "track"), ("spotify", "album"),
-        ("apple_music", "track"), ("apple_music", "album"),
-        ("qq_music", "track"), ("qq_music", "album"),
-        ("netease_music", "track"), ("netease_music", "album"),
+        ("spotify", "track"),
+        ("spotify", "album"),
+        ("apple_music", "track"),
+        ("apple_music", "album"),
+        ("qq_music", "track"),
+        ("qq_music", "album"),
+        ("netease_music", "track"),
+        ("netease_music", "album"),
     ],
 )
 def test_every_platform_automatically_matches_the_selected_catalog_reference(
@@ -389,7 +425,11 @@ def test_every_platform_automatically_matches_the_selected_catalog_reference(
     seen: dict[str, str] = {}
 
     def match(
-        provider: str, catalog_id: str, matched_type: str, matched_platform: str, limit: int
+        provider: str,
+        catalog_id: str,
+        matched_type: str,
+        matched_platform: str,
+        limit: int,
     ) -> dict:
         seen.update(
             provider=provider,
@@ -399,7 +439,9 @@ def test_every_platform_automatically_matches_the_selected_catalog_reference(
         )
         candidate = PlatformLinkMatchData(
             url=f"https://example.com/{matched_platform}/{matched_type}",
-            title="Example", artists=["Artist"], type=matched_type,
+            title="Example",
+            artists=["Artist"],
+            type=matched_type,
         )
         return PlatformMatchOptionsData(match=candidate, candidates=[candidate])
 
@@ -411,7 +453,12 @@ def test_every_platform_automatically_matches_the_selected_catalog_reference(
     )
 
     assert response.status_code == 200
-    assert seen == {"provider": "deezer", "catalog_id": "source-id", "item_type": item_type, "platform": platform}
+    assert seen == {
+        "provider": "deezer",
+        "catalog_id": "source-id",
+        "item_type": item_type,
+        "platform": platform,
+    }
     assert response.json()["data"]["match"]["type"] == item_type
 
 
@@ -451,9 +498,12 @@ def test_every_platform_exposes_ranked_candidates(
         )
         candidate = PlatformLinkMatchData(
             url=f"https://example.com/{platform}/{item_type}/1",
-            title="Candidate", artists=["Artist"], type=item_type,
+            title="Candidate",
+            artists=["Artist"],
+            type=item_type,
             album="Candidate Album" if item_type == "track" else None,
-            release_year=2020, duration_seconds=195 if item_type == "track" else None,
+            release_year=2020,
+            duration_seconds=195 if item_type == "track" else None,
             track_count=10 if item_type == "album" else None,
         )
         return PlatformMatchOptionsData(candidates=[candidate])
@@ -711,7 +761,9 @@ def test_openapi_includes_descriptions_and_request_examples() -> None:
     assert album_examples["netease_music_qr"]["value"]["qr_platform"] == "netease_music"
     platform_links = schema["components"]["schemas"]["PosterPlatformLinks"]
     assert platform_links["additionalProperties"]["format"] == "uri"
-    qr_platform_schema = schema["components"]["schemas"]["TrackPosterRequest"]["properties"]["qr_platform"]
+    qr_platform_schema = schema["components"]["schemas"]["TrackPosterRequest"][
+        "properties"
+    ]["qr_platform"]
     assert qr_platform_schema["anyOf"][0]["type"] == "string"
     track_schema = schema["components"]["schemas"]["TrackPosterRequest"]
     album_schema = schema["components"]["schemas"]["AlbumPosterRequest"]

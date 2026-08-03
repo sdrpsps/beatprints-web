@@ -18,18 +18,31 @@ from PIL import Image
 from BeatPrints import image as beatprints_image, poster, write
 from beatprints_api.exceptions import UpstreamError
 from beatprints_api.integrations.catalog import get_catalog_adapter
-from beatprints_api.integrations.destinations import DestinationAdapter, get_destination_adapter
-from beatprints_api.integrations.destinations.scannable import empty_scannable, fallback_scannable
-from beatprints_api.models.poster import AlbumPosterRequest, PosterPlatformLinks, TrackPosterRequest
+from beatprints_api.integrations.destinations import (
+    DestinationAdapter,
+    get_destination_adapter,
+)
+from beatprints_api.integrations.destinations.scannable import (
+    empty_scannable,
+    fallback_scannable,
+)
+from beatprints_api.models.poster import (
+    AlbumPosterRequest,
+    PosterPlatformLinks,
+    TrackPosterRequest,
+)
 from beatprints_api.palette import extract_palette
 
 beatprints_image.get_palette = extract_palette
 
 MAX_COVER_BYTES = 15 * 1024 * 1024
-ALLOWED_COVER_TYPES = {"image/jpeg", "image/png", "image/webp"}
+ALLOWED_COVER_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
 cover_client = httpx.Client(
-    follow_redirects=False, timeout=httpx.Timeout(15.0, connect=5.0),
-    limits=httpx.Limits(max_connections=20, max_keepalive_connections=10, keepalive_expiry=30.0),
+    follow_redirects=False,
+    timeout=httpx.Timeout(15.0, connect=5.0),
+    limits=httpx.Limits(
+        max_connections=20, max_keepalive_connections=10, keepalive_expiry=30.0
+    ),
     headers={"User-Agent": "BeatPrints-API/0.1"},
 )
 atexit.register(cover_client.close)
@@ -119,24 +132,37 @@ def _poster_bytes(directory: Path) -> tuple[bytes, str]:
 
 
 def selected_platform_link(
-    links: PosterPlatformLinks | None, selected_platform: str | None,
-    provider: str | None, source_link: str | None,
+    links: PosterPlatformLinks | None,
+    selected_platform: str | None,
+    provider: str | None,
+    source_link: str | None,
 ) -> tuple[DestinationAdapter, str] | None:
     if selected_platform is None:
         return None
     adapter = get_destination_adapter(selected_platform)
     values = links.root if links is not None else {}
     link = values.get(selected_platform)
-    if link is None and source_link and provider and adapter.reuses_source_link(provider):
+    if (
+        link is None
+        and source_link
+        and provider
+        and adapter.reuses_source_link(provider)
+    ):
         link = source_link
     if link is None:
-        raise ValueError(f"platform_links.{selected_platform} is required for qr_platform={selected_platform}")
+        raise ValueError(
+            f"platform_links.{selected_platform} is required for qr_platform={selected_platform}"
+        )
     return adapter, str(link)
 
 
 def _relative_luminance(color: tuple[int, int, int]) -> float:
     channels = [
-        channel / 255 / 12.92 if channel / 255 <= 0.04045 else ((channel / 255 + 0.055) / 1.055) ** 2.4
+        (
+            channel / 255 / 12.92
+            if channel / 255 <= 0.04045
+            else ((channel / 255 + 0.055) / 1.055) ** 2.4
+        )
         for channel in color
     ]
     return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
@@ -149,7 +175,9 @@ def _contrast_with_white(color: tuple[int, int, int]) -> float:
 def cover_qr_color(cover_path: Path) -> tuple[int, int, int]:
     with Image.open(cover_path) as cover:
         palette = extract_palette(cover, size=8)
-    saturation = lambda color: colorsys.rgb_to_hsv(*(channel / 255 for channel in color))[1]
+    saturation = lambda color: colorsys.rgb_to_hsv(
+        *(channel / 255 for channel in color)
+    )[1]
     high_contrast = [color for color in palette if _contrast_with_white(color) >= 4.5]
     if high_contrast:
         return max(high_contrast, key=saturation)
@@ -163,11 +191,15 @@ def cover_qr_color(cover_path: Path) -> tuple[int, int, int]:
 
 @contextmanager
 def provider_rendering(
-    provider: str | None, platform_link: tuple[DestinationAdapter, str] | None,
+    provider: str | None,
+    platform_link: tuple[DestinationAdapter, str] | None,
     qr_color: tuple[int, int, int] | None,
 ):
     with rendering_lock:
-        original_cover, original_scannable = beatprints_image.cover, beatprints_image.scannable
+        original_cover, original_scannable = (
+            beatprints_image.cover,
+            beatprints_image.scannable,
+        )
         beatprints_image.scannable = empty_scannable
         if provider is not None:
             cover_renderer = get_catalog_adapter(provider).cover_renderer
@@ -175,38 +207,78 @@ def provider_rendering(
                 beatprints_image.cover = cover_renderer
         if platform_link is not None and qr_color is not None:
             adapter, link = platform_link
-            beatprints_image.scannable = adapter.scannable(link) or fallback_scannable(adapter.label, link, qr_color)
+            beatprints_image.scannable = adapter.scannable(link) or fallback_scannable(
+                adapter.label, link, qr_color
+            )
         try:
             yield
         finally:
-            beatprints_image.cover, beatprints_image.scannable = original_cover, original_scannable
+            beatprints_image.cover, beatprints_image.scannable = (
+                original_cover,
+                original_scannable,
+            )
 
 
 def _renderable_lyrics(value: str) -> str:
     return value or " "
 
 
-def render_track(request: TrackPosterRequest, metadata, selected_lyrics: str) -> PosterResult:
+def _prepare_metadata_for_rendering(metadata):
+    """Keep optional catalog fields renderable by BeatPrints' text helper."""
+
+    metadata.artists = metadata.artists or [" "]
+    metadata.released = str(metadata.released or "").strip() or " "
+    metadata.label = str(metadata.label or "").strip() or " "
+    return metadata
+
+
+def render_track(
+    request: TrackPosterRequest, metadata, selected_lyrics: str
+) -> PosterResult:
+    metadata = _prepare_metadata_for_rendering(metadata)
     provider = request.provider if request.metadata is None else None
-    platform_link = selected_platform_link(request.platform_links, request.qr_platform, provider, getattr(metadata, "link", None))
+    platform_link = selected_platform_link(
+        request.platform_links,
+        request.qr_platform,
+        provider,
+        getattr(metadata, "link", None),
+    )
     with tempfile.TemporaryDirectory(prefix="beatprints-") as temp:
         directory, cover_path = Path(temp), Path(temp) / "cover"
         download_cover(metadata.cover, cover_path)
         qr_color = cover_qr_color(cover_path) if platform_link is not None else None
         with provider_rendering(provider, platform_link, qr_color):
-            poster.Poster(str(directory)).track(metadata=metadata, lyrics=_renderable_lyrics(selected_lyrics), accent=request.accent, theme=request.theme, pcover=str(cover_path))
+            poster.Poster(str(directory)).track(
+                metadata=metadata,
+                lyrics=_renderable_lyrics(selected_lyrics),
+                accent=request.accent,
+                theme=request.theme,
+                pcover=str(cover_path),
+            )
         content, filename = _poster_bytes(directory)
         return PosterResult(content, filename, {})
 
 
 def render_album(request: AlbumPosterRequest, metadata) -> PosterResult:
+    metadata = _prepare_metadata_for_rendering(metadata)
     provider = request.provider if request.metadata is None else None
-    platform_link = selected_platform_link(request.platform_links, request.qr_platform, provider, getattr(metadata, "link", None))
+    platform_link = selected_platform_link(
+        request.platform_links,
+        request.qr_platform,
+        provider,
+        getattr(metadata, "link", None),
+    )
     with tempfile.TemporaryDirectory(prefix="beatprints-") as temp:
         directory, cover_path = Path(temp), Path(temp) / "cover"
         download_cover(metadata.cover, cover_path)
         qr_color = cover_qr_color(cover_path) if platform_link is not None else None
         with provider_rendering(provider, platform_link, qr_color):
-            poster.Poster(str(directory)).album(metadata=metadata, indexing=request.indexing, accent=request.accent, theme=request.theme, pcover=str(cover_path))
+            poster.Poster(str(directory)).album(
+                metadata=metadata,
+                indexing=request.indexing,
+                accent=request.accent,
+                theme=request.theme,
+                pcover=str(cover_path),
+            )
         content, filename = _poster_bytes(directory)
         return PosterResult(content, filename, {})
