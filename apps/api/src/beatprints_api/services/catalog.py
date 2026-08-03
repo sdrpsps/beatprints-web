@@ -16,11 +16,33 @@ def _metadata_cache_token() -> int:
     return int(time.monotonic() // settings.metadata_cache_ttl_seconds)
 
 
+def _enrich_missing_track_label(metadata: deez.TrackMetadata) -> deez.TrackMetadata:
+    if str(metadata.label or "").strip():
+        return metadata
+
+    # Resolver failures must not make a valid source catalog item unrenderable.
+    from beatprints_api.integrations.labels import registry as label_registry
+
+    for resolver in label_registry.label_resolvers():
+        if not resolver.configured():
+            continue
+        try:
+            label = resolver.resolve_track(metadata)
+        except UpstreamError:
+            continue
+        if label:
+            metadata.label = label
+            break
+    return metadata
+
+
 @lru_cache(maxsize=settings.metadata_cache_max_entries)
 def _cached_track_metadata(
     provider: str, track_id: int | str, _cache_token: int
 ) -> deez.TrackMetadata:
-    return get_catalog_adapter(provider).track_metadata(track_id)
+    return _enrich_missing_track_label(
+        get_catalog_adapter(provider).track_metadata(track_id)
+    )
 
 
 @lru_cache(maxsize=settings.metadata_cache_max_entries)

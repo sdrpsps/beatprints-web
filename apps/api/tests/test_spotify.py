@@ -60,6 +60,18 @@ def test_spotify_uses_album_label_when_available() -> None:
     assert SpotifyClient._album_label({"label": "Epic", "copyrights": []}) == "Epic"
 
 
+def test_spotify_preserves_exclusive_license_label() -> None:
+    assert SpotifyClient._album_label(
+        {
+            "label": (
+                "Shenhe Media Limited under exclusive license to "
+                "88rising Records LLC"
+            ),
+            "copyrights": [],
+        }
+    ) == "Shenhe Media Limited under exclusive license to 88rising Records LLC"
+
+
 def test_spotify_derives_deprecated_label_from_phonographic_copyright() -> None:
     album = {
         "copyrights": [

@@ -45,6 +45,44 @@ def test_rendering_prepares_empty_optional_catalog_text() -> None:
     assert result.label == " "
 
 
+def test_right_aligned_text_measures_the_full_mixed_font_line(monkeypatch) -> None:
+    calls: list[tuple[tuple[int, int], str, str | None]] = []
+    monkeypatch.setattr(
+        rendering.write, "text_width", lambda value, _fonts, _size: len(value) * 10
+    )
+    monkeypatch.setattr(
+        rendering.write,
+        "text",
+        lambda _draw, position, value, *_args, **kwargs: calls.append(
+            (position, value, kwargs.get("anchor"))
+        ),
+    )
+
+    rendering._write_right_aligned_text(
+        None,
+        (100, 20),
+        "2004-12-30\n永稻星娱乐",
+        (0, 0, 0),
+        {},
+        60,
+    )
+
+    assert calls == [
+        ((0, 20), "2004-12-30", "lt"),
+        ((50, 88), "永稻星娱乐", "lt"),
+    ]
+
+
+def test_label_text_size_fits_the_reserved_right_side_width(monkeypatch) -> None:
+    monkeypatch.setattr(
+        rendering.write, "text_width", lambda value, _fonts, size: len(value) * size
+    )
+
+    size = rendering._fitted_text_size("Long label", {}, 60, 400)
+
+    assert size == 40
+
+
 def test_album_track_layout_keeps_every_track_when_titles_are_wide() -> None:
     tracks = [
         "我亲爱的偏执狂",

@@ -16,6 +16,8 @@ from beatprints_api.integrations.catalog.registry import (
     catalog_adapters,
     get_catalog_adapter,
 )
+from beatprints_api.integrations.labels import registry as label_registry
+from beatprints_api.integrations.labels.base import LabelResolver
 from beatprints_api.models.destinations import PlatformLinkMatchData
 from beatprints_api.exceptions import (
     UnsupportedCatalogSourceError,
@@ -51,6 +53,28 @@ def test_enabled_destinations_are_registered_independently() -> None:
 
     with pytest.raises(UnsupportedDestinationError):
         get_destination_adapter("disabled_destination")
+
+
+def test_empty_track_label_uses_a_registered_resolver(monkeypatch) -> None:
+    metadata = TrackMetadata(
+        title="Track",
+        artists=["Artist"],
+        album="Album",
+        released="2025-01-01",
+        duration="03:15",
+        cover="https://example.com/cover.jpg",
+        label="",
+    )
+    resolver = LabelResolver(
+        key="fixture",
+        configured=lambda: True,
+        resolve_track=lambda _metadata: "Fixture Records",
+    )
+    monkeypatch.setattr(label_registry, "label_resolvers", lambda: (resolver,))
+
+    result = beatprints_service.catalog_service._enrich_missing_track_label(metadata)
+
+    assert result.label == "Fixture Records"
 
 
 def test_source_catalogs_are_registered_independently() -> None:

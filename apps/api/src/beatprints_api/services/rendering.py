@@ -233,6 +233,78 @@ def _prepare_metadata_for_rendering(metadata):
     return metadata
 
 
+def _write_right_aligned_text(
+    draw,
+    position: tuple[int, int],
+    value: str,
+    color: tuple[int, int, int],
+    fonts,
+    size: int,
+    spacing: int = 0,
+) -> None:
+    """Right-align mixed-font lines by their total rendered width."""
+
+    x, y = position
+    line_height = size + int(round((size * 6) / 42, 1)) + spacing
+    for index, line in enumerate(value.split("\n")):
+        write.text(
+            draw,
+            (x - write.text_width(line, fonts, size), y + index * line_height),
+            line,
+            color,
+            fonts,
+            size,
+            anchor="lt",
+        )
+
+
+def _fitted_text_size(value: str, fonts, size: int, max_width: int) -> int:
+    while size > 24 and write.text_width(value, fonts, size) > max_width:
+        size -= 1
+    return size
+
+
+def _draw_poster_template(draw, metadata, color: tuple[int, int, int]) -> None:
+    """Draw common metadata without the upstream mixed-font anchor defect."""
+
+    write.heading(
+        draw,
+        poster.p.HEADING,
+        poster.s.HEADING_WIDTH,
+        metadata.title.upper(),
+        color,
+        write.font("Bold"),
+        poster.s.HEADING,
+    )
+    write.text(
+        draw,
+        poster.p.ARTIST,
+        ", ".join(metadata.artists),
+        color,
+        write.font("Regular"),
+        poster.s.ARTIST,
+        anchor="ls",
+    )
+    label_fonts = write.font("Regular")
+    _write_right_aligned_text(
+        draw,
+        poster.p.LABEL,
+        metadata.released,
+        color,
+        label_fonts,
+        poster.s.LABEL,
+    )
+    line_height = poster.s.LABEL + int(round((poster.s.LABEL * 6) / 42, 1))
+    _write_right_aligned_text(
+        draw,
+        (poster.p.LABEL[0], poster.p.LABEL[1] + line_height),
+        metadata.label,
+        color,
+        label_fonts,
+        _fitted_text_size(metadata.label, label_fonts, poster.s.LABEL, 1400),
+    )
+
+
 @dataclass(frozen=True)
 class AlbumTrackLayout:
     columns: tuple[tuple[str, ...], ...]
@@ -296,7 +368,7 @@ def _render_album_poster(
         poster_image.paste(cover, poster.p.COVER)
         poster_image.paste(scannable, poster.p.SCANCODE, scannable)
         beatprints_image.draw_palette(draw, cover, accent)
-        poster.Poster(str(directory))._draw_template(draw, metadata, color)
+        _draw_poster_template(draw, metadata, color)
 
         x, y = poster.p.TRACKS
         for column, width in zip(track_layout.columns, track_layout.widths):
@@ -312,6 +384,49 @@ def _render_album_poster(
             )
             x += width + track_layout.gap
 
+        poster_image.save(directory / poster_filename(metadata.title, metadata.artists[0]))
+
+
+def _render_track_poster(
+    directory: Path,
+    metadata,
+    *,
+    lyrics: str,
+    accent: bool,
+    theme: str,
+    cover_path: Path,
+) -> None:
+    """Render tracks with the same reliable metadata template as albums."""
+
+    color, template = beatprints_image.get_theme(theme)
+    cover = beatprints_image.cover(metadata.cover, str(cover_path))
+    scannable = beatprints_image.scannable(theme)
+
+    with Image.open(template) as poster_image:
+        poster_image = poster_image.convert("RGB")
+        draw = ImageDraw.Draw(poster_image)
+        poster_image.paste(cover, poster.p.COVER)
+        poster_image.paste(scannable, poster.p.SCANCODE, scannable)
+        beatprints_image.draw_palette(draw, cover, accent)
+        _draw_poster_template(draw, metadata, color)
+        write.text(
+            draw,
+            poster.p.DURATION,
+            metadata.duration,
+            color,
+            write.font("Regular"),
+            poster.s.DURATION,
+            anchor="rs",
+        )
+        write.text(
+            draw,
+            poster.p.LYRICS,
+            lyrics,
+            color,
+            write.font("Light"),
+            poster.s.LYRICS,
+            anchor="lt",
+        )
         poster_image.save(directory / poster_filename(metadata.title, metadata.artists[0]))
 
 
@@ -331,12 +446,13 @@ def render_track(
         download_cover(metadata.cover, cover_path)
         qr_color = cover_qr_color(cover_path) if platform_link is not None else None
         with provider_rendering(provider, platform_link, qr_color):
-            poster.Poster(str(directory)).track(
+            _render_track_poster(
+                directory,
                 metadata=metadata,
                 lyrics=_renderable_lyrics(selected_lyrics),
                 accent=request.accent,
                 theme=request.theme,
-                pcover=str(cover_path),
+                cover_path=cover_path,
             )
         content, filename = _poster_bytes(directory)
         return PosterResult(content, filename, {})
