@@ -3,6 +3,7 @@ import { registerDestination } from "@/features/poster/destinations/store"
 registerDestination({
   key: "netease_music",
   labelKey: "poster.integrationNames.neteaseMusic",
+  order: 1,
   default: false,
   domains: ["music.163.com", "163.com"],
   reusesSourceLink: (provider) => provider === "netease_music",

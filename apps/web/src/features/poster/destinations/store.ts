@@ -8,7 +8,9 @@ export function registerDestination(destination: PosterDestination) {
 }
 
 export function enabledDestinations() {
-  return [...destinations.values()]
+  return [...destinations.values()].sort(
+    (left, right) => left.order - right.order,
+  )
 }
 
 export function getDestination(key: string) {
