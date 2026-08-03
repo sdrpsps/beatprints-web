@@ -21,9 +21,8 @@ from beatprints_api.integrations.catalog import get_catalog_adapter
 from beatprints_api.integrations.destinations import DestinationAdapter, get_destination_adapter
 from beatprints_api.integrations.destinations.scannable import empty_scannable, fallback_scannable
 from beatprints_api.models.poster import AlbumPosterRequest, PosterPlatformLinks, TrackPosterRequest
-from beatprints_api.palette import extract_palette, install_pylette_compatibility_module
+from beatprints_api.palette import extract_palette
 
-install_pylette_compatibility_module()
 beatprints_image.get_palette = extract_palette
 
 MAX_COVER_BYTES = 15 * 1024 * 1024
