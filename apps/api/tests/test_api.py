@@ -10,7 +10,7 @@ from beatprints_api.api.routes import catalog, posters
 from beatprints_api.config import settings
 from beatprints_api.main import app, create_app
 from beatprints_api.models import PlatformLinkMatchData, PlatformMatchOptionsData
-from beatprints_api.spotify import SpotifyNotConfiguredError
+from beatprints_api.integrations.catalog.spotify import SpotifyNotConfiguredError
 
 client = TestClient(app)
 
@@ -138,6 +138,7 @@ def test_track_returns_png(monkeypatch) -> None:
         "/v1/posters/track",
         json={
             "query": "Apples - Rocco",
+            "provider": "spotify",
             "lyrics": "one\ntwo\nthree\nfour",
         },
     )
@@ -188,7 +189,7 @@ def test_poster_response_supports_unicode_filenames(monkeypatch) -> None:
     )
     response = client.post(
         "/v1/posters/album",
-        json={"query": "test"},
+        json={"query": "test", "provider": "spotify"},
     )
 
     assert response.status_code == 200
@@ -535,6 +536,15 @@ def test_explicit_spotify_search_reports_missing_configuration(monkeypatch) -> N
         "data": None,
         "message": "Spotify search is not configured",
     }
+
+
+def test_search_requires_an_explicit_registered_source() -> None:
+    response = client.get(
+        "/v1/search",
+        params={"query": "Summer Breeze", "type": "track"},
+    )
+
+    assert response.status_code == 422
     assert response.headers["x-process-time"]
 
 
@@ -563,6 +573,7 @@ def test_unhandled_error_uses_unified_response(monkeypatch) -> None:
         "/v1/posters/track",
         json={
             "query": "Apples - Rocco",
+            "provider": "spotify",
             "lyrics": "one\ntwo\nthree\nfour",
         },
     )

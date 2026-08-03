@@ -2,7 +2,8 @@
 
 from BeatPrints import deez, errors as beatprints_errors, lyrics
 from beatprints_api.exceptions import UpstreamError
-from beatprints_api.models.dto import LyricsLine, LyricsPreviewData, TrackPosterRequest
+from beatprints_api.models.catalog import LyricsLine, LyricsPreviewData
+from beatprints_api.models.poster import TrackPosterRequest
 
 
 def fetch(metadata: deez.TrackMetadata):

@@ -1,16 +1,20 @@
-from beatprints_api.models.dto import (
+from beatprints_api.models.catalog import (
+    LyricsLine,
+    LyricsPreviewData,
+    SearchAlbumSummary,
+    SearchResult,
+)
+from beatprints_api.models.destinations import (
+    PlatformLinkMatchData,
+    PlatformMatchOptionsData,
+)
+from beatprints_api.models.poster import (
     AlbumMetadataInput,
     AlbumPosterRequest,
     CatalogProvider,
-    LyricsLine,
-    LyricsPreviewData,
     PosterPlatform,
     PosterPlatformLinks,
-    PlatformMatchOptionsData,
-    SearchAlbumSummary,
     SearchProvider,
-    SearchResult,
-    PlatformLinkMatchData,
     Theme,
     TrackMetadataInput,
     TrackPosterRequest,

@@ -8,7 +8,7 @@ from beatprints_api.integrations.destinations.scannable import fallback_scannabl
 from beatprints_api.integrations.catalog import spotify as spotify_catalog
 from beatprints_api.models import TrackPosterRequest
 from beatprints_api.services import beatprints as beatprints_service
-from beatprints_api.spotify import SpotifyClient, SpotifyNotConfiguredError
+from beatprints_api.integrations.catalog.spotify import SpotifyClient, SpotifyNotConfiguredError
 
 
 def test_spotify_requires_credentials() -> None:

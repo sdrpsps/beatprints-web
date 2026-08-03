@@ -9,7 +9,7 @@ from BeatPrints import deez
 from beatprints_api.config import settings
 from beatprints_api.exceptions import UpstreamError
 from beatprints_api.integrations.catalog import catalog_adapters, get_catalog_adapter
-from beatprints_api.models.dto import AlbumPosterRequest, TrackPosterRequest
+from beatprints_api.models.poster import AlbumPosterRequest, TrackPosterRequest
 
 
 def _metadata_cache_token() -> int:

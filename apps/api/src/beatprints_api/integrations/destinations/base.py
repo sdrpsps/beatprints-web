@@ -5,7 +5,7 @@ from typing import Callable
 
 from PIL import Image
 
-from beatprints_api.models.dto import PlatformLinkMatchData
+from beatprints_api.models.destinations import PlatformLinkMatchData
 
 Scannable = Callable[[str], Image.Image]
 

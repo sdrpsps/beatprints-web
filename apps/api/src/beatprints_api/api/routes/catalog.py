@@ -116,17 +116,17 @@ async def search(
             examples=["Summer Breeze Piper"],
         ),
     ],
-    type: Annotated[
-        Literal["track", "album"],
-        Query(description="搜索类型：track 表示歌曲，album 表示专辑。"),
-    ] = "track",
     provider: Annotated[
         SearchProvider,
         Query(
             description="搜索数据源：已启用的目录 integration key 或 all。",
             examples=["all"],
         ),
-    ] = "spotify",
+    ],
+    type: Annotated[
+        Literal["track", "album"],
+        Query(description="搜索类型：track 表示歌曲，album 表示专辑。"),
+    ] = "track",
     limit: Annotated[
         int,
         Query(

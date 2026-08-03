@@ -10,7 +10,7 @@ from beatprints_api.integrations.destinations.base import DestinationAdapter
 from beatprints_api.integrations.destinations.registry import register
 from beatprints_api.integrations.destinations.scannable import icon_qr_scannable
 from beatprints_api.exceptions import PlatformLinkNoMatchError, UpstreamError
-from beatprints_api.models.dto import PlatformLinkMatchData
+from beatprints_api.models.destinations import PlatformLinkMatchData
 
 ASSET_PATH = Path(__file__).resolve().parents[2] / "assets" / "qq-music-symbol.png"
 
