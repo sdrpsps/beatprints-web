@@ -50,6 +50,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
         rich markdown-it-py mdurl pygments \
         toml typer shellingham \
         python-dotenv pyyaml watchfiles websockets && \
+    /app/.venv/bin/python -c "import beatprints_api.main" && \
     find /app/.venv -type d -name __pycache__ -prune -exec rm -rf {} + && \
     find /app/.venv -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
 
