@@ -244,6 +244,7 @@ def test_qq_catalog_reads_current_album_track_names(monkeypatch) -> None:
 
     metadata = qq_catalog.album_metadata("qq-album")
 
+    assert metadata.artists == ["QQ Artist"]
     assert metadata.tracks == ["First Track", "Second Track"]
     assert metadata.label == "QQ Records"
 
@@ -649,6 +650,35 @@ def test_album_candidates_include_catalog_title_suffix_without_auto_matching(
 
     assert result.match is None
     assert [str(match.url) for match in result.candidates] == [candidate["url"]]
+
+
+def test_candidate_search_skips_empty_artist_queries(monkeypatch) -> None:
+    metadata = AlbumMetadata(
+        title="Groupies 吉他手",
+        artists=[],
+        released="2002-08-05",
+        tracks=[f"Track {index}" for index in range(13)],
+        cover="https://example.com/cover.jpg",
+        label="",
+    )
+    queries: list[str] = []
+    monkeypatch.setattr(
+        beatprints_service, "_album_metadata", lambda _request: metadata
+    )
+    monkeypatch.setattr(
+        beatprints_service,
+        "_destination_adapter",
+        lambda _platform: DestinationAdapter(
+            search=lambda query, _item_type: queries.append(query) or [],
+            resolve=lambda _url: None,
+        ),
+    )
+
+    beatprints_service.platform_match_options(
+        "qq_music", "000zebjW3TlPWh", "album", "spotify"
+    )
+
+    assert queries == ["Groupies 吉他手"]
 
 
 def test_close_top_candidates_require_user_confirmation(monkeypatch) -> None:

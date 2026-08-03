@@ -263,18 +263,21 @@ def _source_isrc(
 
 
 def _matching_queries(metadata, item_type: str, isrc: str | None) -> list[tuple[str, str]]:
-    artist = _metadata_artists(metadata)
+    title = str(metadata.title).strip()
+    artist = _metadata_artists(metadata).strip()
     queries: list[tuple[str, str]] = []
     if item_type == "track" and isrc:
         queries.append(("isrc", f"isrc:{isrc}"))
-    queries.extend(
-        [
-            ("combined", f"{metadata.title} {artist}"),
-            ("title", metadata.title),
-            ("artist", artist),
-        ]
-    )
-    return list(dict.fromkeys(queries))
+    seen_queries: set[str] = set()
+    for origin, query in (
+        ("combined", " ".join(part for part in (title, artist) if part)),
+        ("title", title),
+        ("artist", artist),
+    ):
+        if query and query not in seen_queries:
+            queries.append((origin, query))
+            seen_queries.add(query)
+    return queries
 
 
 def _collect_destination_candidates(

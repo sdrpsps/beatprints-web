@@ -36,6 +36,14 @@ def _artists(values: object) -> list[str]:
     ]
 
 
+def _album_artists(row: dict) -> list[str]:
+    artists = _artists(row.get("singer_list")) or _artists(row.get("singer"))
+    if artists:
+        return artists
+    singer_name = str(row.get("singername") or "").strip()
+    return [singer_name] if singer_name else []
+
+
 def _released(value: object) -> str:
     if isinstance(value, (int, float)) and value > 0:
         seconds = value / 1000 if value > 10_000_000_000 else value
@@ -119,7 +127,7 @@ def _album_result(row: dict) -> dict | None:
         "provider": "qq_music",
         "type": "album",
         "title": title,
-        "artists": _artists(row.get("singer_list")) or _artists(row.get("singer")),
+        "artists": _album_artists(row),
         "cover_url": _cover(album_mid),
         "link": f"https://y.qq.com/n/ryqq/albumDetail/{album_mid}",
         "release_date": released or None,
