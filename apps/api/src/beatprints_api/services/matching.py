@@ -401,10 +401,12 @@ def clear_metadata_cache() -> None:
     catalog_service.clear_metadata_cache()
 
 
-def preview_lyrics(provider: str, catalog_id: int | str) -> LyricsPreviewData:
+def preview_lyrics(
+    provider: str, catalog_id: int | str, source: str | None = None
+) -> LyricsPreviewData:
     request = TrackPosterRequest(provider=provider, catalog_id=catalog_id)
     metadata = _track_metadata(request)
-    return lyrics_service.preview(provider, catalog_id, metadata)
+    return lyrics_service.preview(provider, catalog_id, metadata, source)
 
 
 def _select_lyrics(metadata: deez.TrackMetadata, request: TrackPosterRequest) -> str:

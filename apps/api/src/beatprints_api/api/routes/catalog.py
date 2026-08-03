@@ -8,12 +8,14 @@ from beatprints_api.exceptions import (
     IntegrationNotConfiguredError,
     UnsupportedCatalogSourceError,
     UnsupportedDestinationError,
+    UnsupportedLyricsSourceError,
     UpstreamServiceError,
 )
 from beatprints_api.models import (
     ApiResponse,
     CatalogProvider,
     LyricsPreviewData,
+    LyricsSourcesData,
     SearchProvider,
     SearchResult,
     PlatformLinkMatchData,
@@ -162,10 +164,20 @@ async def search(
 
 
 @router.get(
+    "/lyrics/sources",
+    summary="获取已启用的歌词来源",
+    response_model=ApiResponse[LyricsSourcesData],
+    responses={401: ERROR_RESPONSES[401]},
+)
+def lyrics_sources() -> ApiResponse[LyricsSourcesData]:
+    return ApiResponse(code=0, data=beatprints_service.lyrics_sources(), message="success")
+
+
+@router.get(
     "/lyrics",
     summary="预览歌曲歌词",
     description=(
-        "按搜索结果中未改变的 provider + id 获取 LRClib 歌词，"
+        "按搜索结果中未改变的 provider + id 获取所选歌词来源的歌词，"
         "返回规范化非空行供前端选择最多四行。纯音乐返回 instrumental=true 和空行列表。"
     ),
     response_model=ApiResponse[LyricsPreviewData],
@@ -184,16 +196,26 @@ async def preview_lyrics(
             description="所选歌曲在 provider 中的 ID，来自 /v1/search。",
         ),
     ],
+    source: Annotated[
+        str | None,
+        Query(
+            min_length=1,
+            description="歌词来源 key，来自 /v1/lyrics/sources。",
+        ),
+    ] = None,
 ) -> ApiResponse[LyricsPreviewData]:
     try:
         result = await run_in_threadpool(
             beatprints_service.preview_lyrics,
             provider,
             catalog_id,
+            source,
         )
     except IntegrationNotConfiguredError as exc:
         raise UpstreamServiceError(str(exc), unavailable=True) from exc
     except UnsupportedCatalogSourceError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except UnsupportedLyricsSourceError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except beatprints_service.UpstreamError as exc:
         raise UpstreamServiceError(str(exc)) from exc

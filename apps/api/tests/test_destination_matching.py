@@ -22,12 +22,12 @@ def album_metadata() -> AlbumMetadata:
 
 
 def test_enabled_destinations_are_registered_independently() -> None:
-    assert set(destination_keys()) == {
+    assert destination_keys() == (
         "spotify",
         "apple_music",
         "qq_music",
         "netease_music",
-    }
+    )
     for key in destination_keys():
         adapter = get_destination_adapter(key)
         assert adapter.key == key
@@ -38,7 +38,7 @@ def test_enabled_destinations_are_registered_independently() -> None:
 
 
 def test_source_catalogs_are_registered_independently() -> None:
-    assert {adapter.key for adapter in catalog_adapters()} == {"deezer", "spotify"}
+    assert [adapter.key for adapter in catalog_adapters()] == ["spotify", "deezer"]
     for adapter in catalog_adapters():
         assert adapter.search and adapter.track_metadata and adapter.album_metadata
         assert get_catalog_adapter(adapter.key) is adapter

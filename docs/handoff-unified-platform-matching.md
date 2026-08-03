@@ -147,5 +147,5 @@ environment command above or correct the local proxy configuration.
    Spotify, so adapter normalization is tested independently of network services.
 2. Add album track-list comparison only when year and track count cannot disambiguate editions;
    avoid making it an unconditional extra upstream request.
-3. Implement the separately discussed multi-source lyrics selector as its own change. Preserve
-   LRCLIB, keep the lyrics response simple, and submit the user's final four lines explicitly.
+3. Completed: multi-source lyrics selection now keeps LRCLIB alongside independently registered
+   sources, keeps preview responses simple, and submits the user's final four lines explicitly.

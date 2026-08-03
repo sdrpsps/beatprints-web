@@ -278,7 +278,7 @@ class TrackPosterRequest(PosterSource):
         Field(
             max_length=2000,
             description=(
-                "直接显示在海报上的可选歌词。提供后不会查询 LRClib，"
+                "直接显示在海报上的可选歌词。提供后不会查询歌词来源，"
                 "并优先于 lyrics_range。空字符串表示不显示歌词，最多四行。"
             ),
             examples=["", "First line\nSecond line\nThird line\nFourth line"],
@@ -289,7 +289,7 @@ class TrackPosterRequest(PosterSource):
         Field(
             pattern=r"^[1-9]\d*-[1-9]\d*$",
             description=(
-                "未提供 lyrics 时，从 LRClib 歌词中选取的行号范围；"
+                "未提供 lyrics 时，从默认歌词来源中选取的行号范围；"
                 "范围内必须恰好有四行非空歌词。"
             ),
             examples=["11-14"],

@@ -26,11 +26,10 @@ def get_catalog_adapter(key: str) -> CatalogAdapter:
 
 
 def catalog_adapters() -> tuple[CatalogAdapter, ...]:
-    return tuple(_adapters[key] for key in sorted(_adapters))
+    return tuple(_adapters.values())
 
 
 # Importing an adapter is the sole enablement mechanism.  Temporarily removing a
 # catalog requires commenting out one import here; no core service changes.
-from beatprints_api.integrations.catalog import deezer  # noqa: E402, F401
 from beatprints_api.integrations.catalog import spotify  # noqa: E402, F401
-
+from beatprints_api.integrations.catalog import deezer  # noqa: E402, F401

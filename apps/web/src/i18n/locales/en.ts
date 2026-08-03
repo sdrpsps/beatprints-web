@@ -9,12 +9,14 @@ export const en = {
     startCreating: "Start creating",
     heroTitleFirstLine: "Let a song,",
     heroTitleSecondLine: "take shape on paper.",
-    sessionNotice: "No login required. Results exist only in this browser session.",
+    sessionNotice:
+      "No login required. Results exist only in this browser session.",
     posterTypeLabel: "Poster type",
     heroSubtitle: "MUSIC POSTER MAKER",
     heroEst: "EST. 2026",
     studioSectionBadge: "COMPOSE / PRINT / KEEP",
-    footerDisclaimer: "Made for non-commercial music collections and personal expression.",
+    footerDisclaimer:
+      "Made for non-commercial music collections and personal expression.",
     footerSourceCode: "Source Code",
     footerUpstreamGenerator: "Upstream Generator",
   },
@@ -28,8 +30,10 @@ export const en = {
     album: "Album poster",
     searchTrack: "Search track, artist, or album",
     searchAlbum: "Search album or artist",
-    searchTrackDescription: "Enter track, artist, or album to find the exact recording.",
-    searchAlbumDescription: "Enter album title or artist to verify the release.",
+    searchTrackDescription:
+      "Enter track, artist, or album to find the exact recording.",
+    searchAlbumDescription:
+      "Enter album title or artist to verify the release.",
     searchTrackPlaceholder: "e.g., Best Things in Life The Dreamliners",
     searchAlbumPlaceholder: "e.g., Summer Breeze Piper",
     search: "Search",
@@ -41,13 +45,16 @@ export const en = {
     loadingSearchResults: "Loading search results",
     searchResults: "Search results",
     noResultsTitle: "No matching works found",
-    noResultsDescription: "Try searching 'Track + Artist' or switch search source.",
+    noResultsDescription:
+      "Try searching 'Track + Artist' or switch search source.",
     searchFailed: "Search could not be completed",
     trackCountUnit: "tracks",
     lyrics: "Choose lyrics",
-    lyricsHelp: "Optional. Leave unselected to omit lyrics, or choose up to 4 lines from the full lyrics.",
+    lyricsHelp:
+      "Optional. Leave unselected to omit lyrics, or choose up to 4 lines from the full lyrics.",
     manualLyrics: "Enter manually",
     catalogLyrics: "Select from lyrics",
+    lyricsSourceLabel: "Lyrics source",
     instrumentalTitle: "Instrumental text",
     instrumentalHelp:
       "Hidden by default, or enter up to 4 lines (max 200 characters).",
@@ -57,7 +64,8 @@ export const en = {
     instrumentalPlaceholder: "Leave blank to omit lyrics on the poster",
     manualLyricsLabel: "Poster text",
     manualLyricsPlaceholder: "Line 1\nLine 2\nLine 3\nLine 4",
-    manualLyricsHelp: "Up to 4 lines; blank lines will be ignored. Currently {{count}} / 4 lines.",
+    manualLyricsHelp:
+      "Up to 4 lines; blank lines will be ignored. Currently {{count}} / 4 lines.",
     fullLyrics: "Full lyrics",
     clearLyricSelection: "Clear selection",
     selectedLyricsCount: "Selected {{count}} / 4",
@@ -74,14 +82,18 @@ export const en = {
     platformNone: "None",
     platformLinkSuffix: "Link",
     platformUrlPlaceholder: "Paste public link to track or album",
-    platformUrlHelp: "Paste the public link for this work on the selected platform.",
+    platformUrlHelp:
+      "Paste the public link for this work on the selected platform.",
     appleMusicMatching: "Matching the Apple Music release",
     platformMatching: "Matching the {{platform}} release",
-    appleMusicMatchingHelp: "Looking up the corresponding release from the selected work's metadata.",
+    appleMusicMatchingHelp:
+      "Looking up the corresponding release from the selected work's metadata.",
     appleMusicMatched: "Apple Music release matched",
     openAppleMusic: "Open",
+    openPlatform: "Open",
     manualAppleMusicLink: "Enter link manually",
-    appleMusicManualHelp: "Only replaces the Apple Music QR destination; the selected work still supplies the song metadata.",
+    appleMusicManualHelp:
+      "Only replaces the Apple Music QR destination; the selected work still supplies the song metadata.",
     fetchAppleMusicInfo: "Fetch song info",
     appleMusicCoverAlt: "{{title}} Apple Music cover",
     spotifyMatching: "Matching the Spotify release",
@@ -89,7 +101,8 @@ export const en = {
     manualSpotifyLink: "Enter link manually",
     fetchSpotifyInfo: "Fetch song info",
     fetchPlatformInfo: "Fetch song info",
-    platformManualHelp: "Only replaces the QR destination; the selected work still supplies the song metadata.",
+    platformManualHelp:
+      "Only replaces the QR destination; the selected work still supplies the song metadata.",
     choosePlatformVersion: "Choose another version",
     choosePlatformVersionTitle: "Choose a {{platform}} version",
     choosePlatformVersionHelp:
@@ -100,12 +113,14 @@ export const en = {
     platformCandidatesFailed: "Candidate search did not finish",
     platformCandidateResolveFailed: "Selected version could not be read",
     noPlatformCandidates: "No selectable versions found",
-    noPlatformCandidatesHelp: "You can paste the public link for this work on the destination platform.",
+    noPlatformCandidatesHelp:
+      "You can paste the public link for this work on the destination platform.",
     selectPlatformVersion: "Select",
     manualPlatformLink: "Enter link manually",
     platformCoverAlt: "{{title}} cover",
     retry: "Retry",
-    spotifyManualHelp: "Only replaces the Spotify Code destination; the selected work still supplies the song metadata.",
+    spotifyManualHelp:
+      "Only replaces the Spotify Code destination; the selected work still supplies the song metadata.",
     appleMusicNotMatched: "No confident Apple Music release found",
     qqMusic: "QQ Music",
     neteaseMusic: "NetEase Music",
@@ -116,7 +131,8 @@ export const en = {
     themeLight: "Light",
     themeDark: "Dark",
     accentTitle: "Cover accent color",
-    accentDescription: "Include color extracted from the cover art at the bottom.",
+    accentDescription:
+      "Include color extracted from the cover art at the bottom.",
     indexingTitle: "Show track numbers",
     indexingDescription: "Display 1., 2. index before track titles.",
     shuffleTitle: "Shuffle track order",
@@ -144,22 +160,35 @@ export const en = {
     errors: {
       error401: "Service configuration error, unable to access public API.",
       error422: "Incomplete submission. Please check and try again.",
-      error502: "Music service did not return available content. Try again or enter manually.",
-      error503: "Selected music provider is temporarily unavailable. Try switching providers.",
-      appleMusicNoMatch: "No confident Apple Music match was found. Choose another work or leave the platform link off.",
-      appleMusicMatchError: "Apple Music matching failed. Try again later or leave the platform link off.",
-      platformMatchError: "Platform matching failed. Try again later or leave the platform link off.",
-      platformLinkResolveError: "This platform link could not be read. Check the link or try another one.",
-      platformCandidatesError: "Candidate search failed. Try again later or enter the link manually.",
-      platformCandidateResolveError: "The selected version could not be read. Choose another result or enter the link manually.",
-      platformCandidateType: "The selected link is not the same item type as this poster.",
-      spotifyMatchError: "Spotify matching failed. Try again later or leave the platform link off.",
+      error502:
+        "Music service did not return available content. Try again or enter manually.",
+      error503:
+        "Selected music provider is temporarily unavailable. Try switching providers.",
+      appleMusicNoMatch:
+        "No confident Apple Music match was found. Choose another work or leave the platform link off.",
+      appleMusicMatchError:
+        "Apple Music matching failed. Try again later or leave the platform link off.",
+      platformMatchError:
+        "Platform matching failed. Try again later or leave the platform link off.",
+      platformLinkResolveError:
+        "This platform link could not be read. Check the link or try another one.",
+      platformCandidatesError:
+        "Candidate search failed. Try again later or enter the link manually.",
+      platformCandidateResolveError:
+        "The selected version could not be read. Choose another result or enter the link manually.",
+      platformCandidateType:
+        "The selected link is not the same item type as this poster.",
+      spotifyMatchError:
+        "Spotify matching failed. Try again later or leave the platform link off.",
       urlErrorInvalid: "Please enter a complete platform link.",
       urlErrorProtocol: "Link must start with http:// or https://.",
-      urlErrorDomain: "This link does not appear to belong to the selected platform.",
+      urlErrorDomain:
+        "This link does not appear to belong to the selected platform.",
       searchErrorDefault: "Search failed. Please try again later.",
-      lyricsErrorDefault: "Could not fetch lyrics. Please enter 4 lines manually.",
-      generationErrorDefault: "Poster generation failed. Please check content and try again.",
+      lyricsErrorDefault:
+        "Could not fetch lyrics. Please enter 4 lines manually.",
+      generationErrorDefault:
+        "Poster generation failed. Please check content and try again.",
     },
   },
 } as const

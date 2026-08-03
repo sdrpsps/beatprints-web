@@ -170,6 +170,14 @@ component system.
 When a directory does not exist yet, create it only when the first real file needs it.
 Avoid speculative abstractions and barrel files.
 
+### Component and hook size
+
+Treat 150 lines as a soft maintainability threshold for frontend components and hooks. When a
+component or hook grows beyond it, first assess whether it contains independently testable or
+understandable responsibilities that should become focused components, hooks, or helpers. Split by
+real responsibility and clear data flow; do not mechanically fragment cohesive code just to meet a
+line count.
+
 ### Quality gates
 
 Before considering frontend work complete:

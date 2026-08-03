@@ -280,9 +280,10 @@ def test_lyrics_preview_preserves_catalog_reference(monkeypatch) -> None:
     monkeypatch.setattr(
         catalog.beatprints_service,
         "preview_lyrics",
-        lambda provider, catalog_id: {
+        lambda provider, catalog_id, source=None: {
             "provider": provider,
             "catalog_id": catalog_id,
+            "source": source or "lrclib",
             "instrumental": False,
             "lines": [
                 {"index": 1, "text": "First line"},
@@ -295,13 +296,18 @@ def test_lyrics_preview_preserves_catalog_reference(monkeypatch) -> None:
 
     response = client.get(
         "/v1/lyrics",
-        params={"provider": "deezer", "catalog_id": "5416564"},
+        params={
+            "provider": "deezer",
+            "catalog_id": "5416564",
+            "source": "lrcapi",
+        },
     )
 
     assert response.status_code == 200
     assert response.json()["data"] == {
         "provider": "deezer",
         "catalog_id": "5416564",
+        "source": "lrcapi",
         "instrumental": False,
         "lines": [
             {"index": 1, "text": "First line"},
@@ -309,6 +315,29 @@ def test_lyrics_preview_preserves_catalog_reference(monkeypatch) -> None:
             {"index": 3, "text": "Third line"},
             {"index": 4, "text": "Fourth line"},
         ],
+    }
+
+
+def test_lyrics_sources_list_enabled_adapters(monkeypatch) -> None:
+    monkeypatch.setattr(
+        catalog.beatprints_service,
+        "lyrics_sources",
+        lambda: {
+            "sources": [
+                {"key": "lrclib", "label": "LRCLIB", "default": True},
+                {"key": "lrcapi", "label": "LrcApi", "default": False},
+            ]
+        },
+    )
+
+    response = client.get("/v1/lyrics/sources")
+
+    assert response.status_code == 200
+    assert response.json()["data"] == {
+        "sources": [
+            {"key": "lrclib", "label": "LRCLIB", "default": True},
+            {"key": "lrcapi", "label": "LrcApi", "default": False},
+        ]
     }
 
 

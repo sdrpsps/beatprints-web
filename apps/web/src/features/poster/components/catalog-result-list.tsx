@@ -21,13 +21,17 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CoverArt } from "@/features/poster/components/studio-shared"
+import { getCatalogSource } from "@/features/poster/catalogs/registry"
 import type { SearchResult } from "@/features/poster/types"
 import { cn } from "@/lib/utils"
 
 export function SearchSkeleton() {
   const { t } = useTranslation()
   return (
-    <div className="flex flex-col gap-2.5" aria-label={t("poster.loadingSearchResults")}>
+    <div
+      className="flex flex-col gap-2.5"
+      aria-label={t("poster.loadingSearchResults")}
+    >
       {[0, 1, 2].map((value) => (
         <div
           className="flex items-center gap-3 rounded-lg border p-2.5"
@@ -112,7 +116,9 @@ function CatalogResult({
     result.album?.title,
     result.release_year,
     result.duration,
-    result.track_count ? `${result.track_count} ${t("poster.trackCountUnit")}` : undefined,
+    result.track_count
+      ? `${result.track_count} ${t("poster.trackCountUnit")}`
+      : undefined,
   ]
     .filter(Boolean)
     .join(" · ")
@@ -143,7 +149,7 @@ function CatalogResult({
       <ItemActions className="max-sm:basis-full max-sm:justify-end">
         <Badge variant={selected ? "default" : "secondary"}>
           {selected ? <CheckIcon data-icon="inline-start" /> : null}
-          {result.provider === "spotify" ? "Spotify" : "Deezer"}
+          {getCatalogSource(result.provider)?.label ?? result.provider}
         </Badge>
       </ItemActions>
     </Item>

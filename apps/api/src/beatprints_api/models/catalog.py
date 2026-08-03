@@ -38,8 +38,19 @@ class LyricsLine(BaseModel):
     text: Annotated[str, Field(min_length=1, max_length=1000)]
 
 
+class LyricsSourceData(BaseModel):
+    key: Annotated[str, Field(min_length=1)]
+    label: Annotated[str, Field(min_length=1)]
+    default: bool = False
+
+
+class LyricsSourcesData(BaseModel):
+    sources: list[LyricsSourceData]
+
+
 class LyricsPreviewData(BaseModel):
     provider: CatalogProvider
     catalog_id: int | str
+    source: str
     instrumental: bool
     lines: list[LyricsLine]

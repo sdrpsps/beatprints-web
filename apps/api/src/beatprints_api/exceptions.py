@@ -39,5 +39,9 @@ class UnsupportedCatalogSourceError(ValueError):
     """Raised when a disabled or unknown source catalog is requested."""
 
 
+class UnsupportedLyricsSourceError(ValueError):
+    """Raised when a disabled or unknown lyrics source is requested."""
+
+
 class IntegrationNotConfiguredError(RuntimeError):
     """Raised when an enabled integration lacks its required credentials."""
