@@ -112,6 +112,7 @@ function CatalogResult({
   onSelect: (result: SearchResult) => void
 }) {
   const { t } = useTranslation()
+  const source = getCatalogSource(result.provider)
   const details = [
     result.album?.title,
     result.release_year,
@@ -149,7 +150,7 @@ function CatalogResult({
       <ItemActions className="max-sm:basis-full max-sm:justify-end">
         <Badge variant={selected ? "default" : "secondary"}>
           {selected ? <CheckIcon data-icon="inline-start" /> : null}
-          {getCatalogSource(result.provider)?.label ?? result.provider}
+          {source?.label ?? result.provider}
         </Badge>
       </ItemActions>
     </Item>

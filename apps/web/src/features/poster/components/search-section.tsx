@@ -79,7 +79,9 @@ export function SearchSection({ studio }: { studio: Studio }) {
                   variant="default"
                   size="sm"
                   disabled={
-                    !studio.query.trim() || studio.searchState === "loading"
+                    !studio.query.trim() ||
+                    !studio.provider ||
+                    studio.searchState === "loading"
                   }
                 >
                   {studio.searchState === "loading" ? (

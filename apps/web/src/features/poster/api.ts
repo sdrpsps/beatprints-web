@@ -5,7 +5,6 @@ import type {
   PlatformMatchOptions,
   CatalogProvider,
   LyricsPreview,
-  LyricsSource,
   PosterKind,
   PosterPlatform,
   PosterRequest,
@@ -89,10 +88,6 @@ export async function fetchLyrics(
     source,
   })
   return getJson<LyricsPreview>(`/v1/lyrics?${params}`, signal)
-}
-
-export function fetchLyricsSources(signal?: AbortSignal) {
-  return getJson<{ sources: LyricsSource[] }>("/v1/lyrics/sources", signal)
 }
 
 /**

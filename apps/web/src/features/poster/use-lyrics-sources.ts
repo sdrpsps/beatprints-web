@@ -1,62 +1,38 @@
-import { useEffect, useRef, useState } from "react"
-import type { TFunction } from "i18next"
+import { useEffect, useState } from "react"
 
-import { fetchLyricsSources } from "@/features/poster/api"
-import { friendlyError } from "@/features/poster/poster-errors"
+import { enabledLyricsSources } from "@/features/poster/lyrics/registry"
 import type { AsyncState } from "@/features/poster/use-platform-link-flow"
-import type { LyricsSource, PosterKind, SearchResult } from "@/features/poster/types"
+import type { PosterKind, SearchResult } from "@/features/poster/types"
 
 type LyricsSourcesOptions = {
   kind: PosterKind
   selected?: SearchResult
-  t: TFunction
 }
 
-export function useLyricsSources({ kind, selected, t }: LyricsSourcesOptions) {
-  const [sourcesState, setSourcesState] = useState<AsyncState>("idle")
-  const [sourcesError, setSourcesError] = useState<string>()
-  const [sources, setSources] = useState<LyricsSource[]>([])
+const sources = enabledLyricsSources()
+
+export function useLyricsSources({
+  kind,
+  selected,
+}: LyricsSourcesOptions) {
   const [lyricsSource, setLyricsSource] = useState<string>()
-  const request = useRef<AbortController | null>(null)
 
   useEffect(() => {
-    request.current?.abort()
-    setSourcesState("idle")
-    setSourcesError(undefined)
-    setSources([])
-    setLyricsSource(undefined)
-    if (kind !== "track" || !selected) return
+    if (kind !== "track" || !selected) {
+      setLyricsSource(undefined)
+      return
+    }
 
-    const controller = new AbortController()
-    request.current = controller
-    setSourcesState("loading")
-    void (async () => {
-      try {
-        const response = await fetchLyricsSources(controller.signal)
-        if (controller.signal.aborted) return
+    setLyricsSource(
+      sources.find((source) => source.default)?.key ?? sources[0]?.key,
+    )
+  }, [kind, selected])
 
-        setSources(response.sources)
-        setLyricsSource(
-          response.sources.find((source) => source.default)?.key ??
-            response.sources[0]?.key,
-        )
-        setSourcesState("success")
-      } catch (error) {
-        if (controller.signal.aborted) return
-
-        setSourcesState("error")
-        setSourcesError(
-          friendlyError(error, t("poster.errors.lyricsErrorDefault"), t).message,
-        )
-      }
-    })()
-
-    return () => controller.abort()
-  }, [kind, selected, t])
+  const active = kind === "track" && Boolean(selected)
 
   return {
-    sourcesState,
-    sourcesError,
+    sourcesState: (active ? "success" : "idle") as AsyncState,
+    sourcesError: undefined,
     lyricsSources: sources,
     lyricsSource,
     setLyricsSource,

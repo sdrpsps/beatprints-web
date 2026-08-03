@@ -69,13 +69,14 @@ The generation endpoint currently supports:
   string explicitly omits lyrics from the poster;
 - `lyrics_range`: an inclusive `start-end` string such as `11-14`; the selected range must
   resolve to exactly four non-empty LRClib lines;
-- neither field: the backend selects the first four non-empty LRClib lines;
+- neither field: the backend selects the first four non-empty QQ Music lyric lines;
 - instrumental recordings: `instrumental_text` is rendered instead.
 
-The frontend reads normalized lyrics for the exact selected recording with:
+The frontend keeps its enabled lyric sources in a static registry, then reads normalized lyrics
+for the exact selected recording with:
 
 ```http
-GET /v1/lyrics?provider=<deezer|spotify>&catalog_id=<selected-result-id>
+GET /v1/lyrics?provider=<deezer|spotify>&catalog_id=<selected-result-id>&source=<source-key>
 ```
 
 The endpoint returns ordered, non-empty lyric lines with stable one-based indices and an
@@ -95,8 +96,12 @@ interval.
 The metadata provider and poster platform are separate concepts:
 
 - `provider` chooses where metadata is fetched: `deezer` or `spotify`.
-- `qr_platform` optionally chooses the one enabled destination rendered on the poster.
-  The current registry enables `spotify`, `apple_music`, `qq_music`, and `netease_music`.
+- `qr_platform` optionally chooses one destination from the frontend's static registry.
+
+The frontend maintains static catalog, lyric, and destination registries. They supply labels,
+preferred defaults, and destination capabilities such as accepted public-link domains and source
+providers whose canonical links can be reused directly. A destination's preferred default does
+not override the product-level initial choice of no QR destination.
 
 When the user chooses no platform, omit `qr_platform`; the poster contains no platform label
 or QR code.
