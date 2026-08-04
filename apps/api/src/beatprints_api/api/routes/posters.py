@@ -13,11 +13,13 @@ from beatprints_api.config import settings
 from beatprints_api.exceptions import (
     IntegrationNotConfiguredError,
     InvalidInputError,
+    UpstreamError,
     UpstreamServiceError,
 )
 from beatprints_api.logging import log_event
 from beatprints_api.models import ApiResponse, AlbumPosterRequest, TrackPosterRequest
-from beatprints_api.services import beatprints as beatprints_service
+from beatprints_api.services import posters as poster_service
+from beatprints_api.services.rendering import PosterResult
 
 router = APIRouter(
     prefix="/v1/posters",
@@ -35,12 +37,12 @@ ERROR_RESPONSES = {
 }
 
 TRACK_EXAMPLES = {
-    "search_no_qr": {
-        "summary": "搜索生成，不显示平台二维码",
+    "catalog_no_qr": {
+        "summary": "使用已选歌曲生成，不显示平台二维码",
         "description": "未提供 qr_platform，因此左下角不显示任何平台标识或二维码。",
         "value": {
             "provider": "spotify",
-            "query": "Summer Breeze Piper",
+            "catalog_id": "7lp5evZr7qEDwlv5PS8b6i",
             "theme": "Light",
             "accent": True,
         },
@@ -52,7 +54,7 @@ TRACK_EXAMPLES = {
         ),
         "value": {
             "provider": "spotify",
-            "query": "Summer Breeze Piper",
+            "catalog_id": "7lp5evZr7qEDwlv5PS8b6i",
             "qr_platform": "spotify",
             "theme": "Light",
             "accent": True,
@@ -65,7 +67,7 @@ TRACK_EXAMPLES = {
         ),
         "value": {
             "provider": "spotify",
-            "query": "Summer Breeze Piper",
+            "catalog_id": "7lp5evZr7qEDwlv5PS8b6i",
             "platform_links": {
                 "apple_music": (
                     "https://music.apple.com/us/album/summer-breeze/1790520587"
@@ -83,7 +85,7 @@ TRACK_EXAMPLES = {
         "description": "QQ 音乐不是元数据源，因此需要显式提供对应歌曲链接。",
         "value": {
             "provider": "spotify",
-            "query": "Summer Breeze Piper",
+            "catalog_id": "7lp5evZr7qEDwlv5PS8b6i",
             "platform_links": {
                 "qq_music": "https://y.qq.com/n/ryqq/songDetail/001example",
             },
@@ -112,12 +114,12 @@ TRACK_EXAMPLES = {
 }
 
 ALBUM_EXAMPLES = {
-    "search_no_qr": {
-        "summary": "搜索生成，不显示平台二维码",
+    "catalog_no_qr": {
+        "summary": "使用已选专辑生成，不显示平台二维码",
         "description": "未提供 qr_platform，因此左下角不显示任何平台标识或二维码。",
         "value": {
             "provider": "spotify",
-            "query": "Summer Breeze Piper",
+            "catalog_id": "614LGcMwiEpyQ5SVg6S5Im",
             "theme": "Light",
             "accent": True,
             "indexing": True,
@@ -130,7 +132,7 @@ ALBUM_EXAMPLES = {
         ),
         "value": {
             "provider": "spotify",
-            "query": "Summer Breeze Piper",
+            "catalog_id": "614LGcMwiEpyQ5SVg6S5Im",
             "qr_platform": "spotify",
             "theme": "Light",
             "accent": True,
@@ -143,7 +145,7 @@ ALBUM_EXAMPLES = {
         "description": "网易云音乐不是元数据源，因此需要显式提供对应专辑链接。",
         "value": {
             "provider": "spotify",
-            "query": "Summer Breeze Piper",
+            "catalog_id": "614LGcMwiEpyQ5SVg6S5Im",
             "platform_links": {
                 "netease_music": "https://music.163.com/album?id=123456",
             },
@@ -180,11 +182,11 @@ ALBUM_EXAMPLES = {
 
 
 def _image_response(
-    result: tuple[bytes, str] | beatprints_service.PosterResult,
+    result: tuple[bytes, str] | PosterResult,
     queue_ms: float,
 ) -> Response:
     timings = {"queue": queue_ms}
-    if isinstance(result, beatprints_service.PosterResult):
+    if isinstance(result, PosterResult):
         content = result.content
         filename = result.filename
         timings.update(result.timings_ms)
@@ -225,11 +227,11 @@ async def _generate(
         raise InvalidInputError(str(exc)) from exc
     except IntegrationNotConfiguredError as exc:
         raise UpstreamServiceError(str(exc), unavailable=True) from exc
-    except beatprints_service.UpstreamError as exc:
+    except UpstreamError as exc:
         raise UpstreamServiceError(str(exc)) from exc
 
     timings = (
-        result.timings_ms if isinstance(result, beatprints_service.PosterResult) else {}
+        result.timings_ms if isinstance(result, PosterResult) else {}
     )
     log_event(
         logger,
@@ -242,7 +244,7 @@ async def _generate(
         qr_platform=request.qr_platform or "none",
         response_bytes=(
             len(result.content)
-            if isinstance(result, beatprints_service.PosterResult)
+            if isinstance(result, PosterResult)
             else len(result[0])
         ),
         queue_ms=round(queue_ms),
@@ -278,7 +280,7 @@ async def track_poster(
         TrackPosterRequest,
         Body(
             description=(
-                "`query`、`catalog_id`、`metadata` 必须且只能填写其中一个；"
+                "`catalog_id`、`metadata` 必须且只能填写其中一个；"
                 "`provider` 选择元数据来源；`qr_platform` 可选，并明确选择唯一的"
                 "二维码平台。不填 `qr_platform` 就不显示。是否可复用来源链接由"
                 "已选择的目的地 integration 决定；否则须在 `platform_links` 中提供链接。"
@@ -287,7 +289,7 @@ async def track_poster(
         ),
     ],
 ) -> Response:
-    return await _generate(beatprints_service.generate_track, request)
+    return await _generate(poster_service.generate_track, request)
 
 
 @router.post(
@@ -317,7 +319,7 @@ async def album_poster(
         AlbumPosterRequest,
         Body(
             description=(
-                "`query`、`catalog_id`、`metadata` 必须且只能填写其中一个；"
+                "`catalog_id`、`metadata` 必须且只能填写其中一个；"
                 "`provider` 选择元数据来源；`qr_platform` 可选，并明确选择唯一的"
                 "二维码平台。不填 `qr_platform` 就不显示。是否可复用来源链接由"
                 "已选择的目的地 integration 决定；否则须在 `platform_links` 中提供链接。"
@@ -326,4 +328,4 @@ async def album_poster(
         ),
     ],
 ) -> Response:
-    return await _generate(beatprints_service.generate_album, request)
+    return await _generate(poster_service.generate_album, request)

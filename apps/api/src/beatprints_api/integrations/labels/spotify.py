@@ -3,7 +3,7 @@
 from urllib.parse import urlparse
 
 from BeatPrints import deez
-from beatprints_api.integrations.catalog.spotify import spotify_client
+from beatprints_api.integrations.spotify_client import spotify_client
 from beatprints_api.integrations.labels.base import LabelResolver
 from beatprints_api.integrations.labels.registry import register
 

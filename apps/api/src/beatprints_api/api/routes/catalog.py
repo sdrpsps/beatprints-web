@@ -7,9 +7,11 @@ from beatprints_api.api.dependencies import require_api_key
 from beatprints_api.exceptions import (
     IntegrationNotConfiguredError,
     LyricsNotFoundError,
+    PlatformLinkNoMatchError,
     UnsupportedCatalogSourceError,
     UnsupportedDestinationError,
     UnsupportedLyricsSourceError,
+    UpstreamError,
     UpstreamServiceError,
 )
 from beatprints_api.models import (
@@ -22,7 +24,8 @@ from beatprints_api.models import (
     PlatformMatchOptionsData,
     ThemesData,
 )
-from beatprints_api.services import beatprints as beatprints_service
+from beatprints_api.services import catalog as catalog_service
+from beatprints_api.services import matching as matching_service
 
 router = APIRouter(
     prefix="/v1",
@@ -58,7 +61,7 @@ async def platform_match_options(
 ) -> ApiResponse[PlatformMatchOptionsData]:
     try:
         result = await run_in_threadpool(
-            beatprints_service.platform_match_options,
+            matching_service.platform_match_options,
             provider, catalog_id, type, platform, limit,
         )
     except IntegrationNotConfiguredError as exc:
@@ -67,7 +70,7 @@ async def platform_match_options(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except UnsupportedDestinationError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except beatprints_service.UpstreamError as exc:
+    except UpstreamError as exc:
         raise UpstreamServiceError(str(exc)) from exc
     return ApiResponse(code=0, data=result, message="success")
 
@@ -142,7 +145,7 @@ async def search(
 ) -> ApiResponse[list[SearchResult]]:
     try:
         results = await run_in_threadpool(
-            beatprints_service.search_catalog,
+            catalog_service.search_catalog,
             query,
             type,
             limit,
@@ -152,7 +155,7 @@ async def search(
         raise UpstreamServiceError(str(exc), unavailable=True) from exc
     except UnsupportedCatalogSourceError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except beatprints_service.UpstreamError as exc:
+    except UpstreamError as exc:
         raise UpstreamServiceError(str(exc)) from exc
     except Exception as exc:
         raise UpstreamServiceError("Music catalog request failed") from exc
@@ -197,7 +200,7 @@ async def preview_lyrics(
 ) -> ApiResponse[LyricsPreviewData]:
     try:
         result = await run_in_threadpool(
-            beatprints_service.preview_lyrics,
+            matching_service.preview_lyrics,
             provider,
             catalog_id,
             source,
@@ -210,7 +213,7 @@ async def preview_lyrics(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except LyricsNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except beatprints_service.UpstreamError as exc:
+    except UpstreamError as exc:
         raise UpstreamServiceError(str(exc)) from exc
     except Exception as exc:
         raise UpstreamServiceError("Lyrics request failed") from exc
@@ -234,14 +237,14 @@ async def resolve_platform_url(
 ) -> ApiResponse[PlatformLinkMatchData]:
     try:
         result = await run_in_threadpool(
-            beatprints_service.resolve_platform_url, platform, url
+            matching_service.resolve_platform_url, platform, url
         )
-    except beatprints_service.PlatformLinkNoMatchError as exc:
+    except PlatformLinkNoMatchError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except UnsupportedDestinationError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except IntegrationNotConfiguredError as exc:
         raise UpstreamServiceError(str(exc), unavailable=True) from exc
-    except beatprints_service.UpstreamError as exc:
+    except UpstreamError as exc:
         raise UpstreamServiceError(str(exc)) from exc
     return ApiResponse(code=0, data=result, message="success")

@@ -1,3 +1,6 @@
+import subprocess
+import sys
+
 import pytest
 
 from BeatPrints.deez import AlbumMetadata, TrackMetadata
@@ -23,9 +26,8 @@ from beatprints_api.exceptions import (
     UnsupportedCatalogSourceError,
     UnsupportedDestinationError,
 )
-from beatprints_api.services.beatprints import DestinationAdapter
-
-from beatprints_api.services import beatprints as beatprints_service
+from beatprints_api.integrations.destinations.base import DestinationAdapter
+from beatprints_api.services import matching as matching_service
 
 
 def album_metadata() -> AlbumMetadata:
@@ -55,6 +57,17 @@ def test_enabled_destinations_are_registered_independently() -> None:
         get_destination_adapter("disabled_destination")
 
 
+def test_destination_registry_does_not_load_catalog_adapters() -> None:
+    script = """
+import sys
+from beatprints_api.integrations.destinations.registry import destination_keys
+
+assert "spotify" in destination_keys()
+assert "beatprints_api.integrations.catalog.registry" not in sys.modules
+"""
+    subprocess.run([sys.executable, "-c", script], check=True)
+
+
 def test_empty_track_label_uses_a_registered_resolver(monkeypatch) -> None:
     metadata = TrackMetadata(
         title="Track",
@@ -72,7 +85,7 @@ def test_empty_track_label_uses_a_registered_resolver(monkeypatch) -> None:
     )
     monkeypatch.setattr(label_registry, "label_resolvers", lambda: (resolver,))
 
-    result = beatprints_service.catalog_service._enrich_missing_track_label(metadata)
+    result = matching_service.catalog_service._enrich_missing_track_label(metadata)
 
     assert result.label == "Fixture Records"
 
@@ -130,7 +143,7 @@ def test_same_source_destination_resolves_its_canonical_link(
 
     monkeypatch.setattr(destination, "resolve", resolve)
 
-    result = beatprints_service.platform_match_options(
+    result = matching_service.platform_match_options(
         provider, "catalog-id", "track", destination.adapter.key
     )
 
@@ -316,18 +329,18 @@ def test_catalog_year_supports_seconds_milliseconds_and_missing_values() -> None
 
 
 def test_version_markers_do_not_match_inside_words() -> None:
-    assert beatprints_service._catalog_title_parts("Olive")[1] == frozenset()
-    assert beatprints_service._catalog_title_parts("Demons")[1] == frozenset()
-    assert beatprints_service._catalog_title_parts("Song (Live)")[1] == frozenset(
+    assert matching_service._catalog_title_parts("Olive")[1] == frozenset()
+    assert matching_service._catalog_title_parts("Demons")[1] == frozenset()
+    assert matching_service._catalog_title_parts("Song (Live)")[1] == frozenset(
         {"live"}
     )
-    assert beatprints_service._catalog_title_parts("歌曲（现场版）")[1] == frozenset(
+    assert matching_service._catalog_title_parts("歌曲（现场版）")[1] == frozenset(
         {"现场版"}
     )
 
 
 def test_artist_comparison_ignores_collaborator_order() -> None:
-    score, state = beatprints_service._artist_comparison(
+    score, state = matching_service._artist_comparison(
         ["Artist A", "Artist B"], ["Artist B", "Artist A"]
     )
     assert score == 1.0
@@ -397,10 +410,10 @@ def test_localized_album_is_found_by_title_fallback(monkeypatch, platform: str) 
         "url": "https://example.com/album/1",
     }
     monkeypatch.setattr(
-        beatprints_service, "_album_metadata", lambda _request: album_metadata()
+        matching_service, "_album_metadata", lambda _request: album_metadata()
     )
     monkeypatch.setattr(
-        beatprints_service,
+        matching_service,
         "_destination_adapter",
         lambda _platform: DestinationAdapter(
             search=lambda query, item_type: (
@@ -412,7 +425,7 @@ def test_localized_album_is_found_by_title_fallback(monkeypatch, platform: str) 
         ),
     )
 
-    result = beatprints_service.platform_match_options(
+    result = matching_service.platform_match_options(
         "spotify", "album-id", "album", platform
     )
     match = result.match
@@ -443,7 +456,7 @@ def test_album_match_rejects_conflicting_release_evidence(
     }
 
     assert (
-        not beatprints_service._has_hard_conflict(album_metadata(), candidate, "album")
+        not matching_service._has_hard_conflict(album_metadata(), candidate, "album")
     ) is expected
 
 
@@ -465,8 +478,8 @@ def test_localized_track_requires_duration_year_and_album() -> None:
         "duration_seconds": 260,
     }
 
-    assert not beatprints_service._has_hard_conflict(metadata, candidate, "track")
-    assert beatprints_service._has_hard_conflict(
+    assert not matching_service._has_hard_conflict(metadata, candidate, "track")
+    assert matching_service._has_hard_conflict(
         metadata, {**candidate, "duration_seconds": 280}, "track"
     )
 
@@ -489,7 +502,7 @@ def test_bilingual_track_matches_localized_catalog_candidate() -> None:
         "duration_seconds": 195,
     }
 
-    assert not beatprints_service._has_hard_conflict(metadata, candidate, "track")
+    assert not matching_service._has_hard_conflict(metadata, candidate, "track")
 
 
 def test_cross_script_artist_search_prefers_original_over_same_name_cover(
@@ -521,10 +534,10 @@ def test_cross_script_artist_search_prefers_original_over_same_name_cover(
         "url": "https://example.com/original",
     }
     monkeypatch.setattr(
-        beatprints_service, "_track_metadata", lambda _request: metadata
+        matching_service, "_track_metadata", lambda _request: metadata
     )
     monkeypatch.setattr(
-        beatprints_service,
+        matching_service,
         "_destination_adapter",
         lambda _platform: DestinationAdapter(
             search=lambda query, item_type: (
@@ -536,7 +549,7 @@ def test_cross_script_artist_search_prefers_original_over_same_name_cover(
         ),
     )
 
-    result = beatprints_service.platform_match_options(
+    result = matching_service.platform_match_options(
         "spotify", "track-id", "track", "netease_music"
     )
     match = result.match
@@ -582,19 +595,19 @@ def test_candidate_search_ranks_artist_result_above_same_name_cover(
         "type": "track",
     }
     monkeypatch.setattr(
-        beatprints_service, "_track_metadata", lambda _request: metadata
+        matching_service, "_track_metadata", lambda _request: metadata
     )
     monkeypatch.setattr(
-        beatprints_service,
+        matching_service,
         "_destination_adapter",
         lambda _platform: DestinationAdapter(
             search=lambda query, _item_type: [original] if query == "KUN" else [cover],
             resolve=lambda _url: None,
         ),
     )
-    monkeypatch.setattr(beatprints_service, "_source_isrc", lambda *_args: None)
+    monkeypatch.setattr(matching_service, "_source_isrc", lambda *_args: None)
 
-    matches = beatprints_service.platform_match_options(
+    matches = matching_service.platform_match_options(
         "deezer", "track-id", "track", platform
     ).candidates
 
@@ -620,10 +633,10 @@ def test_album_candidates_rank_exact_track_count_first(monkeypatch) -> None:
         "url": "https://example.com/short",
     }
     monkeypatch.setattr(
-        beatprints_service, "_album_metadata", lambda _request: album_metadata()
+        matching_service, "_album_metadata", lambda _request: album_metadata()
     )
     monkeypatch.setattr(
-        beatprints_service,
+        matching_service,
         "_destination_adapter",
         lambda _platform: DestinationAdapter(
             search=lambda _query, _item_type: [short_edition, matching],
@@ -631,7 +644,7 @@ def test_album_candidates_rank_exact_track_count_first(monkeypatch) -> None:
         ),
     )
 
-    matches = beatprints_service.platform_match_options(
+    matches = matching_service.platform_match_options(
         "deezer", "album-id", "album", "apple_music"
     ).candidates
 
@@ -658,17 +671,17 @@ def test_album_candidates_include_catalog_title_suffix_without_auto_matching(
         "type": "album",
     }
     monkeypatch.setattr(
-        beatprints_service, "_album_metadata", lambda _request: metadata
+        matching_service, "_album_metadata", lambda _request: metadata
     )
     monkeypatch.setattr(
-        beatprints_service,
+        matching_service,
         "_destination_adapter",
         lambda _platform: DestinationAdapter(
             search=lambda _query, _item_type: [candidate], resolve=lambda _url: None
         ),
     )
 
-    result = beatprints_service.platform_match_options(
+    result = matching_service.platform_match_options(
         "netease_music", "21302", "album", "spotify"
     )
 
@@ -687,10 +700,10 @@ def test_candidate_search_skips_empty_artist_queries(monkeypatch) -> None:
     )
     queries: list[str] = []
     monkeypatch.setattr(
-        beatprints_service, "_album_metadata", lambda _request: metadata
+        matching_service, "_album_metadata", lambda _request: metadata
     )
     monkeypatch.setattr(
-        beatprints_service,
+        matching_service,
         "_destination_adapter",
         lambda _platform: DestinationAdapter(
             search=lambda query, _item_type: queries.append(query) or [],
@@ -698,7 +711,7 @@ def test_candidate_search_skips_empty_artist_queries(monkeypatch) -> None:
         ),
     )
 
-    beatprints_service.platform_match_options(
+    matching_service.platform_match_options(
         "qq_music", "000zebjW3TlPWh", "album", "spotify"
     )
 
@@ -716,17 +729,17 @@ def test_close_top_candidates_require_user_confirmation(monkeypatch) -> None:
     }
     second = {**first, "url": "https://example.com/second"}
     monkeypatch.setattr(
-        beatprints_service, "_album_metadata", lambda _request: album_metadata()
+        matching_service, "_album_metadata", lambda _request: album_metadata()
     )
     monkeypatch.setattr(
-        beatprints_service,
+        matching_service,
         "_destination_adapter",
         lambda _platform: DestinationAdapter(
             search=lambda _query, _item_type: [first, second], resolve=lambda _url: None
         ),
     )
 
-    result = beatprints_service.platform_match_options(
+    result = matching_service.platform_match_options(
         "deezer", "album-id", "album", "apple_music"
     )
 
@@ -754,13 +767,13 @@ def test_exact_isrc_overrides_localized_display_text(monkeypatch) -> None:
         "type": "track",
     }
     monkeypatch.setattr(
-        beatprints_service, "_track_metadata", lambda _request: metadata
+        matching_service, "_track_metadata", lambda _request: metadata
     )
     monkeypatch.setattr(
-        beatprints_service, "_source_isrc", lambda *_args: "US-EXAMPLE-01"
+        matching_service, "_source_isrc", lambda *_args: "US-EXAMPLE-01"
     )
     monkeypatch.setattr(
-        beatprints_service,
+        matching_service,
         "_destination_adapter",
         lambda _platform: DestinationAdapter(
             search=lambda query, _item_type: (
@@ -771,7 +784,7 @@ def test_exact_isrc_overrides_localized_display_text(monkeypatch) -> None:
         ),
     )
 
-    result = beatprints_service.platform_match_options(
+    result = matching_service.platform_match_options(
         "deezer", "track-id", "track", "spotify"
     )
 
