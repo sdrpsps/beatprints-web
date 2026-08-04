@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.1](https://github.com/sdrpsps/beatprints-web/compare/v1.2.0...v1.2.1) (2026-08-04)
+
+
+### Code Refactoring
+
+* **api:** decouple service and Spotify boundaries ([431c3c7](https://github.com/sdrpsps/beatprints-web/commit/431c3c7ec6e167794c691bbc4ce8200fe94b5fb4))
+* **api:** decouple service and Spotify boundaries ([e9bc5ab](https://github.com/sdrpsps/beatprints-web/commit/e9bc5ab47e7baf2385b461db935af46384fb9867))
+
 ## [1.2.0](https://github.com/sdrpsps/beatprints-web/compare/v1.1.2...v1.2.0) (2026-08-03)
 
 

@@ -1,6 +1,6 @@
 [project]
 name = "beatprints-api"
-version = "1.2.0"
+version = "1.2.1"
 description = "HTTP API wrapper for generating BeatPrints-compatible music posters"
 readme = "apps/api/README.md"
 requires-python = ">=3.14"
