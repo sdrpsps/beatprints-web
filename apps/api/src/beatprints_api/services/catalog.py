@@ -53,14 +53,11 @@ def _cached_album_metadata(
 
 
 def _catalog_reference(
-    request: TrackPosterRequest | AlbumPosterRequest, item_type: str
+    request: TrackPosterRequest | AlbumPosterRequest,
 ) -> tuple[str, int | str]:
-    if request.catalog_id is not None:
-        return request.provider, request.catalog_id
-    results = search_catalog(request.query or "", item_type, 1, request.provider)
-    if not results:
-        raise UpstreamError(f"No matching {item_type} found")
-    return request.provider, results[0]["id"]
+    if request.provider is None or request.catalog_id is None:
+        raise ValueError("provider and catalog_id are required for catalog metadata")
+    return request.provider, request.catalog_id
 
 
 def track_metadata(request: TrackPosterRequest) -> deez.TrackMetadata:
@@ -71,7 +68,7 @@ def track_metadata(request: TrackPosterRequest) -> deez.TrackMetadata:
             released=value.released, duration=value.duration, cover=str(value.cover_url),
             label=value.label,
         )
-    provider, track_id = _catalog_reference(request, "track")
+    provider, track_id = _catalog_reference(request)
     return copy.deepcopy(_cached_track_metadata(provider, track_id, _metadata_cache_token()))
 
 
@@ -82,7 +79,7 @@ def album_metadata(request: AlbumPosterRequest) -> deez.AlbumMetadata:
             title=value.title, artists=value.artists, released=value.released,
             tracks=value.tracks.copy(), cover=str(value.cover_url), label=value.label,
         )
-    provider, album_id = _catalog_reference(request, "album")
+    provider, album_id = _catalog_reference(request)
     metadata = copy.deepcopy(_cached_album_metadata(provider, album_id, _metadata_cache_token()))
     if request.shuffle:
         random.shuffle(metadata.tracks)

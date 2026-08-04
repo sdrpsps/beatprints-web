@@ -13,7 +13,7 @@ from beatprints_api.exceptions import (
     UnsupportedLyricsSourceError,
     UpstreamError,
 )
-from beatprints_api.integrations.catalog.spotify import SpotifyNotConfiguredError
+from beatprints_api.integrations.spotify_client import SpotifyNotConfiguredError
 from beatprints_api.main import app, create_app
 from beatprints_api.models import PlatformLinkMatchData, PlatformMatchOptionsData
 
@@ -100,8 +100,16 @@ def test_track_requires_exactly_one_source() -> None:
         "/v1/posters/track",
         json={
             "provider": "deezer",
-            "query": "Apples - Rocco",
             "catalog_id": 123,
+            "metadata": {
+                "title": "Track",
+                "artists": ["Artist"],
+                "album": "Album",
+                "released": "2026",
+                "duration": "03:15",
+                "cover_url": "https://example.com/cover.jpg",
+                "label": "Independent",
+            },
         },
     )
     assert response.status_code == 422
@@ -109,6 +117,16 @@ def test_track_requires_exactly_one_source() -> None:
     assert response.json()["data"]["errors"]
     assert "Exactly one" in response.text
     assert response.headers["x-process-time"]
+
+
+def test_track_rejects_the_removed_query_source() -> None:
+    response = client.post(
+        "/v1/posters/track",
+        json={"provider": "spotify", "query": "Apples - Rocco"},
+    )
+
+    assert response.status_code == 422
+    assert "Extra inputs are not permitted" in response.text
 
 
 def test_album_metadata_is_validated() -> None:
@@ -131,9 +149,9 @@ def test_album_metadata_is_validated() -> None:
 
 def test_track_returns_png(monkeypatch) -> None:
     monkeypatch.setattr(
-        posters.beatprints_service,
+        posters.poster_service,
         "generate_track",
-        lambda request: posters.beatprints_service.PosterResult(
+        lambda request: posters.PosterResult(
             b"\x89PNG\r\n\x1a\n",
             "poster.png",
             {"metadata": 12.6, "render": 34.6},
@@ -142,8 +160,8 @@ def test_track_returns_png(monkeypatch) -> None:
     response = client.post(
         "/v1/posters/track",
         json={
-            "query": "Apples - Rocco",
             "provider": "spotify",
+            "catalog_id": "spotify-track-id",
             "lyrics": "one\ntwo\nthree\nfour",
         },
     )
@@ -161,13 +179,13 @@ def test_track_endpoint_accepts_empty_lyrics(monkeypatch) -> None:
 
     def generate(request):
         captured["lyrics"] = request.lyrics
-        return posters.beatprints_service.PosterResult(
+        return posters.PosterResult(
             b"\x89PNG\r\n\x1a\n",
             "poster.png",
             {},
         )
 
-    monkeypatch.setattr(posters.beatprints_service, "generate_track", generate)
+    monkeypatch.setattr(posters.poster_service, "generate_track", generate)
 
     response = client.post(
         "/v1/posters/track",
@@ -184,9 +202,9 @@ def test_track_endpoint_accepts_empty_lyrics(monkeypatch) -> None:
 
 def test_poster_response_supports_unicode_filenames(monkeypatch) -> None:
     monkeypatch.setattr(
-        posters.beatprints_service,
+        posters.poster_service,
         "generate_album",
-        lambda request: posters.beatprints_service.PosterResult(
+        lambda request: posters.PosterResult(
             b"\x89PNG\r\n\x1a\n",
             "我在切爾諾貝爾　等你 - Juno Mak.png",
             {},
@@ -194,7 +212,7 @@ def test_poster_response_supports_unicode_filenames(monkeypatch) -> None:
     )
     response = client.post(
         "/v1/posters/album",
-        json={"query": "test", "provider": "spotify"},
+        json={"catalog_id": "spotify-album-id", "provider": "spotify"},
     )
 
     assert response.status_code == 200
@@ -245,9 +263,9 @@ def test_same_source_qr_platform_does_not_require_a_platform_link(
     monkeypatch, provider: str, platform: str, catalog_id: str
 ) -> None:
     monkeypatch.setattr(
-        posters.beatprints_service,
+        posters.poster_service,
         "generate_track",
-        lambda _request: posters.beatprints_service.PosterResult(
+        lambda _request: posters.PosterResult(
             b"\x89PNG\r\n\x1a\n", "poster.png", {}
         ),
     )
@@ -267,7 +285,7 @@ def test_same_source_qr_platform_does_not_require_a_platform_link(
 
 def test_search_returns_rich_frontend_data(monkeypatch) -> None:
     monkeypatch.setattr(
-        catalog.beatprints_service,
+        catalog.catalog_service,
         "search_catalog",
         lambda query, search_type, limit, provider: [
             {
@@ -315,7 +333,7 @@ def test_search_returns_rich_frontend_data(monkeypatch) -> None:
 
 def test_lyrics_preview_preserves_catalog_reference(monkeypatch) -> None:
     monkeypatch.setattr(
-        catalog.beatprints_service,
+        catalog.matching_service,
         "preview_lyrics",
         lambda provider, catalog_id, source=None: {
             "provider": provider,
@@ -364,7 +382,7 @@ def test_lyrics_no_match_is_not_reported_as_upstream_failure(monkeypatch) -> Non
     def no_match(*_args, **_kwargs):
         raise LyricsNotFoundError("No confident lyrics match was found")
 
-    monkeypatch.setattr(catalog.beatprints_service, "preview_lyrics", no_match)
+    monkeypatch.setattr(catalog.matching_service, "preview_lyrics", no_match)
 
     response = client.get(
         "/v1/lyrics",
@@ -392,7 +410,7 @@ def test_lyrics_source_errors_keep_distinct_statuses(
     def fail(*_args, **_kwargs):
         raise error
 
-    monkeypatch.setattr(catalog.beatprints_service, "preview_lyrics", fail)
+    monkeypatch.setattr(catalog.matching_service, "preview_lyrics", fail)
 
     response = client.get(
         "/v1/lyrics",
@@ -445,7 +463,7 @@ def test_every_platform_automatically_matches_the_selected_catalog_reference(
         )
         return PlatformMatchOptionsData(match=candidate, candidates=[candidate])
 
-    monkeypatch.setattr(catalog.beatprints_service, "platform_match_options", match)
+    monkeypatch.setattr(catalog.matching_service, "platform_match_options", match)
 
     response = client.get(
         f"/v1/platform-links/{platform}/options",
@@ -509,7 +527,7 @@ def test_every_platform_exposes_ranked_candidates(
         return PlatformMatchOptionsData(candidates=[candidate])
 
     monkeypatch.setattr(
-        catalog.beatprints_service, "platform_match_options", candidates
+        catalog.matching_service, "platform_match_options", candidates
     )
 
     response = client.get(
@@ -555,7 +573,7 @@ def test_candidate_selection_resolves_current_platform_metadata(
             "type": "track",
         }
 
-    monkeypatch.setattr(catalog.beatprints_service, "resolve_platform_url", resolve)
+    monkeypatch.setattr(catalog.matching_service, "resolve_platform_url", resolve)
     url = f"https://example.com/{platform}/track/1"
 
     response = client.get(
@@ -590,7 +608,7 @@ def test_track_allows_empty_instrumental_text() -> None:
 
 def test_track_allows_empty_explicit_lyrics() -> None:
     from beatprints_api.models import TrackPosterRequest
-    from beatprints_api.services.beatprints import _select_lyrics
+    from beatprints_api.services.lyrics import select
 
     request = TrackPosterRequest(
         provider="deezer",
@@ -599,11 +617,11 @@ def test_track_allows_empty_explicit_lyrics() -> None:
     )
 
     assert request.lyrics == ""
-    assert _select_lyrics(SimpleNamespace(), request) == ""
+    assert select(SimpleNamespace(), request) == ""
 
 
 def test_empty_instrumental_text_is_safe_for_upstream_renderer() -> None:
-    from beatprints_api.services.beatprints import _renderable_lyrics
+    from beatprints_api.services.rendering import _renderable_lyrics
 
     assert _renderable_lyrics("") == " "
     assert _renderable_lyrics("visible") == "visible"
@@ -631,7 +649,7 @@ def test_explicit_spotify_search_reports_missing_configuration(monkeypatch) -> N
     def not_configured(*args) -> list[dict]:
         raise SpotifyNotConfiguredError("Spotify search is not configured")
 
-    monkeypatch.setattr(catalog.beatprints_service, "search_catalog", not_configured)
+    monkeypatch.setattr(catalog.catalog_service, "search_catalog", not_configured)
 
     response = client.get(
         "/v1/search",
@@ -680,12 +698,12 @@ def test_unhandled_error_uses_unified_response(monkeypatch) -> None:
     def fail(_request) -> tuple[bytes, str]:
         raise RuntimeError("sensitive implementation detail")
 
-    monkeypatch.setattr(posters.beatprints_service, "generate_track", fail)
+    monkeypatch.setattr(posters.poster_service, "generate_track", fail)
     response = client.post(
         "/v1/posters/track",
         json={
-            "query": "Apples - Rocco",
             "provider": "spotify",
+            "catalog_id": "spotify-track-id",
             "lyrics": "one\ntwo\nthree\nfour",
         },
     )
@@ -734,14 +752,14 @@ def test_openapi_includes_descriptions_and_request_examples() -> None:
         "description"
     )
     assert set(track["requestBody"]["content"]["application/json"]["examples"]) == {
-        "search_no_qr",
+        "catalog_no_qr",
         "spotify_qr_auto",
         "apple_music_qr",
         "qq_music_qr",
         "custom",
     }
     assert set(album["requestBody"]["content"]["application/json"]["examples"]) == {
-        "search_no_qr",
+        "catalog_no_qr",
         "spotify_qr_auto",
         "netease_music_qr",
         "custom",
@@ -751,12 +769,12 @@ def test_openapi_includes_descriptions_and_request_examples() -> None:
     assert "封面取色二维码" in track["responses"]["200"]["description"]
     assert "封面取色二维码" in album["responses"]["200"]["description"]
     track_examples = track["requestBody"]["content"]["application/json"]["examples"]
-    assert "qr_platform" not in track_examples["search_no_qr"]["value"]
+    assert "qr_platform" not in track_examples["catalog_no_qr"]["value"]
     assert track_examples["spotify_qr_auto"]["value"]["qr_platform"] == "spotify"
     assert track_examples["apple_music_qr"]["value"]["qr_platform"] == "apple_music"
     assert track_examples["qq_music_qr"]["value"]["qr_platform"] == "qq_music"
     album_examples = album["requestBody"]["content"]["application/json"]["examples"]
-    assert "qr_platform" not in album_examples["search_no_qr"]["value"]
+    assert "qr_platform" not in album_examples["catalog_no_qr"]["value"]
     assert album_examples["spotify_qr_auto"]["value"]["qr_platform"] == "spotify"
     assert album_examples["netease_music_qr"]["value"]["qr_platform"] == "netease_music"
     platform_links = schema["components"]["schemas"]["PosterPlatformLinks"]
@@ -767,8 +785,8 @@ def test_openapi_includes_descriptions_and_request_examples() -> None:
     assert qr_platform_schema["anyOf"][0]["type"] == "string"
     track_schema = schema["components"]["schemas"]["TrackPosterRequest"]
     album_schema = schema["components"]["schemas"]["AlbumPosterRequest"]
-    assert track_schema["example"]["query"] == "Summer Breeze Piper"
-    assert album_schema["example"]["query"] == "Summer Breeze Piper"
+    assert track_schema["example"]["catalog_id"] == "7lp5evZr7qEDwlv5PS8b6i"
+    assert album_schema["example"]["catalog_id"] == "614LGcMwiEpyQ5SVg6S5Im"
     assert schema["components"]["schemas"]["TrackMetadataInput"]["properties"][
         "artists"
     ]["examples"] == [["Piper"]]

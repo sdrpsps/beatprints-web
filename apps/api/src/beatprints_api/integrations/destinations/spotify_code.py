@@ -5,7 +5,7 @@ from urllib.parse import quote
 
 import httpx
 
-from beatprints_api.integrations.catalog.spotify import SpotifyError
+from beatprints_api.integrations.spotify_client import SpotifyError
 
 
 class SpotifyCodeClient:

@@ -11,12 +11,13 @@ from beatprints_api.integrations.destinations import (
 )
 from beatprints_api.integrations.destinations.scannable import fallback_scannable
 from beatprints_api.integrations.catalog import spotify as spotify_catalog
-from beatprints_api.models import TrackPosterRequest
-from beatprints_api.services import beatprints as beatprints_service
-from beatprints_api.integrations.catalog.spotify import (
+from beatprints_api.integrations.spotify_client import (
     SpotifyClient,
     SpotifyNotConfiguredError,
 )
+from beatprints_api.models import TrackPosterRequest
+from beatprints_api.services import catalog as catalog_service
+from beatprints_api.services import rendering
 
 
 def test_spotify_requires_credentials() -> None:
@@ -108,7 +109,7 @@ def test_spotify_catalog_id_can_supply_poster_metadata(monkeypatch) -> None:
         lyrics="one\ntwo\nthree\nfour",
     )
 
-    metadata = beatprints_service._track_metadata(request)
+    metadata = catalog_service.track_metadata(request)
 
     assert metadata.title == "Summer Breeze"
     assert metadata.album == "3 + 3"
@@ -120,7 +121,7 @@ def test_spotify_catalog_id_can_supply_poster_metadata(monkeypatch) -> None:
 def test_catalog_metadata_is_cached_without_sharing_mutable_objects(
     monkeypatch,
 ) -> None:
-    beatprints_service.clear_metadata_cache()
+    catalog_service.clear_metadata_cache()
     calls = 0
 
     def track_metadata(track_id: str) -> dict:
@@ -148,18 +149,18 @@ def test_catalog_metadata_is_cached_without_sharing_mutable_objects(
         lyrics="one\ntwo\nthree\nfour",
     )
 
-    first = beatprints_service._track_metadata(request)
-    second = beatprints_service._track_metadata(request)
+    first = catalog_service.track_metadata(request)
+    second = catalog_service.track_metadata(request)
 
     assert calls == 1
     assert first.title == second.title == "Cached Track"
     assert first is not second
-    beatprints_service.clear_metadata_cache()
+    catalog_service.clear_metadata_cache()
 
 
 def test_multilingual_fonts_are_cached_per_weight() -> None:
-    first = beatprints_service.write.font("Regular")
-    second = beatprints_service.write.font("Regular")
+    first = rendering.write.font("Regular")
+    second = rendering.write.font("Regular")
 
     assert first is second
 
@@ -188,7 +189,7 @@ def test_matching_source_link_is_added_to_platform_qr_codes(
         },
     )
 
-    link = beatprints_service._selected_platform_link(
+    link = rendering.selected_platform_link(
         request.platform_links,
         request.qr_platform,
         request.provider,
@@ -207,7 +208,7 @@ def test_no_qr_platform_means_no_selected_link() -> None:
         platform_links={"spotify": "https://open.spotify.com/track/example"},
     )
 
-    link = beatprints_service._selected_platform_link(
+    link = rendering.selected_platform_link(
         request.platform_links,
         request.qr_platform,
         request.provider,
@@ -218,13 +219,13 @@ def test_no_qr_platform_means_no_selected_link() -> None:
 
 
 def test_rendering_hides_platform_area_without_manual_selection() -> None:
-    original = beatprints_service.beatprints_image.scannable
+    original = rendering.beatprints_image.scannable
 
-    with beatprints_service._provider_rendering(None, None, None):
-        image = beatprints_service.beatprints_image.scannable("Light")
+    with rendering.provider_rendering(None, None, None):
+        image = rendering.beatprints_image.scannable("Light")
         assert image.getbbox() is None
 
-    assert beatprints_service.beatprints_image.scannable is original
+    assert rendering.beatprints_image.scannable is original
 
 
 def test_platform_scannable_uses_cover_color() -> None:
@@ -235,7 +236,7 @@ def test_platform_scannable_uses_cover_color() -> None:
     )
 
     assert image.mode == "RGBA"
-    assert image.size == beatprints_service.beatprints_image.s.SCANCODE
+    assert image.size == rendering.beatprints_image.s.SCANCODE
     assert image.getbbox() is not None
     colors = image.getcolors(maxcolors=image.width * image.height) or []
     assert color + (255,) in {value for _count, value in colors}
@@ -287,10 +288,10 @@ def test_apple_music_scannable_uses_the_same_theme_color_rule_as_spotify_code() 
     image = scannable("Light")
     dark_image = scannable("Dark")
 
-    light_color = beatprints_service.beatprints_image.t.THEMES["Light"]
-    dark_color = beatprints_service.beatprints_image.t.THEMES["Dark"]
+    light_color = rendering.beatprints_image.t.THEMES["Light"]
+    dark_color = rendering.beatprints_image.t.THEMES["Dark"]
     assert image.mode == "RGBA"
-    assert image.size == beatprints_service.beatprints_image.s.SCANCODE
+    assert image.size == rendering.beatprints_image.s.SCANCODE
     assert image.getpixel((98, 4))[3] == 0
     colors = image.getcolors(maxcolors=image.width * image.height) or []
     assert light_color + (255,) in {value for _count, value in colors}
@@ -301,7 +302,7 @@ def test_apple_music_scannable_uses_the_same_theme_color_rule_as_spotify_code() 
 
 
 def test_china_music_scannables_use_theme_colored_supplied_symbols() -> None:
-    color = beatprints_service.beatprints_image.t.THEMES["Light"]
+    color = rendering.beatprints_image.t.THEMES["Light"]
     for adapter in (qq_music.adapter, netease_music.adapter):
         image = adapter.scannable("https://example.com/track/1")("Light")
         icon = image.crop((0, 23, 74, 97))
@@ -315,7 +316,7 @@ def test_cover_qr_color_is_colored_and_has_safe_white_contrast(tmp_path) -> None
     cover_path = tmp_path / "cover.png"
     Image.new("RGB", (200, 200), (217, 164, 65)).save(cover_path)
 
-    color = beatprints_service._cover_qr_color(cover_path)
+    color = rendering.cover_qr_color(cover_path)
 
     assert color[0] > color[2]
-    assert beatprints_service._contrast_with_white(color) >= 4.5
+    assert rendering._contrast_with_white(color) >= 4.5

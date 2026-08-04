@@ -166,26 +166,16 @@ class AlbumMetadataInput(BaseModel):
 
 
 class PosterSource(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     provider: Annotated[
         CatalogProvider | None,
         Field(
             description=(
-                "query 或 catalog_id 使用的音乐平台。以后新增平台时沿用此字段，"
+                "catalog_id 使用的音乐平台。以后新增平台时沿用此字段，"
                 "无需改变生成接口结构。"
             ),
             examples=["spotify"],
-        ),
-    ] = None
-    query: Annotated[
-        str | None,
-        Field(
-            min_length=1,
-            max_length=500,
-            description=(
-                "在 provider 指定的平台中搜索并使用第一条结果；"
-                "不能与 catalog_id、metadata 同时提供。"
-            ),
-            examples=["Summer Breeze Piper"],
         ),
     ] = None
     catalog_id: Annotated[
@@ -193,7 +183,7 @@ class PosterSource(BaseModel):
         Field(
             description=(
                 "由 /v1/search 返回的平台歌曲或专辑 ID，必须和 provider 配套使用；"
-                "不能与 query、metadata 同时提供。"
+                "不能与 metadata 同时提供。"
             ),
             examples=[
                 "7lp5evZr7qEDwlv5PS8b6i",
@@ -247,26 +237,26 @@ class PosterSource(BaseModel):
 
     def validate_source(self, metadata: object | None) -> None:
         supplied = sum(
-            value is not None for value in (self.query, self.catalog_id, metadata)
+            value is not None for value in (self.catalog_id, metadata)
         )
         if supplied != 1:
             raise ValueError(
-                "Exactly one of query, catalog_id, or metadata must be supplied"
+                "Exactly one of catalog_id or metadata must be supplied"
             )
         if metadata is None and not self.provider:
             raise ValueError(
-                "provider is required when query or catalog_id is supplied"
+                "provider is required when catalog_id is supplied"
             )
 
 
 class TrackPosterRequest(PosterSource):
-    """歌曲海报请求。query、catalog_id、metadata 三选一。"""
+    """歌曲海报请求。catalog_id、metadata 二选一。"""
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "provider": "spotify",
-                "query": "Summer Breeze Piper",
+                "catalog_id": "7lp5evZr7qEDwlv5PS8b6i",
                 "platform_links": {
                     "apple_music": (
                         "https://music.apple.com/us/album/summer-breeze/1790520587"
@@ -285,7 +275,7 @@ class TrackPosterRequest(PosterSource):
         Field(
             description=(
                 "完全自定义歌曲资料；提供后不会访问音乐平台，"
-                "且不能与 query、catalog_id 同时提供。"
+                "且不能与 catalog_id 同时提供。"
             )
         ),
     ] = None
@@ -341,13 +331,13 @@ class TrackPosterRequest(PosterSource):
 
 
 class AlbumPosterRequest(PosterSource):
-    """专辑海报请求。query、catalog_id、metadata 三选一。"""
+    """专辑海报请求。catalog_id、metadata 二选一。"""
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "provider": "spotify",
-                "query": "Summer Breeze Piper",
+                "catalog_id": "614LGcMwiEpyQ5SVg6S5Im",
                 "platform_links": {
                     "netease_music": "https://music.163.com/album?id=123456",
                 },
@@ -365,7 +355,7 @@ class AlbumPosterRequest(PosterSource):
         Field(
             description=(
                 "完全自定义专辑资料；提供后不会访问音乐平台，"
-                "且不能与 query、catalog_id 同时提供。"
+                "且不能与 catalog_id 同时提供。"
             )
         ),
     ] = None

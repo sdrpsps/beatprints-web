@@ -38,9 +38,14 @@ docker run --rm -p 8000:8000 beatprints-api
 src/beatprints_api/
 ├── api/                 # API 层：路由、鉴权、异常处理、中间件
 │   └── routes/
-├── services/            # Services 层：目录搜索、元数据、封面与海报业务
+├── integrations/        # 外部目录、歌词、二维码目标及其各自注册表
+├── services/            # 业务编排：目录、歌词、跨平台匹配、渲染与海报
 └── models/              # Model / DTO 层：Pydantic 请求、响应模型
 ```
+
+每个路由直接导入负责该操作的 service，不经过总门面。catalog、lyrics、destination
+和 label 的 registry 文件分别是其启用清单；目的地不得导入或注册 catalog adapter，
+共享的 Spotify HTTP client 位于 `integrations/spotify_client.py`，不包含注册逻辑。
 
 除成功返回 PNG 的两个海报接口外，所有 JSON 成功及错误响应都采用统一结构：
 
@@ -119,7 +124,7 @@ docker compose logs -f beatprints-api
 可通过 `LOG_LEVEL` 环境变量调整最低日志级别，默认是 `INFO`。客户端报告错误时，可以把
 响应头或错误界面中的 `X-Request-ID` 与服务端日志关联。
 
-## 1. 只传歌曲查询词
+## 1. 用已选歌曲生成
 
 服务会用 `provider` 指定的平台获取元数据和封面。歌词来源由独立适配器提供；客户端
 将所选歌词来源 key 传给歌词预览。没有指定 `lyrics_range`
@@ -144,7 +149,7 @@ curl -X POST http://localhost:8000/v1/posters/track \
   -H "Authorization: Bearer $API_KEY" \
   -d '{
     "provider": "spotify",
-    "query": "Summer Breeze Piper",
+    "catalog_id": "7lp5evZr7qEDwlv5PS8b6i",
     "theme": "Light",
     "accent": false
   }' \
@@ -169,7 +174,7 @@ curl -X POST http://localhost:8000/v1/posters/track \
 }
 ```
 
-## 2. 只传专辑查询词
+## 2. 用已选专辑生成
 
 ```bash
 curl -X POST http://localhost:8000/v1/posters/album \
@@ -177,7 +182,7 @@ curl -X POST http://localhost:8000/v1/posters/album \
   -H "Authorization: Bearer $API_KEY" \
   -d '{
     "provider": "spotify",
-    "query": "Summer Breeze Piper",
+    "catalog_id": "614LGcMwiEpyQ5SVg6S5Im",
     "theme": "Light",
     "accent": true,
     "indexing": false

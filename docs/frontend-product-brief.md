@@ -36,9 +36,8 @@ Search results already contain the data needed for a useful selection card:
 - explicit-content flag
 - ISRC when available
 
-The UI must preserve the selected result's `provider + id`. The poster request should send
-those values as `provider + catalog_id`. Do not send the original query after an exact result
-has been selected because the backend query path searches again and uses the first match.
+The UI must preserve the selected result's `provider + id`. The poster request sends those
+values as `provider + catalog_id`; the generation API does not accept a text query.
 
 The result list needs loading, no-results, upstream-unavailable, source-not-configured, and
 retry states. Spotify may return HTTP 503 when server credentials are not configured;
@@ -217,8 +216,8 @@ Album posters do not use lyrics.
 
 ## Advanced custom-metadata path
 
-Both generation endpoints accept caller-supplied `metadata` instead of query or catalog ID.
-Exactly one of `query`, `catalog_id`, or `metadata` is allowed. Custom metadata supports an
+Both generation endpoints accept caller-supplied `metadata` instead of a catalog ID.
+Exactly one of `catalog_id` or `metadata` is allowed. Custom metadata supports an
 external public cover URL; the backend accepts JPEG, PNG, and WebP up to 15 MB and rejects
 private-network hosts.
 
