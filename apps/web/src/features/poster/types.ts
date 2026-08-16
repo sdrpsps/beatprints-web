@@ -76,6 +76,7 @@ export type PosterOutput = {
   filename: string
   title: string
   processTime?: string
+  blob?: Blob
 }
 
 export type PosterRequest = {
