@@ -10,6 +10,7 @@ import {
   RotateCcwIcon,
   Share2Icon,
   Trash2Icon,
+  XIcon,
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
@@ -25,6 +26,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetDescription,
   SheetHeader,
@@ -246,34 +248,51 @@ export function PosterHistorySheet() {
     <Sheet open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
       <SheetContent
         side="right"
+        showCloseButton={false}
         className="flex w-full flex-col p-0 sm:max-w-md"
       >
         <SheetHeader className="border-b p-5 pb-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <HistoryIcon className="size-4 text-muted-foreground" />
-              <SheetTitle>{t("poster.historyTitle")}</SheetTitle>
+              <SheetTitle className="text-base font-semibold">{t("poster.historyTitle")}</SheetTitle>
               {historyItems.length > 0 ? (
-                <Badge variant="secondary" className="text-xs">
+                <Badge variant="secondary" className="px-1.5 py-0 text-xs">
                   {historyItems.length}
                 </Badge>
               ) : null}
             </div>
 
-            {historyItems.length > 0 ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="xs"
-                className="text-muted-foreground hover:text-destructive"
-                onClick={handleClearAll}
+            <div className="flex items-center gap-1">
+              {historyItems.length > 0 ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  className="h-7 text-xs text-muted-foreground hover:text-destructive"
+                  onClick={handleClearAll}
+                >
+                  <Trash2Icon data-icon="inline-start" />
+                  {t("poster.clearAllHistory")}
+                </Button>
+              ) : null}
+
+              <SheetClose
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="size-7 text-muted-foreground hover:text-foreground"
+                  />
+                }
               >
-                <Trash2Icon data-icon="inline-start" />
-                {t("poster.clearAllHistory")}
-              </Button>
-            ) : null}
+                <XIcon className="size-4" />
+                <span className="sr-only">Close</span>
+              </SheetClose>
+            </div>
           </div>
-          <SheetDescription className="text-xs">
+          <SheetDescription className="mt-1.5 text-xs text-muted-foreground">
             {t("poster.historyDescription")}
           </SheetDescription>
         </SheetHeader>

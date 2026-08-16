@@ -42,12 +42,6 @@ function App() {
           className="flex items-center gap-3 max-sm:gap-2"
           aria-label={t("app.primaryNavigationLabel")}
         >
-          <a
-            className="inline-flex items-center gap-[7px] text-[13px] text-muted-foreground no-underline transition-colors duration-150 hover:text-foreground motion-reduce:transition-none max-sm:hidden"
-            href="#studio"
-          >
-            {t("app.startCreating")}
-          </a>
           <HistoryNavButton />
           <a
             className="inline-flex items-center gap-[7px] text-[13px] text-muted-foreground no-underline transition-colors duration-150 hover:text-foreground motion-reduce:transition-none [&_svg]:size-3.5"
