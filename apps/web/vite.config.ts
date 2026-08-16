@@ -59,6 +59,34 @@ export default defineConfig({
     __GIT_SHA__: JSON.stringify(buildInfo.gitSha),
   },
   plugins: [react(), tailwindcss()],
+  build: {
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          if (id.includes("node_modules")) {
+            if (
+              id.includes("react") ||
+              id.includes("react-dom") ||
+              id.includes("scheduler")
+            ) {
+              return "vendor-react"
+            }
+            if (id.includes("@base-ui")) {
+              return "vendor-base-ui"
+            }
+            if (id.includes("lucide-react")) {
+              return "vendor-icons"
+            }
+            if (id.includes("i18next")) {
+              return "vendor-i18n"
+            }
+            return "vendor"
+          }
+        },
+      },
+    },
+  },
   server: {
     proxy: {
       "/v1": {

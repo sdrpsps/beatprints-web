@@ -61,14 +61,21 @@ export function usePosterGeneration() {
       if (controller.signal.aborted) return
 
       const url = URL.createObjectURL(result.blob)
-      setOutput({
+      const nextOutput: PosterOutput = {
         url,
         filename: result.filename,
         title,
         processTime: result.processTime,
-      })
+        blob: result.blob,
+      }
+      setOutput(nextOutput)
       setGenerationState("success")
       setOutputStale(false)
+      return {
+        blob: result.blob,
+        filename: result.filename,
+        processTime: result.processTime,
+      }
     } catch (error) {
       if (controller.signal.aborted) return
 
@@ -76,7 +83,20 @@ export function usePosterGeneration() {
       setGenerationError(
         friendlyError(error, t("poster.errors.generationErrorDefault"), t),
       )
+      return undefined
     }
+  }
+
+  function showOutput(newOutput: PosterOutput) {
+    setOutput((current) => {
+      if (current && current.url !== newOutput.url) {
+        URL.revokeObjectURL(current.url)
+      }
+      return newOutput
+    })
+    setGenerationState("success")
+    setOutputStale(false)
+    setGenerationError(undefined)
   }
 
   return {
@@ -86,6 +106,7 @@ export function usePosterGeneration() {
     outputStale,
     markOutputStale,
     clearOutput,
+    showOutput,
     generate,
   }
 }

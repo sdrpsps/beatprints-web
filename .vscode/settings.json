@@ -1,0 +1,22 @@
+{
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+  "cSpell.words": [
+    "beatprints",
+    "clsx",
+    "consolas",
+    "fontsource",
+    "liga",
+    "lucide",
+    "menlo",
+    "oklab",
+    "oxlint",
+    "sfmono",
+    "shadcn",
+    "tsbuildinfo",
+    "uvicorn",
+    "wdth",
+    "zustand"
+  ]
+}

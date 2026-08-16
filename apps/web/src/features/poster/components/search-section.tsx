@@ -24,28 +24,36 @@ import {
 import {
   SectionHeading,
   studioSectionClass,
-  type Studio,
 } from "@/features/poster/components/studio-shared"
 import { enabledCatalogSources } from "@/features/poster/catalogs/registry"
+import { usePosterStore } from "@/features/poster/poster-store"
 import type { CatalogProvider } from "@/features/poster/types"
 import { cn } from "@/lib/utils"
 
-export function SearchSection({ studio }: { studio: Studio }) {
+export function SearchSection() {
   const { t } = useTranslation()
+  const kind = usePosterStore((s) => s.kind)
+  const query = usePosterStore((s) => s.query)
+  const setQuery = usePosterStore((s) => s.setQuery)
+  const provider = usePosterStore((s) => s.provider)
+  const searchState = usePosterStore((s) => s.searchState)
+  const selected = usePosterStore((s) => s.selected)
+  const search = usePosterStore((s) => s.search)
+
   const onSubmit = (event: FormEvent) => {
     event.preventDefault()
-    void studio.search()
+    void search(t)
   }
 
   return (
     <section
-      className={cn(studioSectionClass, !studio.selected && "border-b-0 pb-0")}
+      className={cn(studioSectionClass, !selected && "border-b-0 pb-0")}
     >
       <SectionHeading
         number="01"
         title={t("poster.selectWork")}
         description={
-          studio.kind === "track"
+          kind === "track"
             ? t("poster.searchTrackDescription")
             : t("poster.searchAlbumDescription")
         }
@@ -54,17 +62,17 @@ export function SearchSection({ studio }: { studio: Studio }) {
         <FieldGroup>
           <Field>
             <FieldLabel htmlFor="catalog-search" className="sr-only">
-              {studio.kind === "track"
+              {kind === "track"
                 ? t("poster.searchTrack")
                 : t("poster.searchAlbum")}
             </FieldLabel>
             <InputGroup className="min-h-11">
               <InputGroupInput
                 id="catalog-search"
-                value={studio.query}
-                onChange={(event) => studio.setQuery(event.target.value)}
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
                 placeholder={
-                  studio.kind === "track"
+                  kind === "track"
                     ? t("poster.searchTrackPlaceholder")
                     : t("poster.searchAlbumPlaceholder")
                 }
@@ -79,41 +87,42 @@ export function SearchSection({ studio }: { studio: Studio }) {
                   variant="default"
                   size="sm"
                   disabled={
-                    !studio.query.trim() ||
-                    !studio.provider ||
-                    studio.searchState === "loading"
+                    !query.trim() ||
+                    !provider ||
+                    searchState === "loading"
                   }
                 >
-                  {studio.searchState === "loading" ? (
+                  {searchState === "loading" ? (
                     <Spinner data-icon="inline-start" />
                   ) : null}
-                  {studio.searchState === "loading"
+                  {searchState === "loading"
                     ? t("poster.searching")
                     : t("poster.search")}
                 </InputGroupButton>
               </InputGroupAddon>
             </InputGroup>
           </Field>
-          {studio.searchState !== "idle" ? (
-            <SourceFilter studio={studio} />
-          ) : null}
+          {searchState !== "idle" ? <SourceFilter /> : null}
         </FieldGroup>
       </form>
-      <SearchFeedback studio={studio} />
+      <SearchFeedback />
     </section>
   )
 }
 
-function SourceFilter({ studio }: { studio: Studio }) {
+function SourceFilter() {
   const { t } = useTranslation()
+  const provider = usePosterStore((s) => s.provider)
+  const setProvider = usePosterStore((s) => s.setProvider)
+
   return (
     <Field orientation="horizontal" className="justify-end">
       <FieldTitle>{t("poster.source")}</FieldTitle>
       <ToggleGroup
-        value={[studio.provider]}
+        value={[provider]}
         onValueChange={(values) => {
           const value = values[0]
-          if (value) studio.setProvider(value as CatalogProvider)
+          if (value) setProvider(value as CatalogProvider, t)
         }}
         variant="outline"
         size="sm"
@@ -129,24 +138,30 @@ function SourceFilter({ studio }: { studio: Studio }) {
   )
 }
 
-function SearchFeedback({ studio }: { studio: Studio }) {
+function SearchFeedback() {
   const { t } = useTranslation()
-  if (studio.searchState === "loading") return <SearchSkeleton />
-  if (studio.searchState === "error") {
+  const searchState = usePosterStore((s) => s.searchState)
+  const searchError = usePosterStore((s) => s.searchError)
+  const searchResults = usePosterStore((s) => s.searchResults)
+  const selected = usePosterStore((s) => s.selected)
+  const selectResult = usePosterStore((s) => s.selectResult)
+
+  if (searchState === "loading") return <SearchSkeleton />
+  if (searchState === "error") {
     return (
       <Alert variant="destructive">
         <AlertCircleIcon />
         <AlertTitle>{t("poster.searchFailed")}</AlertTitle>
-        <AlertDescription>{studio.searchError}</AlertDescription>
+        <AlertDescription>{searchError}</AlertDescription>
       </Alert>
     )
   }
-  if (studio.searchState !== "success") return null
+  if (searchState !== "success") return null
   return (
     <CatalogResultList
-      results={studio.searchResults}
-      selected={studio.selected}
-      onSelect={(result) => void studio.selectResult(result)}
+      results={searchResults}
+      selected={selected}
+      onSelect={(result) => void selectResult(result, t)}
     />
   )
 }

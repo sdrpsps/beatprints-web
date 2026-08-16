@@ -6,14 +6,25 @@ import { PlatformLinkFlow } from "@/features/poster/components/platform-link-flo
 import {
   SectionHeading,
   studioSectionClass,
-  type Studio,
 } from "@/features/poster/components/studio-shared"
-import { enabledDestinations } from "@/features/poster/destinations/registry"
+import { enabledDestinations, getDestination } from "@/features/poster/destinations/registry"
+import { usePosterStore } from "@/features/poster/poster-store"
 import type { PosterPlatform } from "@/features/poster/types"
 
-export function PlatformSection({ studio }: { studio: Studio }) {
+export function PlatformSection() {
   const { t } = useTranslation()
-  if (!studio.selected) return null
+  const kind = usePosterStore((s) => s.kind)
+  const selected = usePosterStore((s) => s.selected)
+  const qrPlatform = usePosterStore((s) => s.qrPlatform)
+  const setQrPlatform = usePosterStore((s) => s.setQrPlatform)
+
+  if (!selected) return null
+
+  const destination = qrPlatform ? getDestination(qrPlatform) : null
+  const platformNeedsUrl =
+    Boolean(qrPlatform) &&
+    Boolean(selected) &&
+    !destination?.reusesSourceLink(selected?.provider ?? "")
 
   const items = [
     { value: "none", label: t("poster.platformNone") },
@@ -26,7 +37,7 @@ export function PlatformSection({ studio }: { studio: Studio }) {
   return (
     <section className={studioSectionClass}>
       <SectionHeading
-        number={studio.kind === "track" ? "03" : "02"}
+        number={kind === "track" ? "03" : "02"}
         title={t("poster.platform")}
         description={t("poster.platformHelp")}
       />
@@ -35,13 +46,14 @@ export function PlatformSection({ studio }: { studio: Studio }) {
           {t("poster.qrPlatformLabel")}
         </FieldLegend>
         <ToggleGroup
-          value={[studio.qrPlatform || "none"]}
+          value={[qrPlatform || "none"]}
           onValueChange={(values) => {
             const value = values[0]
             if (!value) return
 
-            studio.setQrPlatform(
+            setQrPlatform(
               value === "none" ? "" : (value as PosterPlatform),
+              t,
             )
           }}
           variant="outline"
@@ -55,9 +67,7 @@ export function PlatformSection({ studio }: { studio: Studio }) {
           ))}
         </ToggleGroup>
       </FieldSet>
-      {studio.platformNeedsUrl && studio.qrPlatform ? (
-        <PlatformLinkFlow studio={studio} />
-      ) : null}
+      {platformNeedsUrl && qrPlatform ? <PlatformLinkFlow /> : null}
     </section>
   )
 }

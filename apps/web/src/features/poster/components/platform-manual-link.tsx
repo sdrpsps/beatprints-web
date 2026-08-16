@@ -15,14 +15,28 @@ import {
 } from "@/components/ui/input-group"
 import { Spinner } from "@/components/ui/spinner"
 import { PlatformItemCard } from "@/features/poster/components/platform-item-card"
-import type { Studio } from "@/features/poster/components/studio-shared"
 import { getDestination } from "@/features/poster/destinations/registry"
+import { usePosterStore } from "@/features/poster/poster-store"
 
-export function ManualPlatformLink({ studio }: { studio: Studio }) {
+export function ManualPlatformLink() {
   const { t } = useTranslation()
-  const destination = getDestination(studio.qrPlatform)
-  const label = destination ? t(destination.labelKey) : studio.qrPlatform
-  const error = studio.currentPlatformError ?? studio.platformManualError
+  const selected = usePosterStore((s) => s.selected)
+  const qrPlatform = usePosterStore((s) => s.qrPlatform)
+  const platformUrl = usePosterStore((s) => s.platformUrl)
+  const setPlatformUrl = usePosterStore((s) => s.setPlatformUrl)
+  const platformManualError = usePosterStore((s) => s.platformManualError)
+  const platformManualState = usePosterStore((s) => s.platformManualState)
+  const platformManualMatch = usePosterStore((s) => s.platformManualMatch)
+  const resolveManualPlatformUrl = usePosterStore(
+    (s) => s.resolveManualPlatformUrl,
+  )
+  const showPlatformCandidates = usePosterStore(
+    (s) => s.showPlatformCandidates,
+  )
+
+  const destination = getDestination(qrPlatform)
+  const label = destination ? t(destination.labelKey) : qrPlatform
+  const error = platformManualError
 
   return (
     <>
@@ -38,10 +52,10 @@ export function ManualPlatformLink({ studio }: { studio: Studio }) {
             id="platform-url"
             type="url"
             inputMode="url"
-            value={studio.platformUrl}
+            value={platformUrl}
             aria-invalid={Boolean(error)}
             placeholder={t("poster.platformUrlPlaceholder")}
-            onChange={(event) => studio.setPlatformUrl(event.target.value)}
+            onChange={(event) => setPlatformUrl(event.target.value)}
           />
         </InputGroup>
         <FieldDescription>{t("poster.platformManualHelp")}</FieldDescription>
@@ -49,27 +63,26 @@ export function ManualPlatformLink({ studio }: { studio: Studio }) {
           type="button"
           variant="outline"
           size="sm"
-          disabled={studio.platformManualState === "loading"}
-          onClick={() => void studio.resolveManualPlatformUrl()}
+          disabled={platformManualState === "loading"}
+          onClick={() => void resolveManualPlatformUrl(t)}
         >
-          {studio.platformManualState === "loading" ? (
+          {platformManualState === "loading" ? (
             <Spinner data-icon="inline-start" aria-hidden="true" />
           ) : null}
           {t("poster.fetchPlatformInfo")}
         </Button>
         {error ? <FieldError>{error}</FieldError> : null}
       </Field>
-      {studio.platformManualState === "success" &&
-      studio.platformManualMatch ? (
+      {platformManualState === "success" && platformManualMatch ? (
         <PlatformItemCard
-          match={studio.platformManualMatch}
-          source={studio.selected!}
+          match={platformManualMatch}
+          source={selected!}
           platform={label}
           actions={
             <Button
               render={
                 <a
-                  href={studio.platformManualMatch.url}
+                  href={platformManualMatch.url}
                   target="_blank"
                   rel="noreferrer"
                 />
@@ -86,7 +99,7 @@ export function ManualPlatformLink({ studio }: { studio: Studio }) {
         type="button"
         variant="ghost"
         size="sm"
-        onClick={() => void studio.showPlatformCandidates()}
+        onClick={() => void showPlatformCandidates(t)}
       >
         {t("poster.choosePlatformVersion")}
       </Button>
