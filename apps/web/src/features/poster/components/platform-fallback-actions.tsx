@@ -2,10 +2,12 @@ import { ListMusicIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
-import type { Studio } from "@/features/poster/components/studio-shared"
+import { usePosterStore } from "@/features/poster/poster-store"
 
-export function PlatformFallbackActions({ studio }: { studio: Studio }) {
+export function PlatformFallbackActions() {
   const { t } = useTranslation()
+  const showPlatformCandidates = usePosterStore((s) => s.showPlatformCandidates)
+  const showManualPlatformLink = usePosterStore((s) => s.showManualPlatformLink)
 
   return (
     <div className="flex flex-wrap gap-2">
@@ -13,7 +15,7 @@ export function PlatformFallbackActions({ studio }: { studio: Studio }) {
         type="button"
         variant="outline"
         size="sm"
-        onClick={() => void studio.showPlatformCandidates()}
+        onClick={() => void showPlatformCandidates(t)}
       >
         <ListMusicIcon data-icon="inline-start" aria-hidden="true" />
         {t("poster.choosePlatformVersion")}
@@ -22,7 +24,7 @@ export function PlatformFallbackActions({ studio }: { studio: Studio }) {
         type="button"
         variant="ghost"
         size="sm"
-        onClick={studio.showManualPlatformLink}
+        onClick={showManualPlatformLink}
       >
         {t("poster.manualPlatformLink")}
       </Button>

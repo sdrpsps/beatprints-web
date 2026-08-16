@@ -2,11 +2,13 @@ import { ArrowDownIcon, Code2Icon } from "lucide-react"
 import { useEffect } from "react"
 import { useTranslation } from "react-i18next"
 
+import { HistoryNavButton } from "@/components/history-nav-button"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { buttonVariants } from "@/components/ui/button"
 import { Toaster } from "@/components/ui/toast"
 import { SiteFooter } from "@/features/poster/components/site-footer"
 import { PosterStudio } from "@/features/poster/poster-studio"
+import { usePosterStore } from "@/features/poster/poster-store"
 import "./App.css"
 
 function App() {
@@ -15,6 +17,10 @@ function App() {
   useEffect(() => {
     document.title = t("app.documentTitle")
   }, [i18n.resolvedLanguage, t])
+
+  useEffect(() => {
+    void usePosterStore.getState().loadHistory()
+  }, [])
 
   return (
     <div className="min-h-screen overflow-clip">
@@ -33,7 +39,7 @@ function App() {
           {t("poster.brand")}
         </a>
         <nav
-          className="flex items-center gap-[22px]"
+          className="flex items-center gap-3 max-sm:gap-2"
           aria-label={t("app.primaryNavigationLabel")}
         >
           <a
@@ -42,6 +48,7 @@ function App() {
           >
             {t("app.startCreating")}
           </a>
+          <HistoryNavButton />
           <a
             className="inline-flex items-center gap-[7px] text-[13px] text-muted-foreground no-underline transition-colors duration-150 hover:text-foreground motion-reduce:transition-none [&_svg]:size-3.5"
             href="https://github.com/sdrpsps/beatprints-web"

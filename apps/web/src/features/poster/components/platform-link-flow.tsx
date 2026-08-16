@@ -8,25 +8,33 @@ import { PlatformCandidates } from "@/features/poster/components/platform-candid
 import { PlatformFallbackActions } from "@/features/poster/components/platform-fallback-actions"
 import { PlatformItemCard } from "@/features/poster/components/platform-item-card"
 import { ManualPlatformLink } from "@/features/poster/components/platform-manual-link"
-import type { Studio } from "@/features/poster/components/studio-shared"
 import { getDestination } from "@/features/poster/destinations/registry"
+import { usePosterStore } from "@/features/poster/poster-store"
 
-export function PlatformLinkFlow({ studio }: { studio: Studio }) {
-  if (studio.platformChoiceMode === "candidates") {
-    return <PlatformCandidates studio={studio} />
+export function PlatformLinkFlow() {
+  const platformChoiceMode = usePosterStore((s) => s.platformChoiceMode)
+
+  if (platformChoiceMode === "candidates") {
+    return <PlatformCandidates />
   }
-  if (studio.platformChoiceMode === "manual") {
-    return <ManualPlatformLink studio={studio} />
+  if (platformChoiceMode === "manual") {
+    return <ManualPlatformLink />
   }
-  return <AutomaticPlatformMatch studio={studio} />
+  return <AutomaticPlatformMatch />
 }
 
-function AutomaticPlatformMatch({ studio }: { studio: Studio }) {
+function AutomaticPlatformMatch() {
   const { t } = useTranslation()
-  const destination = getDestination(studio.qrPlatform)
-  const label = destination ? t(destination.labelKey) : studio.qrPlatform
+  const selected = usePosterStore((s) => s.selected)
+  const qrPlatform = usePosterStore((s) => s.qrPlatform)
+  const platformMatchState = usePosterStore((s) => s.platformMatchState)
+  const platformMatch = usePosterStore((s) => s.platformMatch)
+  const platformMatchError = usePosterStore((s) => s.platformMatchError)
 
-  if (studio.platformMatchState === "loading") {
+  const destination = getDestination(qrPlatform)
+  const label = destination ? t(destination.labelKey) : qrPlatform
+
+  if (platformMatchState === "loading") {
     return (
       <Alert>
         <Spinner aria-hidden="true" />
@@ -36,18 +44,18 @@ function AutomaticPlatformMatch({ studio }: { studio: Studio }) {
       </Alert>
     )
   }
-  if (studio.platformMatchState === "success" && studio.platformMatch) {
+  if (platformMatchState === "success" && platformMatch) {
     return (
       <>
         <PlatformItemCard
-          match={studio.platformMatch}
-          source={studio.selected!}
+          match={platformMatch}
+          source={selected!}
           platform={label}
           actions={
             <Button
               render={
                 <a
-                  href={studio.platformMatch.url}
+                  href={platformMatch.url}
                   target="_blank"
                   rel="noreferrer"
                 />
@@ -59,19 +67,19 @@ function AutomaticPlatformMatch({ studio }: { studio: Studio }) {
             </Button>
           }
         />
-        <PlatformFallbackActions studio={studio} />
+        <PlatformFallbackActions />
       </>
     )
   }
-  if (studio.platformMatchState === "error") {
+  if (platformMatchState === "error") {
     return (
       <>
         <Alert variant="destructive">
           <Music2Icon aria-hidden="true" />
           <AlertTitle>{label}</AlertTitle>
-          <AlertDescription>{studio.currentPlatformError}</AlertDescription>
+          <AlertDescription>{platformMatchError}</AlertDescription>
         </Alert>
-        <PlatformFallbackActions studio={studio} />
+        <PlatformFallbackActions />
       </>
     )
   }

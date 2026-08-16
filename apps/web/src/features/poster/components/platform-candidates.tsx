@@ -15,15 +15,21 @@ import { ItemGroup } from "@/components/ui/item"
 import { Spinner } from "@/components/ui/spinner"
 import { PlatformCandidateItem } from "@/features/poster/components/platform-candidate-item"
 import { PlatformFallbackActions } from "@/features/poster/components/platform-fallback-actions"
-import type { Studio } from "@/features/poster/components/studio-shared"
 import { getDestination } from "@/features/poster/destinations/registry"
+import { usePosterStore } from "@/features/poster/poster-store"
 
-export function PlatformCandidates({ studio }: { studio: Studio }) {
+export function PlatformCandidates() {
   const { t } = useTranslation()
-  const destination = getDestination(studio.qrPlatform)
-  const label = destination ? t(destination.labelKey) : studio.qrPlatform
+  const qrPlatform = usePosterStore((s) => s.qrPlatform)
+  const platformCandidateState = usePosterStore((s) => s.platformCandidateState)
+  const platformCandidateError = usePosterStore((s) => s.platformCandidateError)
+  const platformCandidates = usePosterStore((s) => s.platformCandidates)
+  const showManualPlatformLink = usePosterStore((s) => s.showManualPlatformLink)
 
-  if (studio.platformCandidateState === "loading") {
+  const destination = getDestination(qrPlatform)
+  const label = destination ? t(destination.labelKey) : qrPlatform
+
+  if (platformCandidateState === "loading") {
     return (
       <Alert>
         <Spinner aria-hidden="true" />
@@ -36,23 +42,23 @@ export function PlatformCandidates({ studio }: { studio: Studio }) {
       </Alert>
     )
   }
-  if (studio.platformCandidateState === "error") {
+  if (platformCandidateState === "error") {
     return (
       <>
         <Alert variant="destructive">
           <Music2Icon aria-hidden="true" />
           <AlertTitle>{t("poster.platformCandidatesFailed")}</AlertTitle>
-          <AlertDescription>{studio.platformCandidateError}</AlertDescription>
+          <AlertDescription>{platformCandidateError}</AlertDescription>
         </Alert>
-        <PlatformFallbackActions studio={studio} />
+        <PlatformFallbackActions />
       </>
     )
   }
   if (
-    studio.platformCandidateState === "success" &&
-    studio.platformCandidates.length === 0
+    platformCandidateState === "success" &&
+    platformCandidates.length === 0
   ) {
-    return <NoPlatformCandidates studio={studio} />
+    return <NoPlatformCandidates />
   }
 
   return (
@@ -66,19 +72,18 @@ export function PlatformCandidates({ studio }: { studio: Studio }) {
           {t("poster.choosePlatformVersionHelp")}
         </AlertDescription>
       </Alert>
-      {studio.platformCandidateError ? (
+      {platformCandidateError ? (
         <Alert variant="destructive">
           <Music2Icon aria-hidden="true" />
           <AlertTitle>{t("poster.platformCandidateResolveFailed")}</AlertTitle>
-          <AlertDescription>{studio.platformCandidateError}</AlertDescription>
+          <AlertDescription>{platformCandidateError}</AlertDescription>
         </Alert>
       ) : null}
       <ItemGroup>
-        {studio.platformCandidates.map((candidate) => (
+        {platformCandidates.map((candidate) => (
           <PlatformCandidateItem
             key={candidate.url}
             candidate={candidate}
-            studio={studio}
             platform={label}
           />
         ))}
@@ -87,7 +92,7 @@ export function PlatformCandidates({ studio }: { studio: Studio }) {
         type="button"
         variant="ghost"
         size="sm"
-        onClick={studio.showManualPlatformLink}
+        onClick={showManualPlatformLink}
       >
         {t("poster.manualPlatformLink")}
       </Button>
@@ -95,8 +100,9 @@ export function PlatformCandidates({ studio }: { studio: Studio }) {
   )
 }
 
-function NoPlatformCandidates({ studio }: { studio: Studio }) {
+function NoPlatformCandidates() {
   const { t } = useTranslation()
+  const showManualPlatformLink = usePosterStore((s) => s.showManualPlatformLink)
 
   return (
     <Empty className="border">
@@ -114,7 +120,7 @@ function NoPlatformCandidates({ studio }: { studio: Studio }) {
           type="button"
           variant="outline"
           size="sm"
-          onClick={studio.showManualPlatformLink}
+          onClick={showManualPlatformLink}
         >
           {t("poster.manualPlatformLink")}
         </Button>

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { memo, useState } from "react"
 import { CheckIcon, ListXIcon, PencilIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
@@ -15,11 +15,100 @@ import {
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { toast } from "@/components/ui/toast"
-import type { Studio } from "@/features/poster/components/studio-shared"
+import { usePosterStore } from "@/features/poster/poster-store"
+import type { LyricsLine } from "@/features/poster/types"
 
-export function LyricsPicker({ studio }: { studio: Studio }) {
+const LyricRow = memo(function LyricRow({
+  line,
+  checked,
+  value,
+  isEditing,
+  onToggle,
+  onEdit,
+  onStartEdit,
+  onFinishEdit,
+}: {
+  line: LyricsLine
+  checked: boolean
+  value: string
+  isEditing: boolean
+  onToggle: (index: number, checked: boolean) => void
+  onEdit: (index: number, value: string) => void
+  onStartEdit: (index: number) => void
+  onFinishEdit: () => void
+}) {
   const { t } = useTranslation()
+
+  return (
+    <Field className="min-h-[30px]" orientation="horizontal">
+      <Checkbox
+        id={`lyric-${line.index}`}
+        checked={checked}
+        onCheckedChange={(next) => onToggle(line.index, next === true)}
+      />
+      <span className="min-w-6 font-[var(--font-utility)] text-[9px] font-semibold tracking-[0.1em] text-muted-foreground">
+        {String(line.index).padStart(2, "0")}
+      </span>
+      {isEditing ? (
+        <Input
+          className="flex-1"
+          value={value}
+          aria-label={t("poster.editLineAriaLabel", { index: line.index })}
+          onChange={(event) => onEdit(line.index, event.target.value)}
+        />
+      ) : (
+        <FieldLabel
+          className="flex-1 cursor-pointer text-[13px] leading-[1.55] font-[450]"
+          htmlFor={`lyric-${line.index}`}
+        >
+          {value}
+        </FieldLabel>
+      )}
+      <Button
+        className="shrink-0"
+        type="button"
+        variant={isEditing ? "secondary" : "ghost"}
+        size="icon-xs"
+        aria-label={
+          isEditing
+            ? t("poster.finishEditLineAriaLabel", { index: line.index })
+            : t("poster.editLineAriaLabel", { index: line.index })
+        }
+        title={
+          isEditing
+            ? t("poster.finishEditTitle")
+            : t("poster.editLineTitle")
+        }
+        onClick={() =>
+          isEditing ? onFinishEdit() : onStartEdit(line.index)
+        }
+      >
+        {isEditing ? <CheckIcon /> : <PencilIcon />}
+      </Button>
+    </Field>
+  )
+})
+
+export function LyricsPicker() {
+  const { t } = useTranslation()
+  const lyrics = usePosterStore((s) => s.lyrics)
+  const selectedLines = usePosterStore((s) => s.selectedLines)
+  const lyricEdits = usePosterStore((s) => s.lyricEdits)
+  const toggleLyric = usePosterStore((s) => s.toggleLyric)
+  const editLyric = usePosterStore((s) => s.editLyric)
+  const clearLyricSelection = usePosterStore((s) => s.clearLyricSelection)
   const [editingLine, setEditingLine] = useState<number>()
+
+  const handleToggle = (index: number, checked: boolean) => {
+    const accepted = toggleLyric(index, checked)
+    if (!accepted) {
+      toast.add({
+        type: "warning",
+        title: t("poster.maxLyricsToastTitle"),
+        description: t("poster.maxLyricsToastDesc"),
+      })
+    }
+  }
 
   return (
     <FieldSet>
@@ -30,91 +119,38 @@ export function LyricsPicker({ studio }: { studio: Studio }) {
             type="button"
             variant="outline"
             size="xs"
-            disabled={studio.selectedLines.length === 0}
-            onClick={studio.clearLyricSelection}
+            disabled={selectedLines.length === 0}
+            onClick={clearLyricSelection}
           >
             <ListXIcon data-icon="inline-start" />
             {t("poster.clearLyricSelection")}
           </Button>
           <Badge
-            variant={studio.selectedLines.length === 4 ? "default" : "secondary"}
+            variant={selectedLines.length === 4 ? "default" : "secondary"}
           >
-            {t("poster.selectedLyricsCount", { count: studio.selectedLines.length })}
+            {t("poster.selectedLyricsCount", { count: selectedLines.length })}
           </Badge>
         </div>
       </div>
       <ScrollArea className="editorial-scroll lyrics-scroll h-[360px] overflow-hidden rounded-lg border bg-card/20">
         <FieldGroup className="p-3 pr-4">
-          {studio.lyrics.map((line) => {
-            const checked = studio.selectedLines.includes(line.index)
-            const value = studio.lyricEdits[line.index] ?? line.text
+          {lyrics.map((line) => {
+            const checked = selectedLines.includes(line.index)
+            const value = lyricEdits[line.index] ?? line.text
+            const isEditing = editingLine === line.index
+
             return (
-              <Field
-                className="min-h-[30px]"
+              <LyricRow
                 key={line.index}
-                orientation="horizontal"
-              >
-                <Checkbox
-                  id={`lyric-${line.index}`}
-                  checked={checked}
-                  onCheckedChange={(next) => {
-                    const accepted = studio.toggleLyric(
-                      line.index,
-                      next === true,
-                    )
-                    if (!accepted) {
-                      toast.add({
-                        type: "warning",
-                        title: t("poster.maxLyricsToastTitle"),
-                        description: t("poster.maxLyricsToastDesc"),
-                      })
-                    }
-                  }}
-                />
-                <span className="min-w-6 font-[var(--font-utility)] text-[9px] font-semibold tracking-[0.1em] text-muted-foreground">
-                  {String(line.index).padStart(2, "0")}
-                </span>
-                {editingLine === line.index ? (
-                  <Input
-                    className="flex-1"
-                    value={value}
-                    aria-label={t("poster.editLineAriaLabel", { index: line.index })}
-                    onChange={(event) =>
-                      studio.editLyric(line.index, event.target.value)
-                    }
-                  />
-                ) : (
-                  <FieldLabel
-                    className="flex-1 cursor-pointer text-[13px] leading-[1.55] font-[450]"
-                    htmlFor={`lyric-${line.index}`}
-                  >
-                    {value}
-                  </FieldLabel>
-                )}
-                <Button
-                  className="shrink-0"
-                  type="button"
-                  variant={editingLine === line.index ? "secondary" : "ghost"}
-                  size="icon-xs"
-                  aria-label={
-                    editingLine === line.index
-                      ? t("poster.finishEditLineAriaLabel", { index: line.index })
-                      : t("poster.editLineAriaLabel", { index: line.index })
-                  }
-                  title={
-                    editingLine === line.index
-                      ? t("poster.finishEditTitle")
-                      : t("poster.editLineTitle")
-                  }
-                  onClick={() =>
-                    setEditingLine((current) =>
-                      current === line.index ? undefined : line.index,
-                    )
-                  }
-                >
-                  {editingLine === line.index ? <CheckIcon /> : <PencilIcon />}
-                </Button>
-              </Field>
+                line={line}
+                checked={checked}
+                value={value}
+                isEditing={isEditing}
+                onToggle={handleToggle}
+                onEdit={editLyric}
+                onStartEdit={(idx) => setEditingLine(idx)}
+                onFinishEdit={() => setEditingLine(undefined)}
+              />
             )
           })}
         </FieldGroup>

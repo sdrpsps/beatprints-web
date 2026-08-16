@@ -18,45 +18,54 @@ import { Switch } from "@/components/ui/switch"
 import {
   SectionHeading,
   studioSectionClass,
-  type Studio,
 } from "@/features/poster/components/studio-shared"
+import { usePosterStore } from "@/features/poster/poster-store"
 import type { Theme } from "@/features/poster/types"
 
-export function AppearanceSection({ studio }: { studio: Studio }) {
+export function AppearanceSection() {
   const { t } = useTranslation()
-  if (!studio.selected) return null
+  const kind = usePosterStore((s) => s.kind)
+  const selected = usePosterStore((s) => s.selected)
+  const accent = usePosterStore((s) => s.accent)
+  const setAccent = usePosterStore((s) => s.setAccent)
+  const indexing = usePosterStore((s) => s.indexing)
+  const setIndexing = usePosterStore((s) => s.setIndexing)
+  const shuffle = usePosterStore((s) => s.shuffle)
+  const setShuffle = usePosterStore((s) => s.setShuffle)
+
+  if (!selected) return null
 
   return (
     <section className={studioSectionClass}>
       <SectionHeading
-        number={studio.kind === "track" ? "04" : "03"}
+        number={kind === "track" ? "04" : "03"}
         title={t("poster.appearance")}
         description={t("poster.appearanceHelp")}
       />
       <FieldGroup>
-        <ThemeField studio={studio} />
+        <ThemeField />
         <OptionSwitch
           id="accent"
           title={t("poster.accentTitle")}
           description={t("poster.accentDescription")}
-          checked={studio.accent}
-          onChange={studio.setAccent}
+          checked={accent}
+          onChange={setAccent}
         />
-        {studio.kind === "album" ? (
+        {kind === "album" ? (
           <>
             <OptionSwitch
               id="indexing"
               title={t("poster.indexingTitle")}
               description={t("poster.indexingDescription")}
-              checked={studio.indexing}
-              onChange={studio.setIndexing}
+              checked={indexing}
+              onChange={setIndexing}
             />
             <OptionSwitch
               id="shuffle"
               title={t("poster.shuffleTitle")}
               description={t("poster.shuffleDescription")}
-              checked={studio.shuffle}
-              onChange={studio.setShuffle}
+              checked={shuffle}
+              onChange={setShuffle}
             />
           </>
         ) : null}
@@ -65,8 +74,10 @@ export function AppearanceSection({ studio }: { studio: Studio }) {
   )
 }
 
-function ThemeField({ studio }: { studio: Studio }) {
+function ThemeField() {
   const { t } = useTranslation()
+  const theme = usePosterStore((s) => s.theme)
+  const setTheme = usePosterStore((s) => s.setTheme)
 
   const themeItems = [
     { value: "Light", label: t("poster.themeLight") },
@@ -83,8 +94,8 @@ function ThemeField({ studio }: { studio: Studio }) {
       <FieldTitle>{t("poster.posterTheme")}</FieldTitle>
       <Select
         items={themeItems}
-        value={studio.theme}
-        onValueChange={(value) => value && studio.setTheme(value as Theme)}
+        value={theme}
+        onValueChange={(value) => value && setTheme(value as Theme)}
       >
         <SelectTrigger>
           <SelectValue />

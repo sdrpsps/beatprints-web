@@ -3,9 +3,6 @@ import { Music2Icon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import type { SearchResult } from "@/features/poster/types"
-import type { usePosterStudio } from "@/features/poster/use-poster-studio"
-
-export type Studio = ReturnType<typeof usePosterStudio>
 
 export const studioSectionClass =
   "flex flex-col gap-[22px] border-b py-8 first:pt-2"

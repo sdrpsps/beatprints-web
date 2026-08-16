@@ -15,34 +15,41 @@ import { LyricsSourcePicker } from "@/features/poster/components/lyrics-source-p
 import {
   SectionHeading,
   studioSectionClass,
-  type Studio,
 } from "@/features/poster/components/studio-shared"
+import { usePosterStore } from "@/features/poster/poster-store"
 
-export function LyricsSection({ studio }: { studio: Studio }) {
+export function LyricsSection() {
   const { t } = useTranslation()
-  if (studio.kind !== "track" || !studio.selected) return null
-  const isManual = studio.lyricsMode === "manual"
+  const kind = usePosterStore((s) => s.kind)
+  const selected = usePosterStore((s) => s.selected)
+  const instrumental = usePosterStore((s) => s.instrumental)
+  const lyricsMode = usePosterStore((s) => s.lyricsMode)
+  const setLyricsMode = usePosterStore((s) => s.setLyricsMode)
+  const lyrics = usePosterStore((s) => s.lyrics)
+
+  if (kind !== "track" || !selected) return null
+  const isManual = lyricsMode === "manual"
 
   return (
     <section className={studioSectionClass}>
       <SectionHeading
         number="02"
-        title={studio.instrumental ? t("poster.instrumentalTitle") : t("poster.lyrics")}
+        title={instrumental ? t("poster.instrumentalTitle") : t("poster.lyrics")}
         description={
-          studio.instrumental
+          instrumental
             ? t("poster.instrumentalHelp")
             : t("poster.lyricsHelp")
         }
       />
-      <LyricsSourcePicker studio={studio} />
-      <LyricsStatus studio={studio} />
-      {!studio.instrumental && studio.lyrics.length > 0 ? (
+      <LyricsSourcePicker />
+      <LyricsStatus />
+      {!instrumental && lyrics.length > 0 ? (
         <ToggleGroup
-          value={[studio.lyricsMode]}
+          value={[lyricsMode]}
           onValueChange={(values) => {
             const value = values[0]
             if (value === "catalog" || value === "manual") {
-              studio.setLyricsMode(value)
+              setLyricsMode(value)
             }
           }}
           variant="outline"
@@ -56,20 +63,21 @@ export function LyricsSection({ studio }: { studio: Studio }) {
           </ToggleGroupItem>
         </ToggleGroup>
       ) : null}
-      {!studio.instrumental && !isManual && studio.lyrics.length > 0 ? (
-        <LyricsPicker studio={studio} />
+      {!instrumental && !isManual && lyrics.length > 0 ? (
+        <LyricsPicker />
       ) : null}
-      {studio.instrumental ? <InstrumentalField studio={studio} /> : null}
-      {!studio.instrumental && isManual ? (
-        <ManualLyricsField studio={studio} />
-      ) : null}
+      {instrumental ? <InstrumentalField /> : null}
+      {!instrumental && isManual ? <ManualLyricsField /> : null}
     </section>
   )
 }
 
-function LyricsStatus({ studio }: { studio: Studio }) {
+function LyricsStatus() {
   const { t } = useTranslation()
-  if (studio.lyricsState === "loading") {
+  const lyricsState = usePosterStore((s) => s.lyricsState)
+  const lyricsError = usePosterStore((s) => s.lyricsError)
+
+  if (lyricsState === "loading") {
     return (
       <div className="flex min-h-[88px] items-center justify-center gap-[9px] text-[13px] text-muted-foreground">
         <Spinner />
@@ -77,18 +85,22 @@ function LyricsStatus({ studio }: { studio: Studio }) {
       </div>
     )
   }
-  if (!studio.lyricsError) return null
+  if (!lyricsError) return null
   return (
     <Alert>
       <AlertCircleIcon />
       <AlertTitle>{t("poster.switchToManual")}</AlertTitle>
-      <AlertDescription>{studio.lyricsError}</AlertDescription>
+      <AlertDescription>{lyricsError}</AlertDescription>
     </Alert>
   )
 }
 
-function InstrumentalField({ studio }: { studio: Studio }) {
+function InstrumentalField() {
   const { t } = useTranslation()
+  const instrumentalText = usePosterStore((s) => s.instrumentalText)
+  const setInstrumentalText = usePosterStore((s) => s.setInstrumentalText)
+  const instrumentalLineCount = instrumentalText.split("\n").filter((l) => l.trim().length > 0).length
+
   return (
     <Field>
       <FieldLabel htmlFor="instrumental-text">
@@ -96,20 +108,24 @@ function InstrumentalField({ studio }: { studio: Studio }) {
       </FieldLabel>
       <Textarea
         id="instrumental-text"
-        value={studio.instrumentalText}
+        value={instrumentalText}
         maxLength={200}
         placeholder={t("poster.instrumentalPlaceholder")}
-        onChange={(event) => studio.setInstrumentalText(event.target.value)}
+        onChange={(event) => setInstrumentalText(event.target.value)}
       />
       <FieldDescription>
-        {studio.instrumentalLineCount} / 4 · {studio.instrumentalText.length} / 200
+        {instrumentalLineCount} / 4 · {instrumentalText.length} / 200
       </FieldDescription>
     </Field>
   )
 }
 
-function ManualLyricsField({ studio }: { studio: Studio }) {
+function ManualLyricsField() {
   const { t } = useTranslation()
+  const manualLyrics = usePosterStore((s) => s.manualLyrics)
+  const setManualLyrics = usePosterStore((s) => s.setManualLyrics)
+  const manualLineCount = manualLyrics.split("\n").filter((l) => l.trim().length > 0).length
+
   return (
     <Field>
       <FieldLabel htmlFor="manual-lyrics">
@@ -117,13 +133,13 @@ function ManualLyricsField({ studio }: { studio: Studio }) {
       </FieldLabel>
       <Textarea
         id="manual-lyrics"
-        value={studio.manualLyrics}
+        value={manualLyrics}
         maxLength={2000}
         placeholder={t("poster.manualLyricsPlaceholder")}
-        onChange={(event) => studio.setManualLyrics(event.target.value)}
+        onChange={(event) => setManualLyrics(event.target.value)}
       />
       <FieldDescription>
-        {t("poster.manualLyricsHelp", { count: studio.manualLineCount })}
+        {t("poster.manualLyricsHelp", { count: manualLineCount })}
       </FieldDescription>
     </Field>
   )

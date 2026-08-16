@@ -1,5 +1,5 @@
 import { Disc3Icon, Music2Icon } from "lucide-react"
-import { useLayoutEffect, useRef } from "react"
+import { lazy, Suspense, useLayoutEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Separator } from "@/components/ui/separator"
@@ -10,33 +10,40 @@ import { LyricsSection } from "@/features/poster/components/lyrics-section"
 import { OutputStage } from "@/features/poster/components/output-stage"
 import { PlatformSection } from "@/features/poster/components/platform-section"
 import { SearchSection } from "@/features/poster/components/search-section"
-import type { Studio } from "@/features/poster/components/studio-shared"
-import { usePosterStudio } from "@/features/poster/use-poster-studio"
+import { usePosterStore } from "@/features/poster/poster-store"
+import type { PosterKind } from "@/features/poster/types"
 
-function Editor({ studio }: { studio: Studio }) {
+const PosterHistorySheet = lazy(() =>
+  import("@/features/poster/components/poster-history-sheet").then((mod) => ({
+    default: mod.PosterHistorySheet,
+  })),
+)
+
+function Editor() {
   return (
     <div className="min-w-0">
-      <SearchSection studio={studio} />
-      <LyricsSection studio={studio} />
-      <PlatformSection studio={studio} />
-      <AppearanceSection studio={studio} />
-      <GenerateSection studio={studio} />
+      <SearchSection />
+      <LyricsSection />
+      <PlatformSection />
+      <AppearanceSection />
+      <GenerateSection />
     </div>
   )
 }
 
-function StudioContent({ studio }: { studio: Studio }) {
+function StudioContent() {
   return (
     <div className="grid grid-cols-[minmax(0,0.86fr)_minmax(430px,1.14fr)] items-start gap-[clamp(32px,5vw,76px)] max-[960px]:grid-cols-1 max-sm:gap-[42px]">
-      <Editor studio={studio} />
-      <OutputStage studio={studio} />
+      <Editor />
+      <OutputStage />
     </div>
   )
 }
 
 export function PosterStudio() {
   const { t } = useTranslation()
-  const studio = usePosterStudio()
+  const kind = usePosterStore((s) => s.kind)
+  const setKind = usePosterStore((s) => s.setKind)
   const pendingScrollY = useRef<number | undefined>(undefined)
 
   useLayoutEffect(() => {
@@ -47,14 +54,14 @@ export function PosterStudio() {
       behavior: "instant",
     })
     pendingScrollY.current = undefined
-  }, [studio.kind])
+  }, [kind])
 
   const changePosterKind = (value: string) => {
     if (value !== "track" && value !== "album") return
-    if (value === studio.kind) return
+    if (value === kind) return
 
     pendingScrollY.current = window.scrollY
-    studio.setKind(value)
+    setKind(value as PosterKind)
   }
 
   return (
@@ -80,10 +87,7 @@ export function PosterStudio() {
         </p>
       </div>
       <Separator />
-      <Tabs
-        value={studio.kind}
-        onValueChange={changePosterKind}
-      >
+      <Tabs value={kind} onValueChange={changePosterKind}>
         <TabsList
           className="mt-5 mb-6"
           variant="line"
@@ -99,12 +103,15 @@ export function PosterStudio() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="track">
-          <StudioContent studio={studio} />
+          <StudioContent />
         </TabsContent>
         <TabsContent value="album">
-          <StudioContent studio={studio} />
+          <StudioContent />
         </TabsContent>
       </Tabs>
+      <Suspense fallback={null}>
+        <PosterHistorySheet />
+      </Suspense>
     </section>
   )
 }
