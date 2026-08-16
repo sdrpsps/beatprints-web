@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.3.0](https://github.com/sdrpsps/beatprints-web/compare/v1.2.1...v1.3.0) (2026-08-16)
+
+
+### Features
+
+* **web:** add image clipboard copy and web share utilities ([29e8703](https://github.com/sdrpsps/beatprints-web/commit/29e87038f679328984817df11dcdda554c924d50))
+* **web:** add poster history drawer powered by IndexedDB with snapshot restore ([2f16fab](https://github.com/sdrpsps/beatprints-web/commit/2f16fab5325488535c369705afe59c380159ee38))
+* **web:** add poster history drawer, Zustand migration, and studio optimizations ([a451466](https://github.com/sdrpsps/beatprints-web/commit/a45146698659cef0c3f1f6d58840e3b45c21b7a0))
+
+
+### Bug Fixes
+
+* **web:** align history drawer header controls and remove header studio anchor ([58b910f](https://github.com/sdrpsps/beatprints-web/commit/58b910f880d871ae9127408fb2e0a86f720655b6))
+
+
+### Performance Improvements
+
+* **web:** optimize bundle size with vendor chunk splitting ([71a827a](https://github.com/sdrpsps/beatprints-web/commit/71a827a6ca31fa3a8e6d8c191d1140859a82e9cb))
+
+
+### Code Refactoring
+
+* **web:** migrate state management to Zustand to eliminate global re-renders ([ef21bea](https://github.com/sdrpsps/beatprints-web/commit/ef21bea2c8cc5cfcb666dc0ea83b44f58875a430))
+* **web:** standardize Tailwind v4 class names and resolve linter diagnostics ([fa0a8c3](https://github.com/sdrpsps/beatprints-web/commit/fa0a8c3205599c5dae9b3ae1d1095cc79a13c0ae))
+
 ## [1.2.1](https://github.com/sdrpsps/beatprints-web/compare/v1.2.0...v1.2.1) (2026-08-04)
 
 
