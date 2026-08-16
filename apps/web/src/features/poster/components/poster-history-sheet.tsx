@@ -126,7 +126,7 @@ function HistoryCard({
             <span className="truncate text-[13px] font-semibold text-foreground">
               {item.title}
             </span>
-            <span className="flex items-center gap-1 font-[var(--font-utility)] text-[10px] text-muted-foreground">
+            <span className="flex items-center gap-1 font-utility text-[10px] text-muted-foreground">
               <ClockIcon className="size-3" />
               {dateStr}
             </span>
@@ -299,7 +299,7 @@ export function PosterHistorySheet() {
 
         <ScrollArea className="flex-1 px-5 py-4">
           {historyItems.length === 0 ? (
-            <Empty className="min-h-[300px] border-none">
+            <Empty className="min-h-75 border-none">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <HistoryIcon />

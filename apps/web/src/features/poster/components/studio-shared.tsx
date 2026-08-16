@@ -19,15 +19,15 @@ export function SectionHeading({
   return (
     <div className="grid grid-cols-[34px_1fr] gap-3 max-sm:grid-cols-[28px_1fr]">
       <span
-        className="font-[var(--font-utility)] text-[10px] font-semibold tracking-[0.1em] text-muted-foreground"
+        className="font-utility text-[10px] font-semibold tracking-widest text-muted-foreground"
         aria-hidden="true"
       >
         {number}
       </span>
       <div>
-        <h3 className="m-0 text-lg font-[650] tracking-[-0.025em]">{title}</h3>
+        <h3 className="m-0 text-lg font-[650] tracking-tight">{title}</h3>
         {description ? (
-          <p className="mt-[5px] max-w-[520px] text-[13px] leading-[1.55] text-muted-foreground">
+          <p className="mt-1.25 max-w-130 text-[13px] leading-[1.55] text-muted-foreground">
             {description}
           </p>
         ) : null}
@@ -43,7 +43,7 @@ export function CoverArt({ result }: { result: SearchResult }) {
   if (failed) {
     return (
       <div
-        className="cover-fallback grid size-full place-items-center text-muted-foreground [&_svg]:size-[18px]"
+        className="cover-fallback grid size-full place-items-center text-muted-foreground [&_svg]:size-4.5"
         aria-label={t("poster.coverFailed", { title: result.title })}
       >
         <Music2Icon aria-hidden="true" />

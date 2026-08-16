@@ -40,13 +40,13 @@ const LyricRow = memo(function LyricRow({
   const { t } = useTranslation()
 
   return (
-    <Field className="min-h-[30px]" orientation="horizontal">
+    <Field className="min-h-7.5" orientation="horizontal">
       <Checkbox
         id={`lyric-${line.index}`}
         checked={checked}
         onCheckedChange={(next) => onToggle(line.index, next === true)}
       />
-      <span className="min-w-6 font-[var(--font-utility)] text-[9px] font-semibold tracking-[0.1em] text-muted-foreground">
+      <span className="min-w-6 font-utility text-[9px] font-semibold tracking-widest text-muted-foreground">
         {String(line.index).padStart(2, "0")}
       </span>
       {isEditing ? (
@@ -132,7 +132,7 @@ export function LyricsPicker() {
           </Badge>
         </div>
       </div>
-      <ScrollArea className="editorial-scroll lyrics-scroll h-[360px] overflow-hidden rounded-lg border bg-card/20">
+      <ScrollArea className="editorial-scroll lyrics-scroll h-90 overflow-hidden rounded-lg border bg-card/20">
         <FieldGroup className="p-3 pr-4">
           {lyrics.map((line) => {
             const checked = selectedLines.includes(line.index)

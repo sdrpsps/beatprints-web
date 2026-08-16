@@ -29,7 +29,7 @@ export function GenerateSection() {
           <AlertDescription>
             {generationError.message}
             {generationError.requestId ? (
-              <span className="mt-2 block font-[var(--font-utility)] text-[10px]">
+              <span className="mt-2 block font-utility text-[10px]">
                 {t("poster.requestIdPrefix")}{generationError.requestId}
               </span>
             ) : null}

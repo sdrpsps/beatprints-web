@@ -79,7 +79,7 @@ function LyricsStatus() {
 
   if (lyricsState === "loading") {
     return (
-      <div className="flex min-h-[88px] items-center justify-center gap-[9px] text-[13px] text-muted-foreground">
+      <div className="flex min-h-22 items-center justify-center gap-2.25 text-[13px] text-muted-foreground">
         <Spinner />
         <span>{t("poster.matchingLyrics")}</span>
       </div>

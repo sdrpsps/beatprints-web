@@ -14,7 +14,7 @@ export function HistoryNavButton() {
     <Button
       variant="ghost"
       size="sm"
-      className="inline-flex items-center gap-[7px] text-[13px] text-muted-foreground transition-colors duration-150 hover:text-foreground motion-reduce:transition-none [&_svg]:size-3.5"
+      className="inline-flex items-center gap-1.75 text-[13px] text-muted-foreground transition-colors duration-150 hover:text-foreground motion-reduce:transition-none [&_svg]:size-3.5"
       onClick={() => setIsHistoryOpen(true)}
       title={t("poster.historyTitle")}
       aria-label={t("poster.historyOpenAria")}

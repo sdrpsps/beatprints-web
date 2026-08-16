@@ -55,7 +55,7 @@ export function OutputStage() {
       className="sticky top-6 max-[960px]:static max-[960px]:order-2"
       aria-label={t("poster.outputAriaLabel")}
     >
-      <div className="flex items-center justify-between gap-5 pb-2.5 font-[var(--font-utility)] text-[10px] font-semibold tracking-[0.14em] text-muted-foreground">
+      <div className="flex items-center justify-between gap-5 pb-2.5 font-utility text-[10px] font-semibold tracking-[0.14em] text-muted-foreground">
         <div className="flex items-center gap-2">
           <span>OUTPUT / PNG</span>
           <span>{elapsedSeconds}</span>
@@ -92,7 +92,7 @@ export function OutputStage() {
       <div
         ref={stageRef}
         className={cn(
-          "output-stage relative grid min-h-[min(74vh,900px)] place-items-center overflow-hidden bg-[var(--stage)] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 max-[960px]:min-h-[68vh] max-sm:min-h-[64vh]",
+          "output-stage relative grid min-h-[min(74vh,900px)] place-items-center overflow-hidden bg-stage outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 max-[960px]:min-h-[68vh] max-sm:min-h-[64vh]",
           output && "min-h-0 p-[clamp(16px,3vw,38px)]",
         )}
         tabIndex={-1}
@@ -122,7 +122,7 @@ export function OutputStage() {
           )}
           aria-hidden={!showLoadingOverlay}
         >
-          <div className="flex max-w-[280px] flex-col items-center gap-2 text-muted-foreground">
+          <div className="flex max-w-70 flex-col items-center gap-2 text-muted-foreground">
             <Spinner />
             <strong className="mt-1.5 text-sm text-foreground">
               {t("poster.generating")}
@@ -150,7 +150,7 @@ function EmptyOutputState({
     : t("poster.emptyOutputDescription")
 
   return (
-    <div className="flex max-w-[280px] flex-col items-center gap-2.5 px-6 text-center text-muted-foreground/55">
+    <div className="flex max-w-70 flex-col items-center gap-2.5 px-6 text-center text-muted-foreground/55">
       <Disc3Icon
         className="mb-1 size-9 stroke-[1.25]"
         aria-hidden="true"
@@ -208,7 +208,7 @@ function OutputActions() {
   }
 
   return (
-    <div className="flex flex-wrap gap-2 pt-3.5 max-sm:[&>*]:flex-[1_1_100%]">
+    <div className="flex flex-wrap gap-2 pt-3.5 max-sm:*:flex-[1_1_100%]">
       <a
         className={buttonVariants({ size: "lg" })}
         href={output.url}
