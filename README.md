@@ -2,79 +2,71 @@
 
 # BeatPrints Web
 
-**把喜欢的音乐，留下纸面的形状。**
+**Give your favorite music a physical form.**
 
-从真实音乐目录中找到准确的歌曲或专辑，挑选歌词与平台入口，生成一张可以下载、收藏或打印的 PNG 海报。
+Find the exact track or album from real music catalogs, pick lyric lines and platform destinations, and generate high-resolution PNG posters ready to download, collect, or print.
 
-[BeatPrints Web](https://github.com/sdrpsps/beatprints-web) 基于
-[TrueMyst / elysianmyst 的 BeatPrints](https://github.com/TrueMyst/BeatPrints) 构建：
-原项目负责音乐海报的核心排版与渲染，本项目为它补充了 Web 创作界面、HTTP API、音乐目录集成和自部署能力。
+[BeatPrints Web](https://github.com/sdrpsps/beatprints-web) is built on top of
+[BeatPrints by TrueMyst / elysianmyst](https://github.com/TrueMyst/BeatPrints):
+the upstream project provides the core poster typography and rendering engine, while this project adds a modern web creation interface, an HTTP API, multi-platform music catalog integrations, and self-hosting capabilities.
 
-[快速开始](#快速开始) · [Docker 部署](#docker-部署) · [API 文档](apps/api/README.md) · [前端开发](apps/web/README.md)
+[English](README.md) · [简体中文](README.zh-CN.md)
+
+[Quick Start](#quick-start) · [Docker Deployment](#docker-deployment) · [API Documentation](apps/api/README.md) · [Frontend Guide](apps/web/README.md)
 
 </div>
 
-![BeatPrints Web 产品界面](https://us1.workspace.org/d/v2/yaikbaKQV0odeVqFeJ1su6GLxtf2aX-x/2BK7NEM3R11V)
+![BeatPrints Web Interface](https://us1.workspace.org/d/v2/yaikbaKQV0odeVqFeJ1su6GLxtf2aX-x/2BK7NEM3R11V)
 
-## 与原始 BeatPrints 的关系
+## Relationship with Upstream BeatPrints
 
-[BeatPrints](https://github.com/TrueMyst/BeatPrints) 是由 TrueMyst / elysianmyst
-创作的音乐海报生成器，定义了海报的版式、主题、字体、调色板与最终 PNG 渲染方式。
-本项目直接使用 BeatPrints 生成器，不是一个无关的同名项目，也没有重新实现它的核心设计。
+[BeatPrints](https://github.com/TrueMyst/BeatPrints) is a music poster generator created by TrueMyst (@elysianmyst), defining the poster layout, typography, themes, color palettes, and PNG rendering pipeline.
+This project directly utilizes the upstream BeatPrints generator—it is neither an unrelated project with the same name nor a reimplementation of its core design.
 
-BeatPrints Web 在原生成器之外补充了：
+BeatPrints Web extends the upstream generator by providing:
 
-- 可以在浏览器中完成整个创作流程的 React 界面；
-- 用于搜索音乐、读取歌词和生成海报的 FastAPI 服务；
-- QQ 音乐、网易云音乐、Spotify 与多个二维码目标平台的目录集成；
-- Docker Compose、统一生产镜像和自动发布工具。
+- A responsive React web interface to complete the entire poster creation flow in your browser;
+- A FastAPI backend service for searching music catalogs, fetching lyrics, and rendering posters;
+- Multi-source catalog integrations (QQ Music, NetEase Cloud Music, Spotify) and QR destination resolution;
+- Production-ready Docker Compose configurations, unified multi-architecture container images, and automated release workflows.
 
-如果你只需要原始生成器，或想了解海报排版能力本身，请访问
-[TrueMyst/BeatPrints](https://github.com/TrueMyst/BeatPrints)。如果你希望通过浏览器使用
-BeatPrints，或者把它作为 HTTP 服务部署，则可以直接使用本项目。
+If you only need the CLI generator or want to explore the underlying poster typography engine, please visit [TrueMyst/BeatPrints](https://github.com/TrueMyst/BeatPrints). If you want to use BeatPrints in a web browser or deploy it as an HTTP service, you can use this project directly.
 
-## BeatPrints 是什么
+## What is BeatPrints Web
 
-BeatPrints Web 是原始 BeatPrints 的可自部署 Web 使用方式。它不生成虚构的音乐内容，
-而是从 QQ 音乐、网易云音乐或 Spotify 获取真实的封面与曲目信息，让你确认准确版本后，再调用
-BeatPrints 完成海报渲染。
+BeatPrints Web is a self-hostable web application built on top of the original BeatPrints. Rather than generating fictitious content, it fetches authentic cover artwork and track metadata from QQ Music, NetEase Cloud Music, or Spotify, allowing you to select and confirm the exact release before invoking BeatPrints to render the final poster.
 
-一次单曲海报的创作过程很简单：
+The creation flow for a track poster is straightforward:
 
 ```text
-搜索歌曲 → 选择准确版本 → 可选最多四行歌词 → 可选一个平台入口 → 调整外观 → 下载 PNG
+Search track → Select exact release → Optionally pick up to 4 lyric lines → Optionally choose a platform destination → Adjust styling → Download PNG
 ```
 
-专辑海报沿用相同的创作方式，并提供曲目编号与随机排序选项。生成结果由浏览器直接接收，
-服务端不会保存你的海报。
+Album posters follow the same creation flow, with additional options for track indexing and tracklist shuffling. Generated posters are streamed directly to the browser; the server stores no poster images.
 
 > [!IMPORTANT]
-> 音乐资料来源与海报平台入口是两件不同的事。`provider` 决定从 QQ 音乐、网易云音乐或 Spotify
-> 获取元数据；`qr_platform` 只决定海报是否带有 Spotify、Apple Music、QQ 音乐或
-> 网易云音乐入口。不选择平台时，海报不会显示平台标识或二维码。
+> **Metadata source** and **Poster platform destination** are two independent concepts: `provider` determines where catalog metadata is fetched from (QQ Music, NetEase Cloud Music, or Spotify), while `qr_platform` determines whether the poster includes a scannable code/link for Spotify, Apple Music, QQ Music, or NetEase Cloud Music. If no platform is selected, the poster will not display any platform mark or QR code.
 
-## 功能
+## Features
 
-- **精确选择音乐版本**：搜索歌曲或专辑，并用封面、艺人、发行信息与时长确认结果。
-- **编辑歌词内容**：单曲海报可选择零至四行歌词，也可以手动填写。
-- **添加平台入口**：可选 Spotify Code，或 Apple Music、QQ 音乐、网易云音乐二维码。
-- **跨平台谨慎匹配**：优先使用 ISRC 等稳定标识；无法确认时展示候选项或接受手动链接，
-  不会静默选择一个相似结果。
-- **定制海报外观**：支持 Light、Dark、Catppuccin、Gruvbox、Nord、RosePine 与
-  Everforest 主题，以及封面强调色。
-- **单曲与专辑海报**：专辑海报额外支持曲目编号和随机曲序。
-- **多语言界面**：简体中文、繁體中文与 English。
-- **Web 与 API 一体部署**：生产镜像同时提供前端静态资源和 FastAPI 服务。
+- **Precise Release Selection**: Search for tracks or albums and verify the exact release with cover artwork, artist credits, release dates, and duration.
+- **Lyric Selection & Editing**: Select 0 to 4 lyric lines for track posters, or input custom lyrics manually.
+- **Scannable Platform Destinations**: Add an authentic Spotify Code, or a QR code for Apple Music, QQ Music, or NetEase Cloud Music.
+- **Conservative Cross-Platform Matching**: Prioritizes stable identifiers (e.g., ISRC); falls back to ranked candidates or manual URL resolution when ambiguous—never silently chooses a weak match.
+- **Customizable Appearance**: Choose from curated themes (Light, Dark, Catppuccin, Gruvbox, Nord, RosePine, Everforest) and optional cover-extracted accent colors.
+- **Track & Album Modes**: Create posters for individual tracks or full albums, with album-specific options for track indexing and tracklist shuffling.
+- **Multilingual Interface**: Full i18n support for English, Simplified Chinese, and Traditional Chinese.
+- **All-in-One Deployment**: A single unified container image serves both the React static frontend and the FastAPI backend.
 
-## 快速开始
+## Quick Start
 
-### 环境要求
+### Prerequisites
 
 - Python 3.14
 - [uv](https://docs.astral.sh/uv/)
 - pnpm 11
 
-### 本地开发
+### Local Development
 
 ```bash
 git clone https://github.com/sdrpsps/beatprints-web.git
@@ -85,37 +77,36 @@ make setup
 make dev
 ```
 
-启动后可以访问：
+Once started, you can access:
 
-- Web：<http://localhost:5173>
-- API：<http://localhost:8000>
-- OpenAPI：<http://localhost:8000/docs>
+- Web: <http://localhost:5173>
+- API: <http://localhost:8000>
+- OpenAPI Docs: <http://localhost:8000/docs>
 
-Spotify 搜索是可选能力。需要时，在 `.env` 中配置
-`SPOTIFY_CLIENT_ID` 和 `SPOTIFY_CLIENT_SECRET`；未配置时仍可使用 QQ 音乐或网易云音乐。
+Spotify search is optional. When needed, configure `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` in `.env`; without Spotify credentials, QQ Music and NetEase Cloud Music search remain fully functional.
 
-### 常用命令
+### Common Commands
 
 ```bash
-make help         # 查看全部命令
-make dev          # 同时启动 API 与 Web
-make dev:api      # 只启动 FastAPI
-make dev:web      # 只启动 Vite
-make test:api     # 运行 API 测试
-make lint:api     # 检查 Python 格式
-make build        # 构建 API 与 Web
+make help         # View all available make targets
+make dev          # Start both API and Web concurrently
+make dev:api      # Start FastAPI backend only
+make dev:web      # Start Vite frontend only
+make test:api     # Run API tests
+make lint:api     # Run Python code formatting and lint checks
+make build        # Build both API and Web
 ```
 
-前端的完整质量检查：
+Full frontend verification:
 
 ```bash
 pnpm --filter @beatprints/web lint
 pnpm --filter @beatprints/web build
 ```
 
-## Docker 部署
+## Docker Deployment
 
-项目提供单容器部署：前端构建产物由 FastAPI 一并提供，对外只需要暴露 `8000` 端口。
+This project provides a single-container deployment where frontend static assets are bundled and served directly by FastAPI, exposing only port `8000`.
 
 ```bash
 cp .env.example .env
@@ -123,13 +114,13 @@ docker compose up -d --build
 docker compose ps
 ```
 
-检查服务：
+Check service health:
 
 ```bash
 curl http://localhost:8000/health
 ```
 
-更新与查看日志：
+Update and view logs:
 
 ```bash
 git pull
@@ -137,67 +128,64 @@ docker compose up -d --build
 docker compose logs -f beatprints-api
 ```
 
-建议将 Nginx、Caddy 或 Traefik 反向代理到容器的 `8000` 端口。生成一张
-`2280 × 3480` 海报会占用较多内存；1 GB 内存的服务器建议保持：
+We recommend using Nginx, Caddy, or Traefik as a reverse proxy targeting container port `8000`. Rendering a `2280 × 3480` high-resolution poster consumes significant memory; for a server with 1 GB RAM, we recommend keeping the default concurrency settings:
 
 ```dotenv
 WEB_CONCURRENCY=1
 MAX_CONCURRENT_JOBS=1
 ```
 
-### 鉴权说明
+### Authentication
 
-`API_KEY` 留空时，Web 界面与 API 均可公开访问。设置 `API_KEY` 后，受保护的 `/v1`
-接口需要 Bearer Token。
+When `API_KEY` is left blank, both the web interface and API endpoints are publicly accessible. When `API_KEY` is configured, protected `/v1` endpoints require a Bearer Token.
 
-不要把长期 API Key 写进公开的 Vite 前端。需要鉴权的线上部署，应在应用前增加登录层、
-后端代理或其他访问控制；也可以在充分配置限流与滥用防护后，有意识地公开 API。
+Do not embed a long-lived API key into a publicly accessible Vite frontend build. For production deployments requiring access control, add an authentication layer, reverse proxy, or API gateway in front of the application. If making the API public, ensure proper rate limiting and abuse prevention are configured.
 
-## 配置
+## Configuration
 
-主要环境变量记录在 [`.env.example`](.env.example)：
+Key environment variables are documented in [`.env.example`](.env.example):
 
-| 变量 | 用途 | 默认值 |
+| Variable | Description | Default |
 | --- | --- | --- |
-| `PORT` | API 监听端口 | `8000` |
-| `API_KEY` | `/v1` 接口的可选 Bearer Token | 留空 |
-| `CORS_ORIGINS` | 允许访问 API 的前端来源，多个值用逗号分隔 | 留空 |
-| `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | 启用 Spotify 搜索 | 留空 |
-| `SPOTIFY_MARKET` | Spotify 市场 | `US` |
-| `APPLE_MUSIC_STOREFRONT` | Apple Music storefront | `US` |
-| `METADATA_CACHE_TTL_SECONDS` | 元数据缓存时间 | `600` |
-| `MAX_CONCURRENT_JOBS` | 单进程同时生成海报的数量 | `1` |
+| `PORT` | API listen port | `8000` |
+| `API_KEY` | Optional Bearer Token for `/v1` endpoints | Blank |
+| `CORS_ORIGINS` | Allowed CORS origins, comma-separated | Blank |
+| `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | Enable Spotify search and metadata | Blank |
+| `SPOTIFY_MARKET` | Spotify market code | `US` |
+| `APPLE_MUSIC_STOREFRONT` | Apple Music storefront code | `US` |
+| `METADATA_CACHE_TTL_SECONDS` | Metadata cache expiration time in seconds | `600` |
+| `MAX_CONCURRENT_JOBS` | Maximum concurrent poster rendering jobs per worker | `1` |
 
-## 项目结构
+## Project Structure
 
 ```text
 .
 ├── apps/
-│   ├── api/          # FastAPI、音乐目录集成与海报生成
-│   └── web/          # React、Vite、Tailwind CSS 与 shadcn/ui
-├── docs/             # 产品流程与集成说明
-├── packages/         # 前端共享包
-├── Makefile          # 开发、测试、构建与部署入口
-├── pyproject.toml    # Python 项目与依赖
+│   ├── api/          # FastAPI backend, music catalog integrations, and poster rendering
+│   └── web/          # React, Vite, Tailwind CSS, and shadcn/ui frontend
+├── docs/             # Product flows and architecture documentation
+├── packages/         # Shared frontend packages
+├── Makefile          # Unified development, testing, build, and deployment targets
+├── pyproject.toml    # Python project configuration and dependencies
 ├── pnpm-workspace.yaml
 └── docker-compose.yml
 ```
 
-依赖边界：
+Dependency boundaries:
 
-- Python 依赖由根目录 `pyproject.toml` 与 `uv.lock` 管理。
-- Web 依赖由 pnpm workspace 与 `pnpm-lock.yaml` 管理。
-- Makefile 只负责编排跨应用命令。
+- Python dependencies are managed in the root `pyproject.toml` and locked via `uv.lock`.
+- Web dependencies are managed via pnpm workspace and `pnpm-lock.yaml`.
+- The `Makefile` orchestrates unified cross-package commands.
 
-进一步阅读：
+Further reading:
 
-- [前端开发指南](apps/web/README.md)
-- [API 部署与调用示例](apps/api/README.md)
-- [前端产品流程与 API 映射](docs/frontend-product-brief.md)
+- [Frontend Development Guide](apps/web/README.md)
+- [API Deployment & Examples](apps/api/README.md)
+- [Frontend Product Journey & API Mapping](docs/frontend-product-brief.md)
 
-## API
+## API Overview
 
-除了成功返回 PNG 的海报生成接口，JSON 响应统一使用：
+Except for poster rendering endpoints that directly return `image/png`, all JSON responses follow a consistent envelope:
 
 ```json
 {
@@ -207,7 +195,7 @@ MAX_CONCURRENT_JOBS=1
 }
 ```
 
-主要接口包括：
+Primary endpoints include:
 
 ```http
 GET  /v1/search
@@ -217,28 +205,24 @@ POST /v1/posters/track
 POST /v1/posters/album
 ```
 
-完整的请求字段、跨平台匹配方式、错误结构与 `curl` 示例请查看
-[BeatPrints API 文档](apps/api/README.md)，或在服务启动后打开 `/docs`。
+For complete request schemas, cross-platform matching logic, error handling, and `curl` examples, please refer to the [BeatPrints API Documentation](apps/api/README.md) or visit `/docs` after launching the server.
 
-## 构建与发布
+## Build & Release
 
-GitHub Actions 会构建同时包含 Web 与 API 的多架构镜像：
+GitHub Actions automatically builds multi-architecture container images containing both the Web UI and API:
 
 ```text
 ghcr.io/sdrpsps/beatprints-web:latest
 ```
 
-- Pull Request 会构建 `linux/amd64` 镜像进行验证，但不会推送。
-- `vX.Y.Z` tag 会发布 `linux/amd64` 与 `linux/arm64` 镜像。
-- Release Please 根据 Conventional Commits 维护版本、变更日志与 GitHub Release。
+- Pull Requests build `linux/amd64` images for CI validation without pushing.
+- `vX.Y.Z` tags publish both `linux/amd64` and `linux/arm64` images.
+- Release Please maintains semantic versions, changelogs, and GitHub Releases based on Conventional Commits.
 
-版本规则为：`fix:` 递增 patch，`feat:` 递增 minor，带 `!` 或
-`BREAKING CHANGE:` 的提交递增 major。
+Versioning follows standard rules: `fix:` bumps patch, `feat:` bumps minor, and commits containing `!` or `BREAKING CHANGE:` bump major.
 
-## 致谢与许可
+## Attribution & License
 
-本项目基于 TrueMyst / elysianmyst 创作的
-[BeatPrints](https://github.com/TrueMyst/BeatPrints) 构建，并保留对原项目的署名。
+This project is built on top of [BeatPrints](https://github.com/TrueMyst/BeatPrints) created by TrueMyst / elysianmyst, with all original attribution preserved.
 
-项目采用 [CC BY-NC-SA 4.0](LICENSE) 许可，仅供非商业使用。使用、分发或创建衍生作品时，
-请保留署名并以相同许可共享；商业使用前请先取得原作者授权。
+This project is licensed under [CC BY-NC-SA 4.0](LICENSE) for non-commercial use only. When using, distributing, or creating derivative works, please retain attribution and share under the same license; obtain commercial authorization from the original author prior to any commercial use.
