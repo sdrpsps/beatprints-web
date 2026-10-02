@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.1](https://github.com/sdrpsps/beatprints-web/compare/v1.3.0...v1.3.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* harden poster generation, history and cover downloads ([0913ae5](https://github.com/sdrpsps/beatprints-web/commit/0913ae58c64e5aa8909b8a9c84bf6410cf4d6802))
+* harden poster generation, history and cover downloads ([fcd2c11](https://github.com/sdrpsps/beatprints-web/commit/fcd2c113ec8e6eb72253e2057dc11d90c07bf450))
+
 ## [1.3.0](https://github.com/sdrpsps/beatprints-web/compare/v1.2.1...v1.3.0) (2026-08-16)
 
 
