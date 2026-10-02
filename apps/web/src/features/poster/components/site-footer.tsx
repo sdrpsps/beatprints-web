@@ -1,4 +1,4 @@
-import { Code2Icon, ExternalLinkIcon } from "lucide-react"
+import { BotIcon, Code2Icon, ExternalLinkIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import { buildInfo } from "@/lib/build-info"
@@ -16,7 +16,16 @@ export function SiteFooter() {
           {buildInfo.version} · {buildInfo.shortGitSha}
         </p>
       </div>
-      <div className="flex items-center gap-[22px] max-sm:flex-col max-sm:items-start max-sm:gap-3">
+      <div className="flex flex-wrap items-center justify-end gap-[22px] [&>a]:whitespace-nowrap max-sm:flex-col max-sm:items-start max-sm:gap-3">
+        <a
+          className="inline-flex items-center gap-[7px] rounded-sm text-[13px] text-muted-foreground no-underline outline-offset-4 transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring motion-reduce:transition-none [&_svg]:size-3.5"
+          href="/llms.txt"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <BotIcon aria-hidden="true" />
+          {t("app.footerAgentGuide")}
+        </a>
         <a
           className="inline-flex items-center gap-[7px] text-[13px] text-muted-foreground no-underline transition-colors duration-150 hover:text-foreground motion-reduce:transition-none [&_svg]:size-3.5"
           href="https://github.com/sdrpsps/beatprints-web"

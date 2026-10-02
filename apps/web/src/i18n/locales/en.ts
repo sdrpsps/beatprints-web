@@ -18,6 +18,7 @@ export const en = {
     studioSectionBadge: "COMPOSE / PRINT / KEEP",
     footerDisclaimer:
       "Made for non-commercial music collections and personal expression.",
+    footerAgentGuide: "AI Guide",
     footerSourceCode: "Source Code",
     footerUpstreamGenerator: "Upstream Generator",
   },
