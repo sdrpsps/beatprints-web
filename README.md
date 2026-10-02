@@ -16,7 +16,7 @@ the upstream project provides the core poster typography and rendering engine, w
 
 </div>
 
-![BeatPrints Web Interface](https://us1.workspace.org/d/v2/yaikbaKQV0odeVqFeJ1su6GLxtf2aX-x/2BK7NEM3R11V)
+![BeatPrints Web Interface](https://i.imgur.com/N4vE3QJ.jpg)
 
 ## Relationship with Upstream BeatPrints
 

@@ -22,6 +22,7 @@ export const en = {
     footerUpstreamGenerator: "Upstream Generator",
   },
   poster: {
+    historySaveFailed: "Poster created, but it could not be saved to history.",
     brand: "BeatPrints Web",
     tagline: "Turn your favorite music into a poster",
     heroTitle: "Let a song,\ntake shape on paper.",

@@ -17,8 +17,7 @@ import {
   lyricsAreReady,
   nonemptyLines,
 } from "@/features/poster/lyrics-utils"
-import { friendlyError } from "@/features/poster/poster-errors"
-import { platformUrlError } from "@/features/poster/use-platform-link-flow"
+import { friendlyError, platformUrlError } from "@/features/poster/poster-errors"
 import type { LyricsSource } from "@/features/poster/lyrics/types"
 import type {
   CatalogProvider,
@@ -45,6 +44,7 @@ let searchAbort: AbortController | null = null
 let lyricsAbort: AbortController | null = null
 let platformAbort: AbortController | null = null
 let generationAbort: AbortController | null = null
+let editVersion = 0
 
 export type PosterState = {
   // Preferences
@@ -143,6 +143,45 @@ const defaultProvider =
   defaultSources.find((source) => source.default)?.key ?? defaultSources[0]?.key ?? ""
 const lyricSources = enabledLyricsSources()
 
+const emptyLyrics = {
+  lyricsSource: undefined,
+  lyricsState: "idle" as const,
+  lyricsError: undefined,
+  lyrics: [] as LyricsLine[],
+  instrumental: false,
+  lyricsMode: "catalog" as const,
+  selectedLines: [] as number[],
+  lyricEdits: {} as Record<number, string>,
+  manualLyrics: "",
+  instrumentalText: "",
+}
+const emptyPlatform = {
+  qrPlatform: "",
+  platformUrl: "",
+  platformChoiceMode: "automatic" as const,
+  platformMatchState: "idle" as const,
+  platformMatch: undefined,
+  platformMatchError: undefined,
+  platformManualState: "idle" as const,
+  platformManualMatch: undefined,
+  platformManualError: undefined,
+  platformCandidateState: "idle" as const,
+  platformCandidates: [] as PlatformLinkMatch[],
+  platformCandidateError: undefined,
+  platformCandidateResolvingUrl: undefined,
+}
+
+function selectedLyrics(state: PosterState) {
+  return state.lyrics
+    .filter((line) => state.selectedLines.includes(line.index))
+    .map((line) => (state.lyricEdits[line.index] ?? line.text).trim())
+}
+
+function needsPlatformUrl(state: PosterState) {
+  return Boolean(state.qrPlatform) &&
+    !getDestination(state.qrPlatform)?.reusesSourceLink(state.selected?.provider ?? "")
+}
+
 export const usePosterStore = create<PosterState>((set, get) => ({
   // Preferences
   kind: "track",
@@ -150,29 +189,14 @@ export const usePosterStore = create<PosterState>((set, get) => ({
   accent: false,
   setKind: (kind) => {
     if (kind === get().kind) return
-    get().markOutputStale()
     searchAbort?.abort()
     lyricsAbort?.abort()
-    platformAbort?.abort()
+    generationAbort?.abort()
+    get().clearPlatform()
     set({
-      kind,
-      query: "",
-      searchResults: [],
-      searchState: "idle",
-      searchError: undefined,
-      selected: undefined,
-      lyricsState: "idle",
-      lyrics: [],
-      selectedLines: [],
-      lyricEdits: {},
-      lyricsSource: undefined,
-      manualLyrics: "",
-      instrumentalText: "",
-      qrPlatform: "",
-      platformUrl: "",
-      platformChoiceMode: "automatic",
-      platformMatch: undefined,
-      platformCandidates: [],
+      ...emptyLyrics, kind, selected: undefined,
+      query: "", searchResults: [], searchState: "idle", searchError: undefined,
+      generationState: get().output ? "success" : "idle",
     })
   },
   setTheme: (theme) => {
@@ -194,7 +218,8 @@ export const usePosterStore = create<PosterState>((set, get) => ({
   setQuery: (query) => set({ query }),
   setProvider: (provider, t) => {
     if (!provider || provider === get().provider) return
-    set({ provider })
+    searchAbort?.abort()
+    set({ provider, searchResults: [], searchState: "idle", searchError: undefined })
     if (get().selected) {
       get().markOutputStale()
       get().resetSelection()
@@ -232,16 +257,11 @@ export const usePosterStore = create<PosterState>((set, get) => ({
     }
   },
   selectResult: (result, t) => {
+    lyricsAbort?.abort()
+    generationAbort?.abort()
     get().markOutputStale()
     get().clearPlatform()
-    set({
-      selected: result,
-      selectedLines: [],
-      lyricEdits: {},
-      lyricsMode: "catalog",
-      manualLyrics: "",
-      instrumentalText: "",
-    })
+    set({ ...emptyLyrics, selected: result, generationState: "idle" })
 
     if (get().kind === "track") {
       const defaultLyricSource =
@@ -251,32 +271,15 @@ export const usePosterStore = create<PosterState>((set, get) => ({
     }
   },
   resetSelection: () => {
+    lyricsAbort?.abort()
     get().clearPlatform()
     get().clearOutput()
-    set({
-      selected: undefined,
-      selectedLines: [],
-      lyricEdits: {},
-      lyrics: [],
-      lyricsState: "idle",
-      lyricsError: undefined,
-      manualLyrics: "",
-      instrumentalText: "",
-    })
+    set({ ...emptyLyrics, selected: undefined })
   },
 
   // Lyrics
   lyricsSources: lyricSources,
-  lyricsSource: undefined,
-  lyricsState: "idle",
-  lyricsError: undefined,
-  lyrics: [],
-  instrumental: false,
-  lyricsMode: "catalog",
-  selectedLines: [],
-  lyricEdits: {},
-  manualLyrics: "",
-  instrumentalText: "",
+  ...emptyLyrics,
   setLyricsSource: (source, t) => {
     set({ lyricsSource: source, selectedLines: [], lyricEdits: {} })
     get().markOutputStale()
@@ -295,7 +298,7 @@ export const usePosterStore = create<PosterState>((set, get) => ({
       return false
     }
     const nextLines = checked
-      ? [...selectedLines, index]
+      ? [...new Set([...selectedLines, index])]
       : selectedLines.filter((val) => val !== index)
     get().markOutputStale()
     set({ selectedLines: nextLines })
@@ -354,64 +357,18 @@ export const usePosterStore = create<PosterState>((set, get) => ({
   },
 
   // Platform Links
-  qrPlatform: "",
-  platformUrl: "",
-  platformChoiceMode: "automatic",
-  platformMatchState: "idle",
-  platformMatch: undefined,
-  platformMatchError: undefined,
-  platformManualState: "idle",
-  platformManualMatch: undefined,
-  platformManualError: undefined,
-  platformCandidateState: "idle",
-  platformCandidates: [],
-  platformCandidateError: undefined,
-  platformCandidateResolvingUrl: undefined,
+  ...emptyPlatform,
   clearPlatform: () => {
     platformAbort?.abort()
-    set({
-      qrPlatform: "",
-      platformUrl: "",
-      platformChoiceMode: "automatic",
-      platformMatchState: "idle",
-      platformMatch: undefined,
-      platformMatchError: undefined,
-      platformManualState: "idle",
-      platformManualMatch: undefined,
-      platformManualError: undefined,
-      platformCandidateState: "idle",
-      platformCandidates: [],
-      platformCandidateError: undefined,
-      platformCandidateResolvingUrl: undefined,
-    })
+    get().markOutputStale()
+    set(emptyPlatform)
   },
   setQrPlatform: (value, t) => {
-    platformAbort?.abort()
-    get().markOutputStale()
-    set({
-      qrPlatform: value,
-      platformUrl: "",
-      platformChoiceMode: "automatic",
-      platformMatchState: "idle",
-      platformMatch: undefined,
-      platformMatchError: undefined,
-      platformManualState: "idle",
-      platformManualMatch: undefined,
-      platformManualError: undefined,
-      platformCandidateState: "idle",
-      platformCandidates: [],
-      platformCandidateError: undefined,
-      platformCandidateResolvingUrl: undefined,
-    })
+    get().clearPlatform()
+    set({ qrPlatform: value })
 
     const selected = get().selected
     if (!value || !selected) return
-
-    const destination = getDestination(value)
-    if (destination?.reusesSourceLink(selected.provider)) {
-      set({ platformUrl: selected.link, platformMatchState: "success" })
-      return
-    }
 
     // Auto-fetch options
     const controller = new AbortController()
@@ -460,6 +417,7 @@ export const usePosterStore = create<PosterState>((set, get) => ({
     })()
   },
   setPlatformUrl: (url) => {
+    platformAbort?.abort()
     get().markOutputStale()
     set({
       platformUrl: url,
@@ -469,9 +427,14 @@ export const usePosterStore = create<PosterState>((set, get) => ({
     })
   },
   showPlatformCandidates: (t) => {
-    const { qrPlatform, selected, kind } = get()
+    const { qrPlatform, selected, kind, platformCandidateState } = get()
     if (!qrPlatform || !selected) return
     get().markOutputStale()
+    if (platformCandidateState === "success") {
+      platformAbort?.abort()
+      set({ platformChoiceMode: "candidates", platformCandidateError: undefined, platformCandidateResolvingUrl: undefined })
+      return
+    }
     set({
       platformChoiceMode: "candidates",
       platformCandidateState: "loading",
@@ -507,17 +470,18 @@ export const usePosterStore = create<PosterState>((set, get) => ({
   },
   showManualPlatformLink: () => {
     platformAbort?.abort()
+    get().markOutputStale()
     set({
       platformChoiceMode: "manual",
       platformManualState: "idle",
       platformManualMatch: undefined,
       platformManualError: undefined,
-      platformCandidateState: "idle",
-      platformCandidates: [],
+      platformCandidateState: get().platformCandidateState === "loading" ? "idle" : get().platformCandidateState,
+      platformCandidateResolvingUrl: undefined,
     })
   },
   resolveManualPlatformUrl: async (t) => {
-    const { qrPlatform, platformUrl } = get()
+    const { qrPlatform, platformUrl, kind } = get()
     if (!qrPlatform) return
 
     const error = platformUrlError(qrPlatform, platformUrl, t)
@@ -527,9 +491,10 @@ export const usePosterStore = create<PosterState>((set, get) => ({
     }
 
     platformAbort?.abort()
+    get().markOutputStale()
     const controller = new AbortController()
     platformAbort = controller
-    set({ platformManualState: "loading", platformManualError: undefined })
+    set({ platformManualState: "loading", platformManualMatch: undefined, platformManualError: undefined })
 
     try {
       const match = await resolvePlatformUrl(
@@ -538,6 +503,11 @@ export const usePosterStore = create<PosterState>((set, get) => ({
         controller.signal,
       )
       if (controller.signal.aborted) return
+      if (match.type !== kind) {
+        set({ platformManualState: "error", platformManualError: t("poster.errors.platformCandidateType") })
+        return
+      }
+      get().markOutputStale()
       set({
         platformUrl: match.url,
         platformManualMatch: match,
@@ -581,8 +551,6 @@ export const usePosterStore = create<PosterState>((set, get) => ({
         platformMatch: match,
         platformMatchState: "success",
         platformChoiceMode: "automatic",
-        platformCandidateState: "idle",
-        platformCandidates: [],
       })
     } catch (cause) {
       if (!controller.signal.aborted) {
@@ -615,12 +583,15 @@ export const usePosterStore = create<PosterState>((set, get) => ({
   output: undefined,
   outputStale: false,
   markOutputStale: () => {
+    editVersion += 1
     set((state) => ({
       generationError: undefined,
       outputStale: state.outputStale || Boolean(state.output),
     }))
   },
   clearOutput: () => {
+    generationAbort?.abort()
+    editVersion += 1
     const current = get().output
     if (current) URL.revokeObjectURL(current.url)
     set({
@@ -631,6 +602,7 @@ export const usePosterStore = create<PosterState>((set, get) => ({
     })
   },
   showOutput: (newOutput) => {
+    generationAbort?.abort()
     const current = get().output
     if (current && current.url !== newOutput.url) {
       URL.revokeObjectURL(current.url)
@@ -644,7 +616,8 @@ export const usePosterStore = create<PosterState>((set, get) => ({
   },
   generate: async (t) => {
     const state = get()
-    if (!state.selected) return
+    if (!state.selected || !selectCanGenerate(state)) return
+    const version = editVersion
 
     generationAbort?.abort()
     const controller = new AbortController()
@@ -656,21 +629,10 @@ export const usePosterStore = create<PosterState>((set, get) => ({
       outputStale: Boolean(state.output),
     })
 
-    const selectedLyricsText = state.lyrics
-      .filter((line) => state.selectedLines.includes(line.index))
-      .map((line) => (state.lyricEdits[line.index] ?? line.text).trim())
-      .join("\n")
-
-    const finalLyricsText =
-      state.lyricsMode === "catalog"
-        ? selectedLyricsText
-        : nonemptyLines(state.manualLyrics).join("\n")
-
-    const destination = state.qrPlatform ? getDestination(state.qrPlatform) : null
-    const platformNeedsUrl =
-      Boolean(state.qrPlatform) &&
-      Boolean(state.selected) &&
-      !destination?.reusesSourceLink(state.selected?.provider ?? "")
+    const finalLyricsText = state.lyricsMode === "catalog"
+      ? selectedLyrics(state).join("\n")
+      : nonemptyLines(state.manualLyrics).join("\n")
+    const platformNeedsUrl = needsPlatformUrl(state)
 
     const request = {
       provider: state.selected.provider,
@@ -679,13 +641,13 @@ export const usePosterStore = create<PosterState>((set, get) => ({
       accent: state.accent,
       ...(state.kind === "track"
         ? state.instrumental
-          ? { instrumental_text: state.instrumentalText.trim() }
+          ? { lyrics: state.instrumentalText.trim(), instrumental_text: state.instrumentalText.trim() }
           : { lyrics: finalLyricsText }
         : { indexing: state.indexing, shuffle: state.shuffle }),
       ...(state.qrPlatform
         ? {
             qr_platform: state.qrPlatform,
-            ...(platformNeedsUrl
+            ...(platformNeedsUrl || state.platformUrl.trim()
               ? {
                   platform_links: {
                     [state.qrPlatform]: state.platformUrl.trim(),
@@ -709,11 +671,8 @@ export const usePosterStore = create<PosterState>((set, get) => ({
         blob: result.blob,
       }
 
-      set({
-        output: nextOutput,
-        generationState: "success",
-        outputStale: false,
-      })
+      get().showOutput(nextOutput)
+      set({ outputStale: version !== editVersion })
 
       // Automatically add to history
       const historyItem: PosterHistoryItem = {
@@ -736,6 +695,7 @@ export const usePosterStore = create<PosterState>((set, get) => ({
           catalogId: state.selected.id,
           selectedItem: state.selected,
           lyrics: state.kind === "track" && !state.instrumental ? finalLyricsText : undefined,
+          instrumental: state.kind === "track" && state.instrumental,
           instrumentalText: state.kind === "track" && state.instrumental ? state.instrumentalText : undefined,
           qrPlatform: state.qrPlatform || undefined,
           platformUrl: state.platformUrl || undefined,
@@ -743,8 +703,11 @@ export const usePosterStore = create<PosterState>((set, get) => ({
           shuffle: state.shuffle,
         },
       }
-      await saveHistoryItem(historyItem)
-      void get().loadHistory()
+      if (await saveHistoryItem(historyItem)) {
+        void get().loadHistory()
+      } else {
+        toast.add({ type: "error", title: t("poster.historySaveFailed") })
+      }
     } catch (error) {
       if (controller.signal.aborted) return
       set({
@@ -769,51 +732,43 @@ export const usePosterStore = create<PosterState>((set, get) => ({
     }
   },
   removeHistoryItem: async (id) => {
-    await deleteHistoryItem(id)
+    if (!await deleteHistoryItem(id)) return
     set((state) => ({
       historyItems: state.historyItems.filter((item) => item.id !== id),
     }))
   },
   clearAllHistory: async () => {
-    await clearAllHistory()
+    if (!await clearAllHistory()) return
     set({ historyItems: [] })
   },
   restoreFromHistory: (item, t) => {
+    searchAbort?.abort()
+    get().resetSelection()
+    const snapshot = item.snapshot
     set({
       kind: item.kind,
       theme: item.theme,
       accent: item.accent,
+      provider: snapshot?.selectedItem?.provider ?? defaultProvider,
+      selected: snapshot?.selectedItem,
+      query: "",
+      searchResults: [],
+      searchState: "idle",
+      searchError: undefined,
+      lyricsMode: "manual",
+      manualLyrics: snapshot?.lyrics ?? "",
+      instrumental: snapshot?.instrumental ?? (snapshot?.instrumentalText !== undefined),
+      instrumentalText: snapshot?.instrumentalText ?? "",
+      indexing: snapshot?.indexing ?? false,
+      shuffle: snapshot?.shuffle ?? false,
     })
-
-    if (item.snapshot?.selectedItem) {
-      set({ selected: item.snapshot.selectedItem })
-    }
-
-    if (item.kind === "track") {
-      if (item.snapshot?.instrumentalText) {
-        set({ instrumentalText: item.snapshot.instrumentalText })
+    if (snapshot?.qrPlatform && getDestination(snapshot.qrPlatform) && snapshot.selectedItem) {
+      if (snapshot.platformUrl) {
+        set({ qrPlatform: snapshot.qrPlatform, platformUrl: snapshot.platformUrl, platformChoiceMode: "manual" })
+        void get().resolveManualPlatformUrl(t)
+      } else {
+        get().setQrPlatform(snapshot.qrPlatform, t)
       }
-      if (item.snapshot?.lyrics) {
-        set({
-          lyricsMode: "manual",
-          manualLyrics: item.snapshot.lyrics,
-        })
-      }
-    } else if (item.kind === "album") {
-      set({
-        indexing: item.snapshot?.indexing ?? false,
-        shuffle: item.snapshot?.shuffle ?? false,
-      })
-    }
-
-    if (item.snapshot?.qrPlatform) {
-      set({
-        qrPlatform: item.snapshot.qrPlatform,
-        platformUrl: item.snapshot.platformUrl ?? "",
-        platformMatchState: "success",
-      })
-    } else {
-      get().clearPlatform()
     }
 
     const objectUrl = URL.createObjectURL(item.blob)
@@ -839,10 +794,6 @@ export const selectCanGenerate = (state: PosterState): boolean => {
   if (!state.selected) return false
   if (state.generationState === "loading") return false
 
-  const selectedLyrics = state.lyrics
-    .filter((line) => state.selectedLines.includes(line.index))
-    .map((line) => (state.lyricEdits[line.index] ?? line.text).trim())
-
   const ready = lyricsAreReady({
     kind: state.kind,
     instrumental: state.instrumental,
@@ -850,19 +801,14 @@ export const selectCanGenerate = (state: PosterState): boolean => {
     lyricsMode: state.lyricsMode,
     lyricsState: state.lyricsState,
     selectedLines: state.selectedLines,
-    selectedLyrics,
+    selectedLyrics: selectedLyrics(state),
     manualLyrics: state.manualLyrics,
   })
 
   if (!ready) return false
 
-  const destination = state.qrPlatform ? getDestination(state.qrPlatform) : null
-  const platformNeedsUrl =
-    Boolean(state.qrPlatform) &&
-    Boolean(state.selected) &&
-    !destination?.reusesSourceLink(state.selected?.provider ?? "")
-
-  if (state.qrPlatform && platformNeedsUrl) {
+  if (state.qrPlatform) {
+    if (!getDestination(state.qrPlatform)) return false
     if (state.platformChoiceMode === "candidates") return false
     if (state.platformChoiceMode === "manual" && state.platformManualState !== "success") {
       return false
@@ -870,6 +816,7 @@ export const selectCanGenerate = (state: PosterState): boolean => {
     if (state.platformChoiceMode === "automatic" && state.platformMatchState !== "success") {
       return false
     }
+    if (needsPlatformUrl(state) && !state.platformUrl.trim()) return false
   }
 
   return true

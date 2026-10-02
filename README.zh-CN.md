@@ -16,7 +16,7 @@
 
 </div>
 
-![BeatPrints Web 产品界面](https://us1.workspace.org/d/v2/yaikbaKQV0odeVqFeJ1su6GLxtf2aX-x/2BK7NEM3R11V)
+![BeatPrints Web 产品界面](https://i.imgur.com/N4vE3QJ.jpg)
 
 ## 与原始 BeatPrints 的关系
 

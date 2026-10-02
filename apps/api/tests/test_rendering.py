@@ -1,6 +1,9 @@
 from pathlib import Path
+import socket
 
+import httpcore
 import httpx
+import pytest
 
 from BeatPrints.deez import TrackMetadata
 from beatprints_api.services import rendering
@@ -109,3 +112,95 @@ def test_album_track_layout_keeps_every_track_when_titles_are_wide() -> None:
         sum(layout.widths) + layout.gap * (len(layout.widths) - 1)
         <= rendering.poster.s.MAX_WIDTH
     )
+
+
+@pytest.mark.parametrize("ips", [
+    [], ["8.8.8.8", "127.0.0.1"], ["::1"], ["fe80::1"],
+    ["169.254.169.254"], ["10.0.0.1"], ["100.64.0.1"], ["::ffff:127.0.0.1"],
+])
+def test_cover_connection_rejects_non_public_dns(monkeypatch, ips) -> None:
+    monkeypatch.setattr(
+        rendering.socket, "getaddrinfo",
+        lambda *_args, **_kwargs: [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", (ip, 443)) for ip in ips
+        ],
+    )
+    connected = []
+    monkeypatch.setattr(httpcore.SyncBackend, "connect_tcp", lambda *_args, **_kwargs: connected.append(True))
+    with pytest.raises(ValueError, match="only to public"):
+        rendering._PublicCoverBackend().connect_tcp("mixed.example", 443)
+    assert connected == []
+
+
+def test_cover_transport_pins_dns_and_preserves_tls_hostname_and_host(monkeypatch) -> None:
+    dns_calls, connections, tls_names, writes = [], [], [], []
+
+    def resolve(host, port, **_kwargs):
+        dns_calls.append(host)
+        # A second resolution of the original host would return a private IP.
+        ip = "8.8.8.8" if len(dns_calls) == 1 else "127.0.0.1"
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (ip, port))]
+
+    class Stream:
+        def read(self, _max_bytes, timeout=None):
+            return b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\nConnection: close\r\n\r\nbody"
+
+        def write(self, buffer, timeout=None):
+            writes.append(buffer)
+
+        def start_tls(self, ssl_context, server_hostname=None, timeout=None):
+            tls_names.append(server_hostname)
+            return self
+
+        def get_extra_info(self, _name):
+            return None
+
+        def close(self):
+            pass
+
+    def connect(_self, host, port, **_kwargs):
+        connections.append((host, port))
+        return Stream()
+
+    monkeypatch.setattr(rendering.socket, "getaddrinfo", resolve)
+    monkeypatch.setattr(httpcore.SyncBackend, "connect_tcp", connect)
+    with httpx.Client(transport=rendering._PublicCoverTransport(), trust_env=False) as client:
+        response = client.get("https://cover.example/art.png")
+    assert response.content == b"body"
+    assert dns_calls == ["cover.example"]
+    assert connections == [("8.8.8.8", 443)]
+    assert tls_names == ["cover.example"]
+    assert b"Host: cover.example\r\n" in b"".join(writes)
+
+
+def test_cover_redirect_cannot_connect_to_private_host(monkeypatch, tmp_path) -> None:
+    connections = []
+
+    class RedirectStream:
+        def read(self, _max_bytes, timeout=None):
+            return b"HTTP/1.1 302 Found\r\nLocation: http://private.example/image.png\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+
+        def write(self, _buffer, timeout=None):
+            pass
+
+        def get_extra_info(self, _name):
+            return None
+
+        def close(self):
+            pass
+
+    def resolve(host, port, **_kwargs):
+        ip = "8.8.8.8" if host == "cover.example" else "10.0.0.1"
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (ip, port))]
+
+    def connect(_self, host, port, **_kwargs):
+        connections.append(host)
+        return RedirectStream()
+
+    monkeypatch.setattr(rendering.socket, "getaddrinfo", resolve)
+    monkeypatch.setattr(httpcore.SyncBackend, "connect_tcp", connect)
+    with httpx.Client(transport=rendering._PublicCoverTransport(), trust_env=False) as client:
+        monkeypatch.setattr(rendering, "cover_client", client)
+        with pytest.raises(ValueError, match="only to public"):
+            rendering.download_cover("http://cover.example/image.png", tmp_path / "cover")
+    assert connections == ["8.8.8.8"]

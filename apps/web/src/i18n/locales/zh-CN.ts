@@ -20,6 +20,7 @@ export const zhCN = {
     footerUpstreamGenerator: "上游生成器",
   },
   poster: {
+    historySaveFailed: "海报已生成，但未能保存到历史记录。",
     brand: "BeatPrints Web",
     tagline: "把喜欢的音乐，排成一张海报",
     heroTitle: "让一首歌，\n留下纸面的形状。",

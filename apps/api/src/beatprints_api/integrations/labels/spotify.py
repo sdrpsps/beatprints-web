@@ -20,13 +20,8 @@ def resolve_track(metadata: deez.TrackMetadata) -> str | None:
 
     from beatprints_api.services import matching
 
-    options = matching.platform_match_options(
-        "label_enrichment",
-        "metadata",
-        "track",
-        "spotify",
-        source_metadata_fn=lambda _provider, _catalog_id, _type: metadata,
-        source_isrc_fn=lambda _provider, _catalog_id, _metadata: None,
+    options = matching.match_metadata(
+        metadata, "track", spotify_client.search_candidates,
     )
     if options.match is None:
         return None

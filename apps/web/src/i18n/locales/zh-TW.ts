@@ -20,6 +20,7 @@ export const zhTW = {
     footerUpstreamGenerator: "上游生成器",
   },
   poster: {
+    historySaveFailed: "海報已產生，但無法儲存至歷史記錄。",
     brand: "BeatPrints Web",
     tagline: "把喜歡的音樂，排成一張海報",
     heroTitle: "讓一首歌，\n留下紙面的形狀。",
