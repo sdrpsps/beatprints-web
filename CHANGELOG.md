@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.2](https://github.com/sdrpsps/beatprints-web/compare/v1.3.1...v1.3.2) (2026-10-02)
+
+
+### Bug Fixes
+
+* **web:** expose AI usage guide and API discovery ([1015758](https://github.com/sdrpsps/beatprints-web/commit/1015758acf75b0d630708023f5f5f63094309ec4))
+
 ## [1.3.1](https://github.com/sdrpsps/beatprints-web/compare/v1.3.0...v1.3.1) (2026-10-02)
 
 
