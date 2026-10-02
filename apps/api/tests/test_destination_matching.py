@@ -790,3 +790,37 @@ def test_exact_isrc_overrides_localized_display_text(monkeypatch) -> None:
 
     assert result.match is not None
     assert str(result.match.url) == candidate["url"]
+
+
+@pytest.mark.parametrize("candidate_title, expected", [("Track", "Fixture Records"), ("Different Track", "")])
+def test_label_enrichment_is_independent_of_disabled_spotify_destination(
+    monkeypatch, candidate_title, expected,
+) -> None:
+    from beatprints_api.integrations.destinations import registry as destination_registry
+    from beatprints_api.integrations.labels import spotify as spotify_label
+
+    client = spotify_label.spotify_client
+    monkeypatch.delitem(destination_registry._adapters, "spotify")
+    assert get_catalog_adapter("spotify").key == "spotify"
+    monkeypatch.setattr(client, "client_id", "fixture")
+    monkeypatch.setattr(client, "client_secret", "fixture")
+    monkeypatch.setattr(label_registry, "label_resolvers", lambda: (spotify_label.resolver,))
+    monkeypatch.setattr(client, "search", lambda *_args: [{
+        "id": "4uLU6hMCjMI75M1A2tKUQC",
+        "title": candidate_title,
+        "artists": ["Artist"],
+        "album": {"title": "Album"},
+        "link": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+        "duration_seconds": 195,
+        "release_year": 2025,
+    }])
+    monkeypatch.setattr(client, "track_metadata", lambda _id: {"label": "Fixture Records"})
+    metadata = TrackMetadata(
+        title="Track", artists=["Artist"], album="Album", released="2025-01-01",
+        duration="03:15", cover="https://example.com/cover.jpg", label="",
+    )
+    result = matching_service.catalog_service._enrich_missing_track_label(metadata)
+    assert result.label == expected
+    assert result.title == "Track"
+    with pytest.raises(UnsupportedDestinationError):
+        get_destination_adapter("spotify")

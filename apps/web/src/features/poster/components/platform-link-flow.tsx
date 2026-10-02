@@ -2,7 +2,7 @@ import { Music2Icon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import { PlatformCandidates } from "@/features/poster/components/platform-candidates"
 import { PlatformFallbackActions } from "@/features/poster/components/platform-fallback-actions"
@@ -52,19 +52,14 @@ function AutomaticPlatformMatch() {
           source={selected!}
           platform={label}
           actions={
-            <Button
-              render={
-                <a
-                  href={platformMatch.url}
-                  target="_blank"
-                  rel="noreferrer"
-                />
-              }
-              variant="outline"
-              size="sm"
+            <a
+              href={platformMatch.url}
+              target="_blank"
+              rel="noreferrer"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
             >
               {t("poster.openPlatform")}
-            </Button>
+            </a>
           }
         />
         <PlatformFallbackActions />

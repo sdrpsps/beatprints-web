@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node tests/poster-regressions.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

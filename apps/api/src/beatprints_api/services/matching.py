@@ -1,6 +1,7 @@
 import re
 import unicodedata
 from datetime import date
+from collections.abc import Callable
 from difflib import SequenceMatcher
 
 from beatprints_api.integrations.destinations import DestinationAdapter, get_destination_adapter
@@ -281,14 +282,14 @@ def _matching_queries(metadata, item_type: str, isrc: str | None) -> list[tuple[
 
 
 def _collect_destination_candidates(
-    adapter: DestinationAdapter, metadata, item_type: str, isrc: str | None
+    search: Callable[[str, str], list[dict]], metadata, item_type: str, isrc: str | None
 ) -> list[tuple[dict, set[str]]]:
     candidates: dict[str, dict] = {}
     origins: dict[str, set[str]] = {}
     for origin, query in _matching_queries(
-        metadata, item_type, isrc if adapter.supports_isrc else None
+        metadata, item_type, isrc
     ):
-        for candidate in adapter.search(query, item_type):
+        for candidate in search(query, item_type):
             url = str(candidate.get("url") or "")
             if not url:
                 continue
@@ -392,7 +393,19 @@ def platform_match_options(
         if item_type == "track" and adapter.supports_isrc
         else None
     )
-    collected = _collect_destination_candidates(adapter, metadata, item_type, isrc)
+    return match_metadata(metadata, item_type, adapter.search, isrc, limit)
+
+
+def match_metadata(
+    metadata,
+    item_type: str,
+    search: Callable[[str, str], list[dict]],
+    isrc: str | None = None,
+    limit: int = 8,
+) -> PlatformMatchOptionsData:
+    """Match current metadata without coupling callers to a destination registry."""
+
+    collected = _collect_destination_candidates(search, metadata, item_type, isrc)
     ranked: list[tuple[float, dict, set[str]]] = []
     for candidate, origins in collected:
         exact_isrc = bool(isrc and candidate.get("isrc") == isrc)

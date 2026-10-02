@@ -65,12 +65,6 @@ export type PlatformMatchOptions = {
   candidates: PlatformLinkMatch[]
 }
 
-export type PosterPreferences = {
-  kind: PosterKind
-  theme: Theme
-  accent: boolean
-}
-
 export type PosterOutput = {
   url: string
   filename: string

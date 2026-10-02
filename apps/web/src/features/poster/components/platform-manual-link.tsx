@@ -1,7 +1,7 @@
 import { ExternalLinkIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import {
   Field,
   FieldDescription,
@@ -79,19 +79,14 @@ export function ManualPlatformLink() {
           source={selected!}
           platform={label}
           actions={
-            <Button
-              render={
-                <a
-                  href={platformManualMatch.url}
-                  target="_blank"
-                  rel="noreferrer"
-                />
-              }
-              variant="outline"
-              size="sm"
+            <a
+              href={platformManualMatch.url}
+              target="_blank"
+              rel="noreferrer"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
             >
               {t("poster.openPlatform")}
-            </Button>
+            </a>
           }
         />
       ) : null}

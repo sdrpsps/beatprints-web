@@ -112,6 +112,23 @@ class SpotifyClient:
             for item in payload[key]["items"]
         ]
 
+    def search_candidates(self, query: str, item_type: str) -> list[dict]:
+        candidates: list[dict] = []
+        for result in self.search(query, item_type, 10):
+            url = result.get("link")
+            title = result.get("title")
+            if not url or not title:
+                continue
+            album = result.get("album") or {}
+            candidates.append({
+                "url": url, "title": title, "artists": result.get("artists") or [], "type": item_type,
+                "album": album.get("title") if item_type == "track" else None,
+                "release_year": result.get("release_year"), "duration_seconds": result.get("duration_seconds"),
+                "track_count": result.get("track_count"), "cover_url": result.get("cover_url"),
+                "isrc": result.get("isrc"), "platform_id": result.get("id"),
+            })
+        return candidates
+
     def _get(self, path: str, params: dict | None = None) -> dict:
         token = self._access_token()
         try:

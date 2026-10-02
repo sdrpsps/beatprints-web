@@ -11,6 +11,7 @@ export type PosterHistorySnapshot = {
   catalogId: number | string
   selectedItem: SearchResult
   lyrics?: string
+  instrumental?: boolean
   instrumentalText?: string
   qrPlatform?: PosterPlatform
   platformUrl?: string
@@ -60,10 +61,18 @@ function openDatabase(): Promise<IDBDatabase> {
   })
 }
 
+async function withDatabase<T>(operation: (db: IDBDatabase) => Promise<T>): Promise<T> {
+  const db = await openDatabase()
+  try {
+    return await operation(db)
+  } finally {
+    db.close()
+  }
+}
+
 export async function getAllHistory(): Promise<PosterHistoryItem[]> {
   try {
-    const db = await openDatabase()
-    return new Promise((resolve, reject) => {
+    return await withDatabase((db) => new Promise((resolve, reject) => {
       const transaction = db.transaction(STORE_NAME, "readonly")
       const store = transaction.objectStore(STORE_NAME)
       const index = store.index("createdAt")
@@ -75,13 +84,13 @@ export async function getAllHistory(): Promise<PosterHistoryItem[]> {
         if (cursor) {
           items.push(cursor.value as PosterHistoryItem)
           cursor.continue()
-        } else {
-          resolve(items)
         }
       }
 
       request.onerror = () => reject(request.error)
-    })
+      transaction.onerror = transaction.onabort = () => reject(transaction.error)
+      transaction.oncomplete = () => resolve(items)
+    }))
   } catch {
     return []
   }
@@ -90,10 +99,9 @@ export async function getAllHistory(): Promise<PosterHistoryItem[]> {
 export async function saveHistoryItem(
   item: PosterHistoryItem,
   maxItems = MAX_HISTORY_ITEMS,
-): Promise<void> {
+): Promise<boolean> {
   try {
-    const db = await openDatabase()
-    return new Promise((resolve, reject) => {
+    return await withDatabase((db) => new Promise((resolve, reject) => {
       const transaction = db.transaction(STORE_NAME, "readwrite")
       const store = transaction.objectStore(STORE_NAME)
 
@@ -121,40 +129,38 @@ export async function saveHistoryItem(
         }
       }
 
-      transaction.oncomplete = () => resolve()
-      transaction.onerror = () => reject(transaction.error)
-    })
+      transaction.oncomplete = () => resolve(true)
+      transaction.onerror = transaction.onabort = () => reject(transaction.error)
+    }))
   } catch {
-    // Fail silently without blocking UI if storage is disabled or quota exceeded
+    return false
   }
 }
 
-export async function deleteHistoryItem(id: string): Promise<void> {
+export async function deleteHistoryItem(id: string): Promise<boolean> {
   try {
-    const db = await openDatabase()
-    return new Promise((resolve, reject) => {
+    return await withDatabase((db) => new Promise((resolve, reject) => {
       const transaction = db.transaction(STORE_NAME, "readwrite")
       const store = transaction.objectStore(STORE_NAME)
       store.delete(id)
-      transaction.oncomplete = () => resolve()
-      transaction.onerror = () => reject(transaction.error)
-    })
+      transaction.oncomplete = () => resolve(true)
+      transaction.onerror = transaction.onabort = () => reject(transaction.error)
+    }))
   } catch {
-    // Ignore storage deletion errors
+    return false
   }
 }
 
-export async function clearAllHistory(): Promise<void> {
+export async function clearAllHistory(): Promise<boolean> {
   try {
-    const db = await openDatabase()
-    return new Promise((resolve, reject) => {
+    return await withDatabase((db) => new Promise((resolve, reject) => {
       const transaction = db.transaction(STORE_NAME, "readwrite")
       const store = transaction.objectStore(STORE_NAME)
       store.clear()
-      transaction.oncomplete = () => resolve()
-      transaction.onerror = () => reject(transaction.error)
-    })
+      transaction.oncomplete = () => resolve(true)
+      transaction.onerror = transaction.onabort = () => reject(transaction.error)
+    }))
   } catch {
-    // Ignore storage clear errors
+    return false
   }
 }

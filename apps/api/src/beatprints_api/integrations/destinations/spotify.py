@@ -70,23 +70,6 @@ def resolve(url: str) -> PlatformLinkMatchData:
     )
 
 
-def search(query: str, item_type: str) -> list[dict]:
-    candidates: list[dict] = []
-    for result in spotify_client.search(query, item_type, 10):
-        url = result.get("link")
-        title = result.get("title")
-        if not url or not title:
-            continue
-        album = result.get("album") or {}
-        candidates.append({
-            "url": url, "title": title, "artists": result.get("artists") or [], "type": item_type,
-            "album": album.get("title") if item_type == "track" else None,
-            "release_year": result.get("release_year"), "duration_seconds": result.get("duration_seconds"),
-            "track_count": result.get("track_count"), "cover_url": result.get("cover_url"),
-            "isrc": result.get("isrc"), "platform_id": result.get("id"),
-        })
-    return candidates
-
 
 def _resolve_source(provider: str, catalog_id: int | str, item_type: str) -> PlatformLinkMatchData | None:
     return resolve(f"spotify:{item_type}:{catalog_id}") if provider == "spotify" else None
@@ -124,4 +107,4 @@ def scannable(link: str):
     return render
 
 
-adapter = register(DestinationAdapter(key="spotify", label="Spotify", search=search, resolve=resolve, scannable=scannable, supports_isrc=True, resolve_source=_resolve_source, reuses_source_link=lambda provider: provider == "spotify"))
+adapter = register(DestinationAdapter(key="spotify", label="Spotify", search=spotify_client.search_candidates, resolve=resolve, scannable=scannable, supports_isrc=True, resolve_source=_resolve_source, reuses_source_link=lambda provider: provider == "spotify"))

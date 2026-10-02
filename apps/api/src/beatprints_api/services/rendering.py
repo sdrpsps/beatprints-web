@@ -12,6 +12,7 @@ from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
+import httpcore
 import httpx
 from PIL import Image, ImageDraw
 
@@ -38,12 +39,46 @@ beatprints_image.get_palette = extract_palette
 
 MAX_COVER_BYTES = 15 * 1024 * 1024
 ALLOWED_COVER_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
+def _public_cover_addresses(host: str, port: int) -> tuple[str, ...]:
+    try:
+        addresses = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    except socket.gaierror as exc:
+        raise UpstreamError(f"Could not resolve cover host: {host}") from exc
+    ips = tuple(dict.fromkeys(address[4][0] for address in addresses))
+    if not ips or not all(ipaddress.ip_address(ip).is_global for ip in ips):
+        raise ValueError("cover_url must resolve only to public Internet addresses")
+    return ips
+
+
+class _PublicCoverBackend(httpcore.SyncBackend):
+    def connect_tcp(self, host: str, port: int, **kwargs):
+        # Pin each connection to a validated numeric address. TLS and Host still
+        # use the original hostname in HTTP Core's connection pool.
+        addresses = _public_cover_addresses(host, port)
+        for address in addresses:
+            try:
+                return super().connect_tcp(address, port, **kwargs)
+            except (httpcore.ConnectError, httpcore.ConnectTimeout) as exc:
+                last_error = exc
+        raise last_error
+
+
+class _PublicCoverTransport(httpx.HTTPTransport):
+    def __init__(self):
+        super().__init__(
+            trust_env=False,
+            limits=httpx.Limits(max_connections=20, max_keepalive_connections=10, keepalive_expiry=30.0),
+        )
+        # HTTPX 0.28.1 has no public network_backend parameter. Keep this single
+        # hook covered by a transport regression test when updating HTTPX.
+        self._pool._network_backend = _PublicCoverBackend()
+
+
 cover_client = httpx.Client(
+    transport=_PublicCoverTransport(),
+    trust_env=False,
     follow_redirects=False,
     timeout=httpx.Timeout(15.0, connect=5.0),
-    limits=httpx.Limits(
-        max_connections=20, max_keepalive_connections=10, keepalive_expiry=30.0
-    ),
     headers={"User-Agent": "BeatPrints-API/0.1"},
 )
 atexit.register(cover_client.close)
@@ -77,22 +112,12 @@ for _font_weight in ("Regular", "Bold", "Light"):
     write.font(_font_weight)
 
 
-def _is_public_host(hostname: str) -> bool:
-    try:
-        addresses = socket.getaddrinfo(hostname, None)
-    except socket.gaierror as exc:
-        raise UpstreamError(f"Could not resolve cover host: {hostname}") from exc
-    return any(ipaddress.ip_address(address[4][0]).is_global for address in addresses)
-
-
 def _validate_cover_url(url: str) -> None:
     parsed = urlparse(url)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         raise ValueError("cover_url must be an HTTP(S) URL")
     if parsed.username or parsed.password:
         raise ValueError("cover_url must not contain credentials")
-    if not _is_public_host(parsed.hostname):
-        raise ValueError("cover_url must resolve to a public Internet address")
 
 
 def download_cover(url: str, destination: Path) -> None:
