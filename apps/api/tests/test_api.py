@@ -95,6 +95,33 @@ def test_web_app_is_served_without_shadowing_api(tmp_path: Path) -> None:
     assert web_client.get("/health").json()["data"]["status"] == "ok"
 
 
+def test_agent_document_is_discoverable_and_served_as_public_text(
+    tmp_path: Path, monkeypatch
+) -> None:
+    web_root = Path(__file__).resolve().parents[2] / "web"
+    index = (web_root / "index.html").read_text()
+    document = (web_root / "public" / "llms.txt").read_text()
+    (tmp_path / "index.html").write_text(index)
+    (tmp_path / "llms.txt").write_text(document)
+    monkeypatch.setattr(
+        dependencies, "settings", SimpleNamespace(api_key="correct-secret")
+    )
+    web_client = TestClient(create_app(web_root=tmp_path))
+
+    assert '<link rel="describedby" type="text/plain" href="/llms.txt" />' in (
+        web_client.get("/").text
+    )
+    response = web_client.get("/llms.txt")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/plain")
+    assert response.text == document
+    assert response.text.startswith("# BeatPrints\n")
+    assert "https://beatprints.bytespark.app/openapi.json" in response.text
+    assert web_client.head("/llms.txt").status_code == 200
+    assert web_client.get("/openapi.json").json()["openapi"].startswith("3.")
+    assert web_client.get("/v1/themes").status_code == 401
+
+
 def test_track_requires_exactly_one_source() -> None:
     response = client.post(
         "/v1/posters/track",

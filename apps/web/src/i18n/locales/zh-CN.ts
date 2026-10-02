@@ -16,6 +16,7 @@ export const zhCN = {
     heroEst: "EST. 2026",
     studioSectionBadge: "COMPOSE / PRINT / KEEP",
     footerDisclaimer: "为非商业音乐收藏与个人表达而制作。",
+    footerAgentGuide: "AI 使用指南",
     footerSourceCode: "项目源码",
     footerUpstreamGenerator: "上游生成器",
   },

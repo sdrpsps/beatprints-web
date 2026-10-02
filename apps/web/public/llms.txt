@@ -1,0 +1,34 @@
+# BeatPrints
+
+> BeatPrints turns a selected song or album into a downloadable music poster using real catalog metadata and cover artwork. The final output is a PNG image.
+
+Read the OpenAPI schema before making API requests. Use the origin serving this file as the API base URL; the links below point to the public production deployment. The schema is the source of truth for current fields, validation, responses, and request examples.
+
+Recommended workflow:
+
+1. Search with `GET /v1/search`, supplying `query`, an explicit `provider`, and `type=track|album`. `provider=all` searches configured sources. Review title, artists, cover, album, release information, and duration or track count to select the exact result. Ask the user when the intended recording is ambiguous; do not silently select the first result.
+2. Keep the selected result's `provider` and `id` unchanged. Send them as `provider` and `catalog_id` to subsequent calls. Poster generation does not accept a text query.
+3. For tracks, optionally preview lyrics with `GET /v1/lyrics` using the selected `provider` and `catalog_id`. Submit up to four selected lines as explicit `lyrics` text. Send `lyrics: ""` when no lyrics are wanted; omitting the field can trigger automatic lyric selection. Albums do not use lyrics.
+4. Add a QR destination only when the user chooses one. `provider` selects metadata; `qr_platform` selects the poster destination. Omit `qr_platform` for no platform mark or code. For a chosen destination, call `GET /v1/platform-links/{platform}/options` with the unchanged `provider`, `catalog_id`, and `type`. Use a confirmed match, or let the user select a ranked candidate or supply a public platform link. Resolve a selected or pasted link with `GET /v1/platform-links/{platform}/resolve?url=...` to fetch current metadata. Never silently accept a weak candidate or replace the source poster metadata with destination metadata. Pass the confirmed URL as `platform_links[qr_platform]`.
+5. Read available themes from `GET /v1/themes`, then submit the user's choices to `POST /v1/posters/track` or `POST /v1/posters/album`. Album options include `indexing` and `shuffle`. Save and present the successful PNG response to the user.
+
+JSON responses use `{code, data, message}`. Successful poster responses are raw `image/png`, not JSON or a persistent image URL. Check HTTP status and Content-Type before saving a response as an image. Generated images are not retained on the server.
+
+When the deployment configures an API key, `/v1` requests require `Authorization: Bearer <token>`. Obtain credentials from the user or configured environment if required. Source availability depends on enabled integrations and server configuration; use current API responses and report unavailable sources or upstream failures instead of inventing results.
+
+Advanced callers may provide complete `metadata` instead of `catalog_id`; exactly one is allowed. Follow the schema for required metadata and public cover URL restrictions.
+
+BeatPrints is licensed CC BY-NC-SA 4.0 for non-commercial use and requires attribution. Poster generation is powered by BeatPrints by TrueMyst.
+
+## API documentation
+
+- [OpenAPI schema](https://beatprints.bytespark.app/openapi.json): Machine-readable API definitions and request examples; start here.
+- [Swagger UI](https://beatprints.bytespark.app/docs): Interactive API reference.
+- [ReDoc](https://beatprints.bytespark.app/redoc): Alternative API reference.
+
+## Optional
+
+- [Web application](https://beatprints.bytespark.app/): Interactive poster creation.
+- [Project source](https://github.com/sdrpsps/beatprints-web): Source code and deployment documentation.
+- [Upstream BeatPrints](https://github.com/TrueMyst/BeatPrints): Poster generator and attribution.
+- [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/): License terms.

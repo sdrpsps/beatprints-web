@@ -16,6 +16,7 @@ export const zhTW = {
     heroEst: "EST. 2026",
     studioSectionBadge: "COMPOSE / PRINT / KEEP",
     footerDisclaimer: "為非商業音樂收藏與個人表達而製作。",
+    footerAgentGuide: "AI 使用指南",
     footerSourceCode: "專案原始碼",
     footerUpstreamGenerator: "上游生成器",
   },
