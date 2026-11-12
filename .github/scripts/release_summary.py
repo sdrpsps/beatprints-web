@@ -10,7 +10,6 @@ import sys
 START = "<!-- release-summary:start -->"
 END = "<!-- release-summary:end -->"
 LANGUAGES = {"zh-CN": "简体中文", "zh-TW": "繁體中文", "en": "English"}
-PR_LANGUAGES = {"zh-CN": "简体中文", "zh-TW": "繁體中文", "en": "English"}
 HEADING = re.compile(r"^##\s+What's New\s*#*\s*$", re.MULTILINE)
 NEXT_HEADING = re.compile(r"^#{1,2}\s+", re.MULTILINE)
 LANG_HEADING = re.compile(r"^###\s+(简体中文|繁體中文|English)\s*#*\s*$", re.MULTILINE)
@@ -28,7 +27,7 @@ def extract_summary(body):
     section = remainder[:next_heading.start()] if next_heading else remainder
     section = re.sub(r"<!--.*?-->", "", section, flags=re.DOTALL)
     headings = list(LANG_HEADING.finditer(section))
-    if len(headings) != 3 or {h.group(1) for h in headings} != set(PR_LANGUAGES.values()):
+    if len(headings) != 3 or {h.group(1) for h in headings} != set(LANGUAGES.values()):
         raise ValueError("Expected exactly one section for 简体中文, 繁體中文 and English")
     if section[:headings[0].start()].strip():
         raise ValueError("Put update notes under the three language headings")
@@ -36,10 +35,10 @@ def extract_summary(body):
     for index, heading in enumerate(headings):
         end = headings[index + 1].start() if index + 1 < len(headings) else len(section)
         values[heading.group(1)] = section[heading.end():end].strip()
-    summaries = {lang: values[label] for lang, label in PR_LANGUAGES.items()}
+    summaries = {lang: values[label] for lang, label in LANGUAGES.items()}
     for lang, value in summaries.items():
         if value != NONE[lang] and (not value or any(not line.strip().startswith("- ") for line in value.splitlines() if line.strip())):
-            raise ValueError(f"{PR_LANGUAGES[lang]} needs Markdown bullets or '{NONE[lang]}'")
+            raise ValueError(f"{LANGUAGES[lang]} needs Markdown bullets or '{NONE[lang]}'")
     empty = [summaries[lang] == NONE[lang] for lang in LANGUAGES]
     if any(empty) and not all(empty):
         raise ValueError("Use the no-visible-update marker in all three languages")
@@ -67,15 +66,8 @@ def gh_json(*args):
     return json.loads(run("gh", "api", *args))
 
 
-def main():
-    tag = os.environ["RELEASE_TAG"]
-    repo = os.environ["GITHUB_REPOSITORY"]
-    default_branch = os.environ["DEFAULT_BRANCH"]
-    if not re.fullmatch(r"v\d+\.\d+\.\d+", tag):
-        raise ValueError("Expected a stable version tag, such as v1.4.0")
-    # Release Please tags the release commit; find the preceding version in its ancestry.
-    previous = run("git", "describe", "--first-parent", "--tags", "--abbrev=0", "--match", "v[0-9]*", f"{tag}^")
-    commits = run("git", "rev-list", "--first-parent", "--reverse", f"{previous}..{tag}").splitlines()
+def collect_summaries(repo, default_branch, previous, revision):
+    commits = run("git", "rev-list", "--first-parent", "--reverse", f"{previous}..{revision}").splitlines()
     summaries = []
     seen = set()
     for sha in commits:
@@ -92,6 +84,17 @@ def main():
                 continue
             if any(summary.values()):
                 summaries.append(summary)
+    return summaries
+
+
+def main():
+    tag = os.environ["RELEASE_TAG"]
+    repo = os.environ["GITHUB_REPOSITORY"]
+    default_branch = os.environ["DEFAULT_BRANCH"]
+    if not re.fullmatch(r"v\d+\.\d+\.\d+", tag):
+        raise ValueError("Expected a stable version tag, such as v1.4.0")
+    previous = run("git", "describe", "--first-parent", "--tags", "--abbrev=0", "--match", "v[0-9]*", f"{tag}^")
+    summaries = collect_summaries(repo, default_branch, previous, tag)
     release = gh_json(f"repos/{repo}/releases/tags/{tag}")
     body = update_body(release.get("body"), summaries)
     if body != (release.get("body") or ""):

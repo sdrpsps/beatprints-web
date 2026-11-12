@@ -30,14 +30,19 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
       - name: Check out release history
-        if: steps.release.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Add PR summaries to GitHub Release
-        if: steps.release.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch'
+      - name: Add PR summaries to release PR
+        if: github.event_name == 'push' && steps.release.outputs.release_created != 'true'
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
-          RELEASE_TAG: ${{ steps.release.outputs.tag_name || inputs.release_tag }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: python3 .github/scripts/prepare_release_pr.py
+      - name: Refresh an existing GitHub Release
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: python3 .github/scripts/release_summary.py
