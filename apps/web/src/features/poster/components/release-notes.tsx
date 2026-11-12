@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
+import Markdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -57,7 +59,14 @@ export function ReleaseNotes() {
           <DialogDescription>{t("app.releaseDescription")}</DialogDescription>
         </DialogHeader>
         {body !== null ? (
-          <div className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap break-words text-sm leading-relaxed">{body}</div>
+          <div className="max-h-[50vh] overflow-auto break-words text-sm leading-relaxed [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-4 [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_h1]:mt-4 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:mt-4 [&_h2]:text-base [&_h2]:font-semibold [&_h3]:mt-4 [&_h3]:font-semibold [&_li]:pl-1 [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-3 [&_pre]:overflow-auto [&_pre]:rounded [&_pre]:bg-muted [&_pre]:p-3 [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-5 [&>:first-child]:mt-0">
+            <Markdown
+              remarkPlugins={[remarkGfm]}
+              components={{ a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" /> }}
+            >
+              {body}
+            </Markdown>
+          </div>
         ) : error ? (
           <div className="flex flex-col items-start gap-2 text-sm">
             <p>{t("app.releaseError")}</p>
