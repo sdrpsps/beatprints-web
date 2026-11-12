@@ -24,8 +24,32 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  check-release-pr:
+    name: Check release PR changes
+    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'release-please--') && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version-only: ${{ steps.files.outputs.version-only }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+      - name: Check changed files
+        id: files
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 .github/scripts/check_release_pr_files.py
+
   build:
     name: Build ${{ matrix.platform }} image
+    needs: check-release-pr
+    if: >-
+      !cancelled() &&
+      (needs.check-release-pr.result == 'skipped' ||
+       (needs.check-release-pr.result == 'success' && needs.check-release-pr.outputs.version-only != 'true'))
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
