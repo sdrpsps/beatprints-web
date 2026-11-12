@@ -65,6 +65,10 @@ export async function fetchCapabilities(signal?: AbortSignal) {
   return getJson<{ wechat_qr: boolean }>("/capabilities", signal)
 }
 
+export async function fetchReleaseNotes(version: string, signal?: AbortSignal) {
+  return getJson<{ body: string }>(`/v1/release-notes?${new URLSearchParams({ version })}`, signal)
+}
+
 export async function searchCatalog(
   query: string,
   kind: PosterKind,

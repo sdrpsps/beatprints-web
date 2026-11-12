@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm"
 
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { fetchReleaseNotes } from "@/features/poster/api"
 import { buildInfo } from "@/lib/build-info"
 
 const version = buildInfo.version.replace(/^v/, "")
@@ -28,19 +29,18 @@ export function ReleaseNotes() {
   useEffect(() => {
     if ((!open && !autoShow) || body !== null) return
     const controller = new AbortController()
-    fetch(`https://api.github.com/repos/sdrpsps/beatprints-web/releases/tags/${encodeURIComponent(tag)}`, { signal: controller.signal })
-      .then((response) => {
-        if (!response.ok) throw new Error("Release unavailable")
-        return response.json()
-      })
-      .then((release: { body?: unknown }) => {
+    let timedOut = false
+    const timer = window.setTimeout(() => { timedOut = true; controller.abort() }, 10000)
+    fetchReleaseNotes(version, controller.signal)
+      .then((release) => {
         if (typeof release.body !== "string" || !release.body.trim()) throw new Error("Release notes unavailable")
         setBody(release.body)
         setError(false)
         if (autoShow) setOpen(true)
       })
-      .catch(() => { if (!controller.signal.aborted) setError(true) })
-    return () => controller.abort()
+      .catch(() => { if (!controller.signal.aborted || timedOut) setError(true) })
+      .finally(() => window.clearTimeout(timer))
+    return () => { window.clearTimeout(timer); controller.abort() }
   }, [open, autoShow, body, attempt])
 
   function onOpenChange(nextOpen: boolean) {
