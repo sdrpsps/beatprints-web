@@ -1,6 +1,7 @@
 import { BotIcon, Code2Icon, ExternalLinkIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
+import { ReleaseNotes } from "@/features/poster/components/release-notes"
 import { buildInfo } from "@/lib/build-info"
 
 export function SiteFooter() {
@@ -17,6 +18,7 @@ export function SiteFooter() {
         </p>
       </div>
       <div className="flex flex-wrap items-center justify-end gap-[22px] [&>a]:whitespace-nowrap max-sm:flex-col max-sm:items-start max-sm:gap-3">
+        <ReleaseNotes />
         <a
           className="inline-flex items-center gap-[7px] rounded-sm text-[13px] text-muted-foreground no-underline outline-offset-4 transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring motion-reduce:transition-none [&_svg]:size-3.5"
           href="/llms.txt"
