@@ -13,12 +13,21 @@ services:
       SPOTIFY_CLIENT_ID: "${SPOTIFY_CLIENT_ID:-}"
       SPOTIFY_CLIENT_SECRET: "${SPOTIFY_CLIENT_SECRET:-}"
       SPOTIFY_MARKET: "${SPOTIFY_MARKET:-US}"
+      WECHAT_QR_BASE_URL: "${WECHAT_QR_BASE_URL:-http://kuima:8080}"
       METADATA_CACHE_MAX_ENTRIES: "${METADATA_CACHE_MAX_ENTRIES:-256}"
       METADATA_CACHE_TTL_SECONDS: "${METADATA_CACHE_TTL_SECONDS:-600}"
       WEB_CONCURRENCY: "${WEB_CONCURRENCY:-1}"
       MAX_CONCURRENT_JOBS: "${MAX_CONCURRENT_JOBS:-1}"
       LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+    depends_on:
+      kuima:
+        condition: service_healthy
     deploy:
       resources:
         limits:
           memory: 1G
+  kuima:
+    image: ghcr.io/sdrpsps/kuima-generator:api-only
+    restart: unless-stopped
+    environment:
+      ALLOW_LOCAL_IMAGE: "0"

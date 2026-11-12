@@ -2,6 +2,7 @@ import type {
   CatalogProvider,
   PosterKind,
   PosterPlatform,
+  QrFormat,
   SearchResult,
   Theme,
 } from "@/features/poster/types"
@@ -14,6 +15,7 @@ export type PosterHistorySnapshot = {
   instrumental?: boolean
   instrumentalText?: string
   qrPlatform?: PosterPlatform
+  qrFormat?: QrFormat
   platformUrl?: string
   indexing?: boolean
   shuffle?: boolean

@@ -4,12 +4,11 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import httpx
-from qrcode.constants import ERROR_CORRECT_L
 
 from beatprints_api.config import settings
 from beatprints_api.integrations.destinations.base import DestinationAdapter
 from beatprints_api.integrations.destinations.registry import register
-from beatprints_api.integrations.destinations.scannable import icon_qr_scannable
+from beatprints_api.integrations.destinations.scannable import icon_qr_scannable, standard_icon_qr_scannable
 from beatprints_api.exceptions import PlatformLinkNoMatchError, UpstreamError
 from beatprints_api.models.destinations import PlatformLinkMatchData
 
@@ -107,6 +106,21 @@ def resolve(url: str) -> PlatformLinkMatchData:
     raise PlatformLinkNoMatchError("Apple Music link did not resolve to a catalog item")
 
 
+def _scannable_link(url: str) -> str:
+    """Remove Apple's optional title and tracking parameters to fit a sunflower code."""
+    parsed = urlparse(url)
+    parts = [part for part in parsed.path.split("/") if part]
+    track_ids = parse_qs(parsed.query).get("i", [])
+    identifier = track_ids[0] if track_ids else next(
+        (part for part in reversed(parts) if part.isdigit()), None
+    )
+    if not identifier or not identifier.isdigit():
+        return url
+    storefront = parts[0] if parts and len(parts[0]) == 2 else "us"
+    kind = "song" if track_ids or "song" in parts else "album"
+    return f"https://music.apple.com/{storefront}/{kind}/{identifier}"
+
+
 adapter = register(
     DestinationAdapter(
         key="apple_music",
@@ -114,7 +128,8 @@ adapter = register(
         search=search,
         resolve=resolve,
         scannable=lambda link: icon_qr_scannable(
-            link, ASSET_PATH, error_correction=ERROR_CORRECT_L
+            _scannable_link(link), ASSET_PATH
         ),
+        standard_scannable=lambda link: standard_icon_qr_scannable(link, ASSET_PATH),
     )
 )

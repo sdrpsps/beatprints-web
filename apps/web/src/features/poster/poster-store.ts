@@ -26,6 +26,7 @@ import type {
   PosterKind,
   PosterOutput,
   PosterPlatform,
+  QrFormat,
   SearchResult,
   Theme,
 } from "@/features/poster/types"
@@ -91,6 +92,8 @@ export type PosterState = {
 
   // Platform Links
   qrPlatform: PosterPlatform | ""
+  qrFormat: QrFormat
+  setQrFormat: (format: QrFormat) => void
   platformUrl: string
   platformChoiceMode: PlatformChoiceMode
   platformMatchState: AsyncState
@@ -358,6 +361,12 @@ export const usePosterStore = create<PosterState>((set, get) => ({
 
   // Platform Links
   ...emptyPlatform,
+  qrFormat: "standard",
+  setQrFormat: (qrFormat) => {
+    if (get().qrFormat === qrFormat) return
+    get().markOutputStale()
+    set({ qrFormat })
+  },
   clearPlatform: () => {
     platformAbort?.abort()
     get().markOutputStale()
@@ -647,6 +656,7 @@ export const usePosterStore = create<PosterState>((set, get) => ({
       ...(state.qrPlatform
         ? {
             qr_platform: state.qrPlatform,
+            qr_format: state.qrFormat,
             ...(platformNeedsUrl || state.platformUrl.trim()
               ? {
                   platform_links: {
@@ -698,6 +708,7 @@ export const usePosterStore = create<PosterState>((set, get) => ({
           instrumental: state.kind === "track" && state.instrumental,
           instrumentalText: state.kind === "track" && state.instrumental ? state.instrumentalText : undefined,
           qrPlatform: state.qrPlatform || undefined,
+          qrFormat: state.qrFormat,
           platformUrl: state.platformUrl || undefined,
           indexing: state.indexing,
           shuffle: state.shuffle,
@@ -761,6 +772,7 @@ export const usePosterStore = create<PosterState>((set, get) => ({
       instrumentalText: snapshot?.instrumentalText ?? "",
       indexing: snapshot?.indexing ?? false,
       shuffle: snapshot?.shuffle ?? false,
+      qrFormat: snapshot?.qrFormat ?? "standard",
     })
     if (snapshot?.qrPlatform && getDestination(snapshot.qrPlatform) && snapshot.selectedItem) {
       if (snapshot.platformUrl) {

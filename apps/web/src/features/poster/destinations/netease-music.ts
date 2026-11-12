@@ -1,7 +1,10 @@
 import { registerDestination } from "@/features/poster/destinations/store"
+import logo from "@/features/poster/destinations/assets/netease-music-symbol.png"
 
 registerDestination({
   key: "netease_music",
+  logo,
+  logoWhiteBackground: true,
   labelKey: "poster.integrationNames.neteaseMusic",
   order: 1,
   default: false,

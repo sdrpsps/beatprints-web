@@ -281,7 +281,10 @@ def test_spotify_code_scannable_uses_spotify_image_service_output(monkeypatch) -
     assert image.getpixel((212, 60)) == (50, 47, 48, 255)
 
 
-def test_apple_music_scannable_uses_the_same_theme_color_rule_as_spotify_code() -> None:
+def test_apple_music_scannable_uses_the_same_theme_color_rule_as_spotify_code(monkeypatch) -> None:
+    from beatprints_api.integrations.destinations.scannable import kuima_client
+
+    monkeypatch.setattr(kuima_client, "image", lambda link, icon, color, **options: Image.new("RGBA", (480, 480), color + (255,)))
     scannable = apple_music.adapter.scannable(
         "https://music.apple.com/us/album/example/123456789"
     )
@@ -292,7 +295,7 @@ def test_apple_music_scannable_uses_the_same_theme_color_rule_as_spotify_code() 
     dark_color = rendering.beatprints_image.t.THEMES["Dark"]
     assert image.mode == "RGBA"
     assert image.size == rendering.beatprints_image.s.SCANCODE
-    assert image.getpixel((98, 4))[3] == 0
+    assert image.getpixel((120, 4))[3] == 0
     colors = image.getcolors(maxcolors=image.width * image.height) or []
     assert light_color + (255,) in {value for _count, value in colors}
     dark_colors = (
@@ -301,15 +304,21 @@ def test_apple_music_scannable_uses_the_same_theme_color_rule_as_spotify_code() 
     assert dark_color + (255,) in {value for _count, value in dark_colors}
 
 
-def test_china_music_scannables_use_theme_colored_supplied_symbols() -> None:
+def test_china_music_scannables_use_theme_colored_supplied_symbols(monkeypatch) -> None:
+    from beatprints_api.integrations.destinations.scannable import kuima_client
+
+    calls = []
+    def image(link, icon, color, **options):
+        calls.append((link, icon.name, color, options))
+        return Image.new("RGBA", (480, 480), color + (255,))
+    monkeypatch.setattr(kuima_client, "image", image)
     color = rendering.beatprints_image.t.THEMES["Light"]
     for adapter in (qq_music.adapter, netease_music.adapter):
         image = adapter.scannable("https://example.com/track/1")("Light")
-        icon = image.crop((0, 23, 74, 97))
-        colors = icon.getcolors(maxcolors=icon.width * icon.height) or []
-        assert color + (255,) in {value for _count, value in colors}
-        assert image.getpixel((0, 23))[3] == 0
-        assert image.getpixel((73, 23))[3] == 0
+        assert image.getpixel((60, 60)) == color + (255,)
+        assert image.getpixel((120, 60))[3] == 0
+    assert [call[1] for call in calls] == ["qq-music-symbol.png", "netease-music-symbol.png"]
+    assert calls[1][3] == {"version": "2", "mask": 24, "margin": 19}
 
 
 def test_cover_qr_color_is_colored_and_has_safe_white_contrast(tmp_path) -> None:

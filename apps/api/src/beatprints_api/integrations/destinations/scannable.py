@@ -4,10 +4,11 @@ from pathlib import Path
 
 import qrcode
 from PIL import Image, ImageChops, ImageDraw, ImageFont
-from qrcode.constants import ERROR_CORRECT_M
+from qrcode.constants import ERROR_CORRECT_H, ERROR_CORRECT_M
 
 from BeatPrints import image as beatprints_image
 from BeatPrints import write
+from beatprints_api.integrations.destinations.kuima import kuima_client
 
 
 def empty_scannable(_theme: str = "Light") -> Image.Image:
@@ -136,26 +137,52 @@ def icon_qr_scannable(
     link: str,
     icon_path: Path,
     *,
-    error_correction: int = ERROR_CORRECT_M,
+    version: str | None = None,
+    mask: int | None = None,
+    margin: int = 0,
 ):
-    """Render a destination icon and dot QR using the shared poster theme color."""
+    """Render a sunflower code with the destination icon at its center."""
 
     def render(theme: str = "Light") -> Image.Image:
         width, height = beatprints_image.s.SCANCODE
         color = beatprints_image.t.THEMES[theme]
         canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-        qr = qrcode.QRCode(
-            version=None,
-            error_correction=error_correction,
-            box_size=4,
-            border=2,
-        )
+        code = kuima_client.image(link, icon_path, color, version=version, mask=mask, margin=margin)
+        code = code.resize((112, 112), Image.Resampling.LANCZOS)
+        canvas.alpha_composite(code, (0, (height - 112) // 2))
+        canvas.info["square_code_box"] = (0, (height - 112) // 2, 112, (height - 112) // 2 + 112)
+        return canvas
+
+    return render
+
+
+def standard_icon_qr_scannable(link: str, icon_path: Path):
+    """Create a transparent, theme-colored QR with a centered platform mark."""
+
+    def render(theme: str = "Light") -> Image.Image:
+        width, height = beatprints_image.s.SCANCODE
+        color = beatprints_image.t.THEMES[theme]
+        qr = qrcode.QRCode(error_correction=ERROR_CORRECT_H, box_size=12, border=0)
         qr.add_data(link)
         qr.make(fit=True)
-        code = transparent_qr(qr, color, 112)
-        icon = platform_icon(icon_path, color, 74)
-        canvas.alpha_composite(icon, (0, (height - 74) // 2))
-        canvas.alpha_composite(code, (98, (height - 112) // 2))
+        ink = ImageChops.invert(qr.make_image(fill_color="black", back_color="white").convert("L"))
+        size = ink.width
+        plate = round(size * 0.23)
+        x = (size - plate) // 2
+        ImageDraw.Draw(ink).rounded_rectangle((x, x, x + plate, x + plate), radius=plate // 5, fill=0)
+        with Image.open(icon_path) as source:
+            rgba = source.convert("RGBA")
+            alpha = ImageChops.multiply(ImageChops.invert(rgba.convert("L")), rgba.getchannel("A"))
+            if not alpha.getbbox():
+                alpha = rgba.getchannel("A")
+            alpha = alpha.resize((round(plate * 0.8), round(plate * 0.8)), Image.Resampling.LANCZOS)
+            ink.paste(alpha, ((size - alpha.width) // 2, (size - alpha.height) // 2))
+        code = Image.new("RGBA", (size, size), color + (0,))
+        code.putalpha(ink)
+        code = code.resize((112, 112), Image.Resampling.LANCZOS)
+        canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        canvas.alpha_composite(code, (0, (height - 112) // 2))
+        canvas.info["square_code_box"] = (0, (height - 112) // 2, 112, (height - 112) // 2 + 112)
         return canvas
 
     return render

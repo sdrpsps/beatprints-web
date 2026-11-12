@@ -51,7 +51,7 @@ Album posters follow the same creation flow, with additional options for track i
 
 - **Precise Release Selection**: Search for tracks or albums and verify the exact release with cover artwork, artist credits, release dates, and duration.
 - **Lyric Selection & Editing**: Select 0 to 4 lyric lines for track posters, or input custom lyrics manually.
-- **Scannable Platform Destinations**: Add an authentic Spotify Code, or a QR code for Apple Music, QQ Music, or NetEase Cloud Music.
+- **Scannable Platform Destinations**: Add an authentic Spotify Code, or a standard QR code or WeChat sunflower code for Apple Music, QQ Music, or NetEase Cloud Music.
 - **Conservative Cross-Platform Matching**: Prioritizes stable identifiers (e.g., ISRC); falls back to ranked candidates or manual URL resolution when ambiguous—never silently chooses a weak match.
 - **Customizable Appearance**: Choose from curated themes (Light, Dark, Catppuccin, Gruvbox, Nord, RosePine, Everforest) and optional cover-extracted accent colors.
 - **Track & Album Modes**: Create posters for individual tracks or full albums, with album-specific options for track indexing and tracklist shuffling.
@@ -84,6 +84,8 @@ Once started, you can access:
 - OpenAPI Docs: <http://localhost:8000/docs>
 
 Spotify search is optional. When needed, configure `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` in `.env`; without Spotify credentials, QQ Music and NetEase Cloud Music search remain fully functional.
+
+WeChat sunflower codes require a QR service. Docker Compose starts it automatically; for local development, set `WECHAT_QR_BASE_URL` to the service address (for example, `http://127.0.0.1:8080`). The WeChat option is hidden when no address is configured. See the [API documentation](apps/api/README.md#本地启动) for deployment details. Standard QR codes do not require this service; Spotify always uses Spotify Code.
 
 ### Common Commands
 
@@ -224,5 +226,7 @@ Versioning follows standard rules: `fix:` bumps patch, `feat:` bumps minor, and 
 ## Attribution & License
 
 This project is built on top of [BeatPrints](https://github.com/TrueMyst/BeatPrints) created by TrueMyst / elysianmyst, with all original attribution preserved.
+
+WeChat sunflower codes are generated using [AnglerS888/kuima-generator](https://github.com/AnglerS888/kuima-generator). Thanks to its author and contributors.
 
 This project is licensed under [CC BY-NC-SA 4.0](LICENSE) for non-commercial use only. When using, distributing, or creating derivative works, please retain attribution and share under the same license; obtain commercial authorization from the original author prior to any commercial use.
