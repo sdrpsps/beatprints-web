@@ -6,6 +6,6 @@ Release Please 创建或更新发布 PR 后，工作流按合并顺序收集上�
 
 汇总依赖 GitHub 将合并的 commit 关联到 PR。直接推送的提交、无说明或旧格式的 PR 不进入摘要；这些提交仍可能出现在原始日志中，但不保证包含每次提交。发布日志会列出跳过的 PR。
 
-发布 PR 的检查会在摘要尚未写入时失败；请等待 Release Please 工作流完成并确认检查通过后再合并。如果生成失败，修复原因并重新运行该次工作流。标记内的内容会在发布 PR 更新时重新生成，请勿手动编辑。对已发布的历史版本，仍可在 **Release Please** 工作流选择 **Run workflow** 并输入标签（例如 `v1.4.0`）刷新摘要。工作流使用 `RELEASE_PLEASE_TOKEN`，需要仓库 contents 和 pull requests 写入权限。历史版本需要有可从新标签的第一父提交历史找到的 `v*` 标签。
+发布 PR 的检查会等待摘要写入，最多等待一分钟；如果仍未写入，检查会失败。合并前请确认检查通过。如果生成失败，修复原因并重新运行 Release Please 工作流。标记内的内容会在发布 PR 更新时重新生成，请勿手动编辑。对已发布的历史版本，仍可在 **Release Please** 工作流选择 **Run workflow** 并输入标签（例如 `v1.4.0`）刷新摘要。工作流使用 `RELEASE_PLEASE_TOKEN`，需要仓库 contents 和 pull requests 写入权限。历史版本需要有可从新标签的第一父提交历史找到的 `v*` 标签。
 
 本地测试：`python3 -m unittest discover -s .github/tests -v`。
