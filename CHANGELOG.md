@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.2](https://github.com/sdrpsps/beatprints-web/compare/v1.4.1...v1.4.2) (2026-11-12)
+
+
+### Bug Fixes
+
+* **ci:** publish manifest after skipped PR check ([51e27e8](https://github.com/sdrpsps/beatprints-web/commit/51e27e87f0462bc2dd25d0fadf66d6c326363e0a))
+* publish release image manifest after PR check ([386f8dc](https://github.com/sdrpsps/beatprints-web/commit/386f8dc1504ac5dfe8843ddae59f571d078fdebc))
+
 ## [1.4.1](https://github.com/sdrpsps/beatprints-web/compare/v1.4.0...v1.4.1) (2026-11-12)
 
 
