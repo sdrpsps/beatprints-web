@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.1](https://github.com/sdrpsps/beatprints-web/compare/v1.4.0...v1.4.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* improve release notes and publishing workflow ([0181537](https://github.com/sdrpsps/beatprints-web/commit/0181537245d345c5ab0d51123fc7b35d7b96bead))
+* **web:** improve release notes dialog layout ([f707a39](https://github.com/sdrpsps/beatprints-web/commit/f707a394a84c0ddd6bcc3d62bdb06ed482c62975))
+
 ## [1.4.0](https://github.com/sdrpsps/beatprints-web/compare/v1.3.2...v1.4.0) (2026-11-12)
 
 
