@@ -1,9 +1,11 @@
 from pathlib import Path
 import socket
+from types import SimpleNamespace
 
 import httpcore
 import httpx
 import pytest
+from PIL import Image, ImageDraw
 
 from BeatPrints.deez import TrackMetadata
 from beatprints_api.services import rendering
@@ -86,6 +88,33 @@ def test_label_text_size_fits_the_reserved_right_side_width(monkeypatch) -> None
     assert size == 40
 
 
+@pytest.mark.parametrize("label", ["唱片公司", "A very long record label name " * 5])
+@pytest.mark.parametrize("square", [True, False])
+def test_scannable_aligns_to_visible_metadata(label, square) -> None:
+    metadata = SimpleNamespace(released="2024-01-01", label=label)
+    text = Image.new("RGB", (2280, 3480), (0, 0, 0))
+    rendering._draw_release_and_label(
+        ImageDraw.Draw(text), metadata, (255, 255, 255), rendering.poster.p.LABEL
+    )
+    text_bounds = text.getbbox()
+    scannable = Image.new("RGBA", (425, 120))
+    content_box = (0, 4, 112, 116) if square else (10, 35, 400, 85)
+    scannable.paste((255, 255, 255, 255), content_box)
+    if square:
+        scannable.info["square_code_box"] = content_box
+    image = Image.new("RGB", text.size, (0, 0, 0))
+    rendering._paste_scannable(image, scannable, metadata)
+    bounds = image.getbbox()
+    assert bounds is not None and text_bounds is not None
+    if square:
+        assert (bounds[1], bounds[3]) == (text_bounds[1], text_bounds[3])
+        assert bounds[2] - bounds[0] == bounds[3] - bounds[1]
+    else:
+        assert abs((bounds[1] + bounds[3]) - (text_bounds[1] + text_bounds[3])) <= 1
+        assert bounds[2] - bounds[0] == 390
+        assert bounds[3] - bounds[1] == 50
+
+
 def test_album_track_layout_keeps_every_track_when_titles_are_wide() -> None:
     tracks = [
         "我亲爱的偏执狂",
@@ -115,7 +144,7 @@ def test_album_track_layout_keeps_every_track_when_titles_are_wide() -> None:
 
 
 @pytest.mark.parametrize("ips", [
-    [], ["8.8.8.8", "127.0.0.1"], ["::1"], ["fe80::1"],
+    [], ["::1"], ["fe80::1"],
     ["169.254.169.254"], ["10.0.0.1"], ["100.64.0.1"], ["::ffff:127.0.0.1"],
 ])
 def test_cover_connection_rejects_non_public_dns(monkeypatch, ips) -> None:
@@ -130,6 +159,20 @@ def test_cover_connection_rejects_non_public_dns(monkeypatch, ips) -> None:
     with pytest.raises(ValueError, match="only to public"):
         rendering._PublicCoverBackend().connect_tcp("mixed.example", 443)
     assert connected == []
+
+
+def test_cover_connection_filters_private_dns_answers(monkeypatch) -> None:
+    monkeypatch.setattr(
+        rendering.socket, "getaddrinfo",
+        lambda *_args, **_kwargs: [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", (ip, 443))
+            for ip in ("127.0.0.1", "8.8.8.8", "fd27:712::1")
+        ],
+    )
+    connected = []
+    monkeypatch.setattr(httpcore.SyncBackend, "connect_tcp", lambda _self, host, port, **_kwargs: connected.append(host))
+    rendering._PublicCoverBackend().connect_tcp("mixed.example", 443)
+    assert connected == ["8.8.8.8"]
 
 
 def test_cover_transport_pins_dns_and_preserves_tls_hostname_and_host(monkeypatch) -> None:

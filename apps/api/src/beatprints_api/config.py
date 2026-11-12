@@ -58,6 +58,7 @@ class Settings:
     spotify_client_secret: str | None
     spotify_market: str
     apple_music_storefront: str
+    wechat_qr_base_url: str | None
     max_concurrent_jobs: int
     port: int
     workers: int
@@ -80,6 +81,7 @@ def load_settings() -> Settings:
         spotify_client_secret=os.getenv("SPOTIFY_CLIENT_SECRET") or None,
         spotify_market=os.getenv("SPOTIFY_MARKET", "US").upper(),
         apple_music_storefront=os.getenv("APPLE_MUSIC_STOREFRONT", "US").upper(),
+        wechat_qr_base_url=(os.getenv("WECHAT_QR_BASE_URL") or "").strip().rstrip("/") or None,
         max_concurrent_jobs=_integer("MAX_CONCURRENT_JOBS", 1),
         port=_integer("PORT", 8000),
         workers=_integer("WEB_CONCURRENCY", 1),

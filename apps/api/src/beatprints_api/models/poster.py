@@ -214,6 +214,11 @@ class PosterSource(BaseModel):
         ),
     ] = None
 
+    qr_format: Literal["standard", "wechat"] = Field(
+        default="standard",
+        description="标准二维码或仅支持微信扫描的微信二维码；Spotify 使用专有码。",
+    )
+
     @model_validator(mode="after")
     def validate_qr_platform_link(self) -> "PosterSource":
         if self.qr_platform is None:

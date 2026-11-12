@@ -61,6 +61,10 @@ async function getJson<T>(path: string, signal?: AbortSignal) {
   return body.data
 }
 
+export async function fetchCapabilities(signal?: AbortSignal) {
+  return getJson<{ wechat_qr: boolean }>("/capabilities", signal)
+}
+
 export async function searchCatalog(
   query: string,
   kind: PosterKind,

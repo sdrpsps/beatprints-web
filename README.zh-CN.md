@@ -59,7 +59,7 @@ BeatPrints 完成海报渲染。
 
 - **精确选择音乐版本**：搜索歌曲或专辑，通过封面、艺人、发行信息与时长确认准确版本。
 - **挑选与编辑歌词**：单曲海报支持挑选 0 至 4 行歌词，也支持手动填写。
-- **添加平台直达入口**：可选 Spotify Code，或 Apple Music、QQ 音乐、网易云音乐二维码。
+- **添加平台直达入口**：可选 Spotify Code，或为 Apple Music、QQ 音乐、网易云音乐选择标准二维码或微信葵花码。
 - **跨平台严谨匹配**：优先使用 ISRC 等稳定标识；无法确认时展示候选列表或支持手动输入链接，绝不静默关联错误版本。
 - **定制海报外观**：内置 Light、Dark、Catppuccin、Gruvbox、Nord、RosePine 与 Everforest 主题，支持封面强调色。
 - **单曲与专辑双模式**：专辑海报额外支持曲目编号与随机曲序。
@@ -93,6 +93,10 @@ make dev
 
 Spotify 搜索是可选能力。需要时，在 `.env` 中配置
 `SPOTIFY_CLIENT_ID` 和 `SPOTIFY_CLIENT_SECRET`；未配置时仍可使用 QQ 音乐或网易云音乐。
+
+微信葵花码需要二维码服务。Docker Compose 会自动启动该服务；本地开发时可通过
+`WECHAT_QR_BASE_URL` 指定服务地址（例如 `http://127.0.0.1:8080`）；未配置时隐藏微信葵花码选项。标准二维码不需要
+该服务，Spotify 始终使用 Spotify Code。部署和调用详情请参阅 [API 文档](apps/api/README.md#本地启动)。
 
 ### 常用命令
 
@@ -239,6 +243,9 @@ ghcr.io/sdrpsps/beatprints-web:latest
 
 本项目基于 TrueMyst / elysianmyst 创作的
 [BeatPrints](https://github.com/TrueMyst/BeatPrints) 构建，并保留对原项目的署名。
+
+微信葵花码生成功能使用 [AnglerS888/葵码生成器](https://github.com/AnglerS888/kuima-generator)，
+感谢其作者与贡献者。
 
 项目采用 [CC BY-NC-SA 4.0](LICENSE) 许可，仅供非商业使用。使用、分发或创建衍生作品时，
 请保留署名并以相同许可共享；商业使用前请先取得原作者授权。

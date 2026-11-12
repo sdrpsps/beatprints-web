@@ -44,8 +44,13 @@ def _public_cover_addresses(host: str, port: int) -> tuple[str, ...]:
         addresses = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
     except socket.gaierror as exc:
         raise UpstreamError(f"Could not resolve cover host: {host}") from exc
-    ips = tuple(dict.fromkeys(address[4][0] for address in addresses))
-    if not ips or not all(ipaddress.ip_address(ip).is_global for ip in ips):
+    # Connect only to validated addresses; a private DNS answer must never be
+    # passed to the network backend, even when public answers are also present.
+    ips = tuple(dict.fromkeys(
+        address[4][0] for address in addresses
+        if ipaddress.ip_address(address[4][0]).is_global
+    ))
+    if not ips:
         raise ValueError("cover_url must resolve only to public Internet addresses")
     return ips
 
@@ -220,6 +225,7 @@ def provider_rendering(
     provider: str | None,
     platform_link: tuple[DestinationAdapter, str] | None,
     qr_color: tuple[int, int, int] | None,
+    qr_format: str = "standard",
 ):
     with rendering_lock:
         original_cover, original_scannable = (
@@ -233,7 +239,8 @@ def provider_rendering(
                 beatprints_image.cover = cover_renderer
         if platform_link is not None and qr_color is not None:
             adapter, link = platform_link
-            beatprints_image.scannable = adapter.scannable(link) or fallback_scannable(
+            render_code = adapter.standard_scannable if qr_format == "standard" and adapter.standard_scannable else adapter.scannable
+            beatprints_image.scannable = render_code(link) or fallback_scannable(
                 adapter.label, link, qr_color
             )
         try:
@@ -289,6 +296,43 @@ def _fitted_text_size(value: str, fonts, size: int, max_width: int) -> int:
     return size
 
 
+def _draw_release_and_label(draw, metadata, color, position) -> None:
+    label_fonts = write.font("Regular")
+    _write_right_aligned_text(
+        draw, position, metadata.released, color, label_fonts, poster.s.LABEL,
+    )
+    line_height = poster.s.LABEL + int(round((poster.s.LABEL * 6) / 42, 1))
+    _write_right_aligned_text(
+        draw, (position[0], position[1] + line_height), metadata.label, color,
+        label_fonts, _fitted_text_size(metadata.label, label_fonts, poster.s.LABEL, 1400),
+    )
+
+
+def _paste_scannable(poster_image, scannable, metadata) -> None:
+    """Align codes with the actual visible release/label text bounds."""
+    box = scannable.info.get("square_code_box")
+    if metadata.released.strip() and metadata.label.strip():
+        # Measure with the same mixed-font renderer and positioning as the poster.
+        mask = Image.new("RGB", (1500, poster_image.height - poster.p.LABEL[1]), (0, 0, 0))
+        _draw_release_and_label(ImageDraw.Draw(mask), metadata, (255, 255, 255), (1450, 0))
+        bounds = mask.getbbox()
+        if bounds and box:
+            top, bottom = bounds[1], bounds[3]
+            size = min(bottom - top, poster.s.SCANCODE[0], poster_image.height - poster.p.LABEL[1] - top)
+            if size > 0:
+                code = scannable.crop(box).resize((size, size), Image.Resampling.LANCZOS)
+                poster_image.paste(code, (poster.p.SCANCODE[0], poster.p.LABEL[1] + top), code)
+                return
+        if bounds:
+            content = scannable.getbbox()
+            if content:
+                center = poster.p.LABEL[1] + (bounds[1] + bounds[3]) / 2
+                y = round(center - (content[1] + content[3]) / 2)
+                poster_image.paste(scannable, (poster.p.SCANCODE[0], y), scannable)
+                return
+    poster_image.paste(scannable, poster.p.SCANCODE, scannable)
+
+
 def _draw_poster_template(draw, metadata, color: tuple[int, int, int]) -> None:
     """Draw common metadata without the upstream mixed-font anchor defect."""
 
@@ -310,24 +354,7 @@ def _draw_poster_template(draw, metadata, color: tuple[int, int, int]) -> None:
         poster.s.ARTIST,
         anchor="ls",
     )
-    label_fonts = write.font("Regular")
-    _write_right_aligned_text(
-        draw,
-        poster.p.LABEL,
-        metadata.released,
-        color,
-        label_fonts,
-        poster.s.LABEL,
-    )
-    line_height = poster.s.LABEL + int(round((poster.s.LABEL * 6) / 42, 1))
-    _write_right_aligned_text(
-        draw,
-        (poster.p.LABEL[0], poster.p.LABEL[1] + line_height),
-        metadata.label,
-        color,
-        label_fonts,
-        _fitted_text_size(metadata.label, label_fonts, poster.s.LABEL, 1400),
-    )
+    _draw_release_and_label(draw, metadata, color, poster.p.LABEL)
 
 
 @dataclass(frozen=True)
@@ -391,7 +418,7 @@ def _render_album_poster(
         poster_image = poster_image.convert("RGB")
         draw = ImageDraw.Draw(poster_image)
         poster_image.paste(cover, poster.p.COVER)
-        poster_image.paste(scannable, poster.p.SCANCODE, scannable)
+        _paste_scannable(poster_image, scannable, metadata)
         beatprints_image.draw_palette(draw, cover, accent)
         _draw_poster_template(draw, metadata, color)
 
@@ -431,7 +458,7 @@ def _render_track_poster(
         poster_image = poster_image.convert("RGB")
         draw = ImageDraw.Draw(poster_image)
         poster_image.paste(cover, poster.p.COVER)
-        poster_image.paste(scannable, poster.p.SCANCODE, scannable)
+        _paste_scannable(poster_image, scannable, metadata)
         beatprints_image.draw_palette(draw, cover, accent)
         _draw_poster_template(draw, metadata, color)
         write.text(
@@ -470,7 +497,7 @@ def render_track(
         directory, cover_path = Path(temp), Path(temp) / "cover"
         download_cover(metadata.cover, cover_path)
         qr_color = cover_qr_color(cover_path) if platform_link is not None else None
-        with provider_rendering(provider, platform_link, qr_color):
+        with provider_rendering(provider, platform_link, qr_color, request.qr_format):
             _render_track_poster(
                 directory,
                 metadata=metadata,
@@ -496,7 +523,7 @@ def render_album(request: AlbumPosterRequest, metadata) -> PosterResult:
         directory, cover_path = Path(temp), Path(temp) / "cover"
         download_cover(metadata.cover, cover_path)
         qr_color = cover_qr_color(cover_path) if platform_link is not None else None
-        with provider_rendering(provider, platform_link, qr_color):
+        with provider_rendering(provider, platform_link, qr_color, request.qr_format):
             _render_album_poster(
                 directory,
                 metadata=metadata,

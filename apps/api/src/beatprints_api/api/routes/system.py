@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from pydantic import BaseModel
 
 from beatprints_api.config import settings
 from beatprints_api.models import ApiResponse, HealthData
@@ -22,3 +23,12 @@ def health() -> ApiResponse[HealthData]:
         ),
         message="success",
     )
+
+
+class CapabilitiesData(BaseModel):
+    wechat_qr: bool
+
+
+@router.get("/capabilities", response_model=ApiResponse[CapabilitiesData], summary="查询可用功能")
+def capabilities() -> ApiResponse[CapabilitiesData]:
+    return ApiResponse(code=0, data=CapabilitiesData(wechat_qr=bool(settings.wechat_qr_base_url)), message="success")

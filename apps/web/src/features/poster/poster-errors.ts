@@ -8,6 +8,10 @@ import { ApiError } from "@/features/poster/api"
 export function friendlyError(error: unknown, fallback: string, t: TFunction) {
   if (!(error instanceof ApiError)) return { message: fallback }
 
+  if (error.status === 422 && error.message.startsWith("cover_url")) {
+    return { message: t("poster.errors.coverAddressError"), requestId: error.requestId }
+  }
+
   const messages: Record<number, string> = {
     401: t("poster.errors.error401"),
     404: t("poster.errors.platformMatchError"),

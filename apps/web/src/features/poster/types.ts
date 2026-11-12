@@ -2,6 +2,7 @@ export type PosterKind = "track" | "album"
 export type CatalogProvider = string
 export type SearchProvider = CatalogProvider | "all"
 export type PosterPlatform = string
+export type QrFormat = "standard" | "wechat"
 
 export type Theme =
   | "Light"
@@ -83,5 +84,6 @@ export type PosterRequest = {
   indexing?: boolean
   shuffle?: boolean
   qr_platform?: PosterPlatform
+  qr_format?: QrFormat
   platform_links?: Record<PosterPlatform, string>
 }

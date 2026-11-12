@@ -9,6 +9,23 @@
 
 ## 本地启动
 
+海报请求可用 `qr_format` 选择 `standard`（默认，标准二维码）或 `wechat`
+（微信二维码，需微信扫描）；两者均在中心显示音乐平台标志。Spotify 始终使用
+Spotify Code，不受该参数影响。标准二维码不需要葵码服务。
+
+非 Spotify 平台的微信二维码需要葵码服务。使用 Docker Compose 时，主配置会启动
+`ghcr.io/sdrpsps/kuima-generator:api-only` 并自动配置容器内部地址。葵码服务只在
+Compose 内部网络提供访问，不映射主机端口。
+
+在 BeatPrints 仓库根目录启动：
+
+```bash
+docker compose up -d --build
+```
+
+不使用 Compose 时，需自行启动支持 `fillBadge` 参数的葵码服务，并将
+`WECHAT_QR_BASE_URL` 指向该服务（例如 `http://127.0.0.1:8080`）。未配置时前端隐藏微信二维码选项，API 请求该格式将返回 503。
+
 需要 Python 3.14 和 [uv](https://docs.astral.sh/uv/)：
 
 ```bash
@@ -168,6 +185,7 @@ curl -X POST http://localhost:8000/v1/posters/track \
     "netease_music": "https://music.163.com/song?id=123456"
   },
   "qr_platform": "apple_music",
+  "qr_format": "wechat",
   "lyrics": "line one\nline two\nline three\nline four",
   "theme": "Nord",
   "accent": true

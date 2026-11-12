@@ -8,7 +8,7 @@ import httpx
 
 from beatprints_api.integrations.destinations.base import DestinationAdapter
 from beatprints_api.integrations.destinations.registry import register
-from beatprints_api.integrations.destinations.scannable import icon_qr_scannable
+from beatprints_api.integrations.destinations.scannable import icon_qr_scannable, standard_icon_qr_scannable
 from beatprints_api.exceptions import PlatformLinkNoMatchError, UpstreamError
 from beatprints_api.models.destinations import PlatformLinkMatchData
 
@@ -177,6 +177,7 @@ adapter = register(
         search=search,
         resolve=resolve,
         scannable=lambda link: icon_qr_scannable(link, ASSET_PATH),
+        standard_scannable=lambda link: standard_icon_qr_scannable(link, ASSET_PATH),
         resolve_source=_resolve_source,
         reuses_source_link=lambda provider: provider == "qq_music",
     )

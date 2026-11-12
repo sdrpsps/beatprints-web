@@ -8,4 +8,8 @@ export type PosterDestination = {
   default: boolean
   domains: string[]
   reusesSourceLink: (provider: CatalogProvider) => boolean
+  fixedCode?: boolean
+  logo: string
+  logoWhiteBackground?: boolean
+  logoNegativeSymbol?: boolean
 }

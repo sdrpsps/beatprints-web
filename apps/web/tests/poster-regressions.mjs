@@ -6,8 +6,11 @@ const server = await createServer({ server: { middlewareMode: true }, appType: "
 const originals = { fetch: globalThis.fetch, indexedDB: globalThis.indexedDB, create: URL.createObjectURL, revoke: URL.revokeObjectURL }
 try {
   const { usePosterStore: store, selectCanGenerate } = await server.ssrLoadModule("/src/features/poster/poster-store.ts")
+  const { friendlyError } = await server.ssrLoadModule("/src/features/poster/poster-errors.ts")
+  const { ApiError } = await server.ssrLoadModule("/src/features/poster/api.ts")
   const db = await server.ssrLoadModule("/src/lib/poster-history-db.ts")
   const t = (key) => key
+  assert.equal(friendlyError(new ApiError("cover_url must resolve only to public Internet addresses", 422, "cover-request"), "fallback", t).message, "poster.errors.coverAddressError")
   const selected = { id: "source-A", provider: "qq_music", type: "track", title: "Track A", artists: ["Artist"], cover_url: "https://example.com/cover.png", link: "https://y.qq.com/n/ryqq/songDetail/source-A" }
   const json = (data) => new Response(JSON.stringify({ code: 0, data, message: "success" }), { headers: { "Content-Type": "application/json" } })
   const reset = (state = {}) => {
@@ -114,6 +117,9 @@ try {
       await setImmediate()
       assert.equal(store.getState().platformMatchState, "success")
       assert.equal(store.getState().platformMatch.title, "Destination")
+      store.getState().setQrFormat("wechat")
+      assert.equal(searches, 1, "changing code type must not repeat matching")
+      assert.equal(store.getState().platformMatch.title, "Destination")
       store.getState().showPlatformCandidates(t)
       assert.equal(searches, 1, "opening cached candidates must not repeat searches")
       assert.equal(selectCanGenerate(store.getState()), false)
@@ -129,6 +135,7 @@ try {
       await store.getState().generate(t)
       assert.equal(payload.provider, selected.provider)
       assert.equal(payload.catalog_id, selected.id)
+      assert.equal(payload.qr_format, "wechat")
       assert.equal(payload.platform_links[platform], url)
       store.getState().showPlatformCandidates(t)
       assert.equal(searches, 1)
