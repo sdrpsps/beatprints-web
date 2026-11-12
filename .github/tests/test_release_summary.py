@@ -13,6 +13,7 @@ module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
 import prepare_release_pr
+import validate_pr_notes
 
 NOTES = """## Summary
 Internal details
@@ -48,11 +49,19 @@ class ReleaseSummaryTests(unittest.TestCase):
             with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8") as event:
                 json.dump({"pull_request": {"body": body, "head": {"ref": branch}}}, event)
                 event.flush()
-                return subprocess.run([sys.executable, str(script)], env={**os.environ, "GITHUB_EVENT_PATH": event.name}, capture_output=True).returncode
+                return subprocess.run([sys.executable, str(script)], env={**os.environ, "GITHUB_EVENT_PATH": event.name, "GITHUB_REPOSITORY": "owner/repo"}, capture_output=True).returncode
         self.assertEqual(validate(NOTES), 0)
         self.assertNotEqual(validate("## What's New\n- missing languages"), 0)
-        self.assertNotEqual(validate("", "release-please--branches--main"), 0)
         self.assertEqual(validate(module.update_body("## Features", [module.extract_summary(NOTES)]), "release-please--branches--main"), 0)
+
+    def test_release_pr_waits_for_notes_and_fails_on_timeout(self):
+        pr = {"number": 25, "body": ""}
+        ready = module.update_body("## Features", [module.extract_summary(NOTES)])
+        with patch.object(validate_pr_notes.time, "sleep"), patch.object(validate_pr_notes, "gh_json", side_effect=[{"body": ""}, {"body": ready}]) as api:
+            self.assertTrue(validate_pr_notes.wait_for_release_summary(pr, "owner/repo", attempts=3))
+            self.assertEqual(api.call_count, 2)
+        with patch.object(validate_pr_notes.time, "sleep"), patch.object(validate_pr_notes, "gh_json", return_value={"body": ""}):
+            self.assertFalse(validate_pr_notes.wait_for_release_summary(pr, "owner/repo", attempts=3))
 
     def test_release_pr_contains_notes_before_creation_and_is_idempotent(self):
         original = ":robot: Release\n---\n\n\n## [1.4.0](https://example.com) (2026-11-12)\n\n### Features\n\n* feature ([abc](https://example.com))\n\n---\nFooter"
