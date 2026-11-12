@@ -3,9 +3,8 @@ export const zhCN = {
     selectorLabel: "切换语言",
   },
   app: {
-    releaseNotes: "版本更新",
-    releaseTitle: "版本更新 · {{version}}",
-    releaseDescription: "更新内容来自 GitHub Release。",
+    releaseNotes: "更新日志",
+    releaseDescription: "来看看这次有什么新变化。",
     releaseLoading: "正在加载更新内容…",
     releaseError: "无法加载更新内容。",
     releaseRetry: "重试",

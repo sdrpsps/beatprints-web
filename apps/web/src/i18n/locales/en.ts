@@ -4,8 +4,7 @@ export const en = {
   },
   app: {
     releaseNotes: "What’s new",
-    releaseTitle: "Release notes · {{version}}",
-    releaseDescription: "Release notes from GitHub.",
+    releaseDescription: "See what’s new in this update.",
     releaseLoading: "Loading release notes…",
     releaseError: "Could not load release notes.",
     releaseRetry: "Try again",

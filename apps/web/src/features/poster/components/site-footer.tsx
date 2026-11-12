@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next"
 import { ReleaseNotes } from "@/features/poster/components/release-notes"
 import { buildInfo } from "@/lib/build-info"
 
+const footerLinkClass = "inline-flex items-center gap-[7px] rounded-sm text-[13px] text-muted-foreground no-underline outline-offset-4 transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring motion-reduce:transition-none [&_svg]:size-3.5"
+
 export function SiteFooter() {
   const { t } = useTranslation()
   return (
@@ -18,9 +20,9 @@ export function SiteFooter() {
         </p>
       </div>
       <div className="flex flex-wrap items-center justify-end gap-[22px] [&>a]:whitespace-nowrap max-sm:flex-col max-sm:items-start max-sm:gap-3">
-        <ReleaseNotes />
+        <ReleaseNotes triggerClassName={footerLinkClass} />
         <a
-          className="inline-flex items-center gap-[7px] rounded-sm text-[13px] text-muted-foreground no-underline outline-offset-4 transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring motion-reduce:transition-none [&_svg]:size-3.5"
+          className={footerLinkClass}
           href="/llms.txt"
           target="_blank"
           rel="noreferrer"
@@ -29,7 +31,7 @@ export function SiteFooter() {
           {t("app.footerAgentGuide")}
         </a>
         <a
-          className="inline-flex items-center gap-[7px] text-[13px] text-muted-foreground no-underline transition-colors duration-150 hover:text-foreground motion-reduce:transition-none [&_svg]:size-3.5"
+          className={footerLinkClass}
           href="https://github.com/sdrpsps/beatprints-web"
           target="_blank"
           rel="noreferrer"
@@ -38,7 +40,7 @@ export function SiteFooter() {
           {t("app.footerSourceCode")}
         </a>
         <a
-          className="inline-flex items-center gap-[7px] text-[13px] text-muted-foreground no-underline transition-colors duration-150 hover:text-foreground motion-reduce:transition-none [&_svg]:size-3.5"
+          className={footerLinkClass}
           href="https://github.com/TrueMyst/BeatPrints"
           target="_blank"
           rel="noreferrer"
@@ -47,7 +49,7 @@ export function SiteFooter() {
           {t("app.footerUpstreamGenerator")}
         </a>
         <a
-          className="inline-flex items-center gap-[7px] text-[13px] text-muted-foreground no-underline transition-colors duration-150 hover:text-foreground motion-reduce:transition-none"
+          className={footerLinkClass}
           href="https://creativecommons.org/licenses/by-nc-sa/4.0/"
           target="_blank"
           rel="noreferrer"

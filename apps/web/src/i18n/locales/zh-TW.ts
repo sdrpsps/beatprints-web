@@ -3,9 +3,8 @@ export const zhTW = {
     selectorLabel: "切換語言",
   },
   app: {
-    releaseNotes: "版本更新",
-    releaseTitle: "版本更新 · {{version}}",
-    releaseDescription: "更新內容來自 GitHub Release。",
+    releaseNotes: "更新日誌",
+    releaseDescription: "來看看這次有什麼新變化。",
     releaseLoading: "正在載入更新內容…",
     releaseError: "無法載入更新內容。",
     releaseRetry: "重試",
