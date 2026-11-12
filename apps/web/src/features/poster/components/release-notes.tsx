@@ -57,9 +57,9 @@ export function ReleaseNotes({ triggerClassName }: { triggerClassName: string })
         <HistoryIcon aria-hidden="true" />
         {t("app.releaseNotes")}
       </DialogTrigger>
-      <DialogContent showCloseButton={false}>
+      <DialogContent className="sm:max-w-2xl" showCloseButton={false}>
         <DialogHeader>
-          <DialogTitle>{t("app.releaseNotes")}</DialogTitle>
+          <DialogTitle>{t("app.releaseNotes")}{/^\d+\.\d+\.\d+$/.test(version) && ` · ${tag}`}</DialogTitle>
           <DialogDescription>{t("app.releaseDescription")}</DialogDescription>
         </DialogHeader>
         {body !== null ? (
