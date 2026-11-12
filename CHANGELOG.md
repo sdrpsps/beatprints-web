@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.4.0](https://github.com/sdrpsps/beatprints-web/compare/v1.3.2...v1.4.0) (2026-11-12)
+
+
+### Features
+
+* add configurable listening codes to posters ([92a28ba](https://github.com/sdrpsps/beatprints-web/commit/92a28bad250cfa0bed1840be6373fb5914c9260e))
+* add listening codes and release notes for 1.4.0 ([8de035f](https://github.com/sdrpsps/beatprints-web/commit/8de035ff2407251c1c2fde79f037577c8012c813))
+* aggregate localized release notes from pull requests ([a476e4f](https://github.com/sdrpsps/beatprints-web/commit/a476e4fbb93409f8899430ba507123ed848984a4))
+* serve cached release notes through API ([c7aea47](https://github.com/sdrpsps/beatprints-web/commit/c7aea475b8f0a63685a375fca588d13b4b12089d))
+* show GitHub release notes in app ([82f02fd](https://github.com/sdrpsps/beatprints-web/commit/82f02fd8be347d14f0255392f4c4f6593869b694))
+
+
+### Bug Fixes
+
+* render release notes as markdown ([642576b](https://github.com/sdrpsps/beatprints-web/commit/642576bb76b2a1bd587ca5f4510ca4ef73f08678))
+* **web:** refine release notes presentation ([6407853](https://github.com/sdrpsps/beatprints-web/commit/640785311c269f77e0485029808f02f48213a021))
+
 ## [1.3.2](https://github.com/sdrpsps/beatprints-web/compare/v1.3.1...v1.3.2) (2026-10-02)
 
 
