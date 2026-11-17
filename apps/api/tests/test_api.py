@@ -601,26 +601,31 @@ def test_every_platform_exposes_ranked_candidates(
     "platform",
     ["spotify", "apple_music", "qq_music", "netease_music"],
 )
+@pytest.mark.parametrize("item_type", ["track", "album"])
 def test_candidate_selection_resolves_current_platform_metadata(
     monkeypatch,
     platform: str,
+    item_type: str,
 ) -> None:
     seen: dict[str, str] = {}
 
     def resolve(candidate_platform: str, url: str) -> dict:
         seen.update(platform=candidate_platform, url=url)
-        return {
+        result = {
             "url": url,
             "title": "Current title",
             "artists": ["Current artist"],
-            "album": "Current album",
             "release_year": 2024,
-            "duration_seconds": 201,
-            "type": "track",
+            "type": item_type,
         }
+        if item_type == "track":
+            result.update(album="Current album", duration_seconds=201)
+        else:
+            result["track_count"] = 11
+        return result
 
     monkeypatch.setattr(catalog.matching_service, "resolve_platform_url", resolve)
-    url = f"https://example.com/{platform}/track/1"
+    url = f"https://example.com/{platform}/{item_type}/1"
 
     response = client.get(
         f"/v1/platform-links/{platform}/resolve",
@@ -629,15 +634,18 @@ def test_candidate_selection_resolves_current_platform_metadata(
 
     assert response.status_code == 200
     assert seen == {"platform": platform, "url": url}
-    assert response.json()["data"] == {
+    expected = {
         "url": url,
         "title": "Current title",
         "artists": ["Current artist"],
-        "album": "Current album",
         "release_year": 2024,
-        "duration_seconds": 201,
-        "type": "track",
+        "type": item_type,
     }
+    if item_type == "track":
+        expected.update(album="Current album", duration_seconds=201)
+    else:
+        expected["track_count"] = 11
+    assert response.json()["data"] == expected
 
 
 def test_track_allows_empty_instrumental_text() -> None:

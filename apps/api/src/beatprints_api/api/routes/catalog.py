@@ -53,6 +53,8 @@ ERROR_RESPONSES = {
         "以所选来源的 provider、catalog_id 和来源地区读取歌曲或专辑。"
         "若目标地区无法直接解析同平台的来源 ID，继续在目标地区搜索并返回"
         "经过保守匹配的结果与排序候选；不会自动确认低置信度候选。"
+        "Apple Music 歌曲会在可用时优先使用 ISRC 查询对应录音。"
+        "标题语言不同但年份和曲目数一致的专辑可作为人工候选，不会自动确认。"
         "目标平台发生真正的服务错误时返回 502。"
     ),
     response_model=ApiResponse[PlatformMatchOptionsData],
@@ -142,7 +144,8 @@ def themes() -> ApiResponse[ThemesData]:
     description=(
         "按 provider 在音乐目录中搜索，返回的 provider + id 可以直接交给海报生成接口。"
         "provider 使用已启用的目录 integration key；provider=all 会合并"
-        "当前已配置的来源。"
+        "当前已配置的来源。Apple Music 使用所选地区的网页目录进行搜索，"
+        "不需要用户登录 Apple Music 账号。"
     ),
     response_model=ApiResponse[list[SearchResult]],
     response_model_exclude_none=True,
@@ -155,7 +158,7 @@ async def search(
             min_length=1,
             max_length=500,
             description="歌名、专辑名或歌手关键词，允许近似拼写。",
-            examples=["Summer Breeze Piper"],
+            examples=["Summer Breeze Piper", "周杰伦 晴天"],
         ),
     ],
     provider: Annotated[

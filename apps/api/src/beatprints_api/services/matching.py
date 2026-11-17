@@ -217,6 +217,25 @@ def _candidate_score(
         metadata.title, candidate.get("title")
     )
     if title_score < 0.45:
+        # Localized album titles can differ entirely between storefronts.
+        # Surface a plausible edition for manual review only when its year and
+        # track count agree and the artist names do not clearly conflict.
+        if item_type == "album":
+            source_year = _release_year(metadata.released)
+            candidate_year = candidate.get("release_year")
+            count = len(metadata.tracks)
+            _, artist_state = _artist_comparison(
+                [str(artist) for artist in metadata.artists],
+                [str(artist) for artist in candidate.get("artists") or []],
+            )
+            if (
+                source_year
+                and source_year == candidate_year
+                and count
+                and count == candidate.get("track_count")
+                and artist_state != "mismatched"
+            ):
+                return 0.30 + (0.03 if "artist" in origins else 0.0)
         return None
 
     source_artists = [str(artist) for artist in metadata.artists]

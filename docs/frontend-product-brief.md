@@ -54,6 +54,8 @@ values as `provider + catalog_id`; the generation API does not accept a text que
 The result list needs loading, no-results, upstream-unavailable, source-not-configured, and
 retry states. Spotify may return HTTP 503 when server credentials are not configured;
 `provider=all` still returns QQ Music, NetEase Music, and Apple Music results when Spotify is unavailable.
+Apple Music search and current metadata use the selected region's web catalog without a user
+account. Its unofficial interface can fail when Apple changes the website or service.
 
 ### 2. Confirm the matched recording
 
@@ -133,7 +135,7 @@ GET /v1/platform-links/<enabled-destination>/options
 
 The backend retrieves that exact source item and runs one shared matching engine for every
 destination. Destination adapters only implement catalog search, link resolution, canonical
-metadata mapping, and optional platform capabilities such as Spotify ISRC lookup. The shared
+metadata mapping, and optional platform capabilities such as Spotify and Apple Music ISRC lookup. The shared
 engine applies title/version, artist, release, duration, track-count, ranking, and ambiguity rules.
 The response contains an optional confirmed `match` and ranked `candidates` from the same lookup.
 When the selected source and QR destination are the same enabled platform, the destination
@@ -144,6 +146,8 @@ errors. Cross-platform destinations follow the same conservative matching and ma
 
 Candidate search deliberately has broader recall than automatic confirmation. It ranks by title,
 artist, album, year, duration, and track count, but never silently confirms a weak result. The UI
+can offer a differently localized album as a manual candidate when its year and track count
+agree, without automatically confirming it. The UI
 can transition directly to the alternatives without another user action or another visible wait
 because confirmation and alternatives come from the same response. It shows these
 alternatives using the same cover/title/artist/context hierarchy as source search, with a “Select”
@@ -236,6 +240,10 @@ It shares `provider`, `catalog_id`, optional `qr_platform`/`platform_links`, `th
 - `shuffle`: randomize track order before rendering.
 
 Album posters do not use lyrics.
+
+Apple Music track and album posters prefer the selected album's record label. If it is missing,
+they may display its recording copyright holder instead; that holder is not necessarily the
+releasing label. Missing label information does not prevent generation.
 
 ## Advanced custom-metadata path
 

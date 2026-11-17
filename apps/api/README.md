@@ -61,8 +61,9 @@ src/beatprints_api/
 ```
 
 每个路由直接导入负责该操作的 service，不经过总门面。catalog、lyrics、destination
-和 label 的 registry 文件分别是其启用清单；目的地不得导入或注册 catalog adapter，
-共享的 Spotify HTTP client 位于 `integrations/spotify_client.py`，不包含注册逻辑。
+和 label 的 registry 文件分别是其启用清单；目的地不得导入或注册 catalog adapter。
+共享的 Spotify 和 Apple Music 客户端分别位于 `integrations/spotify_client.py` 和
+`integrations/apple_music_client.py`，不包含注册逻辑。
 
 除成功返回 PNG 的两个海报接口外，所有 JSON 成功及错误响应都采用统一结构：
 
@@ -291,6 +292,7 @@ curl --get "http://localhost:8000/v1/platform-links/spotify/resolve" \
 
 `/options` 提供自动确认与可由用户确认的排序候选；`/resolve` 读取所选公开链接的当前资料，用于刷新目标
 平台确认卡片。两者均支持四个平台，且不会改写海报使用的 QQ 音乐、网易云音乐、Spotify 或 Apple Music 来源资料、歌词或封面。
+标题语言不同、但发行年份和曲目数一致的专辑可能作为人工候选显示，不会仅凭这些信息自动确认。
 
 选择 Spotify 且链接是标准的 Spotify 歌曲或专辑链接时，海报左下角会使用 Spotify
 提供的原生 Spotify Code PNG（可由 Spotify App 的“搜索 → 扫描”识别），而不是普通
@@ -336,7 +338,18 @@ GET /v1/search?query=Summer%20Breeze&type=track&provider=all&limit=5
 `provider=all` 中的 `limit` 对每个来源分别生效；Spotify 单次最多返回 10 条。未配置
 Spotify 时，`all` 仍会返回 QQ 音乐、网易云音乐和 Apple Music 结果；明确指定 `provider=spotify` 则返回 HTTP 503。
 
-Apple Music 搜索无需 Spotify 凭据。当 iTunes 搜索失败或在所选地区未返回可用结果时，服务会从 Apple Music 公开搜索页面读取候选 ID，再通过同地区的精确 ID 查询获取当前资料；专辑曲目缺失时会读取公开专辑页面。公开页面结构若发生变化，相关请求可能暂时失败。搜索和歌词接口可通过 `region` 指定地区；平台匹配使用 `source_region` 和 `destination_region`，链接解析使用 `region`。生成请求可提供 `source_region` 和 `destination_region`。这些地区使用大写 ISO 3166-1 两字母代码；未指定时使用默认地区 `US`。 `GET /v1/capabilities` 返回各启用集成的 `regions`，列表根据 Apple 和 Spotify 的官方服务地区页面维护，更新日期和来源记录在各自的地区模块中。
+Apple Music 搜索、按 ID 读取歌曲和专辑、专辑曲目及目的地匹配均使用 Apple Music 网页目录接口，
+无需 Apple Music 账号、订阅或 Spotify 凭据。服务自动获取并刷新网页使用的公开应用令牌；
+它不是用户登录令牌。网页接口是非公开实现，Apple 调整后相关请求可能暂时失败。
+可用 ISRC 时，Apple Music 目的地优先按录音标识查询；仍须区分具体版本。
+搜索和歌词接口可通过 `region` 指定地区；平台匹配使用 `source_region` 和 `destination_region`，
+链接解析使用 `region`。生成请求可提供 `source_region` 和 `destination_region`。
+这些地区使用大写 ISO 3166-1 两字母代码；未指定时使用默认地区 `US`。
+`GET /v1/capabilities` 返回各启用集成的 `regions`，列表根据 Apple 和 Spotify 的官方服务地区页面维护，
+更新日期和来源记录在各自的地区模块中。
+
+Apple Music 歌曲和专辑海报优先使用所选专辑的厂牌；厂牌缺失时尝试使用录音版权持有人。
+版权持有人不一定就是发行厂牌，信息缺失或查询失败时仍可生成海报。
 
 生成接口统一使用 `provider + catalog_id`。QQ 音乐、网易云音乐、Spotify 和 Apple Music 是同等级 provider；
 以后新增目录平台时，也不需要改变请求结构。

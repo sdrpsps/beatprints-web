@@ -35,46 +35,37 @@ def test_spotify_search_uses_request_region(monkeypatch, item_type):
 @pytest.mark.parametrize("item_type", ["track", "album"])
 def test_apple_search_and_resolve_use_request_region(monkeypatch, item_type):
     seen = []
-    row = (
-        {
-            "wrapperType": "track",
-            "trackName": "Song",
-            "trackViewUrl": "https://music.apple.com/jp/song/12",
-        }
-        if item_type == "track"
-        else {
-            "wrapperType": "collection",
-            "collectionName": "Album",
-            "collectionViewUrl": "https://music.apple.com/jp/album/12",
-        }
-    )
-    row.update(
-        {
-            "trackId": 12,
-            "collectionId": 12,
-            "collectionName": "Album",
+    row = {
+        "type": "songs" if item_type == "track" else "albums",
+        "id": "12",
+        "attributes": {
+            "name": "Song" if item_type == "track" else "Album",
+            "albumName": "Album",
             "artistName": "Artist",
-            "artworkUrl100": "https://example.com/100x100.jpg",
-        }
-    )
+            "url": (
+                "https://music.apple.com/jp/album/12?i=12"
+                if item_type == "track"
+                else "https://music.apple.com/jp/album/12"
+            ),
+            "artwork": {"url": "https://example.com/{w}x{h}.jpg"},
+        },
+    }
 
-    class Response:
-        def raise_for_status(self):
-            pass
+    def search(_query, _kind, _limit):
+        seen.append(current_region())
+        return [row]
 
-        def json(self):
-            return {"results": [row]}
+    def item(_identifier, _kind, **_kwargs):
+        seen.append(current_region())
+        return row
 
-    def get(url, params, **kwargs):
-        seen.append(params["country"])
-        return Response()
-
-    monkeypatch.setattr(apple_music.httpx, "get", get)
-    monkeypatch.setattr(apple_destination.http_client, "get", get)
+    client = apple_music.apple_music_client
+    monkeypatch.setattr(client, "search", search)
+    monkeypatch.setattr(client, "item", item)
     with use_region("JP"):
         apple_music.search("Song", item_type, 5)
         apple_destination.search("Song", item_type)
-        apple_destination.resolve("https://music.apple.com/us/album/12")
+        apple_destination.resolve(row["attributes"]["url"])
     assert seen == ["JP", "JP", "JP"]
 
 

@@ -715,6 +715,69 @@ def test_album_candidates_include_catalog_title_suffix_without_auto_matching(
     assert [str(match.url) for match in result.candidates] == [candidate["url"]]
 
 
+@pytest.mark.parametrize(
+    "platform", ["spotify", "apple_music", "qq_music", "netease_music"]
+)
+def test_localized_album_can_be_reviewed_without_automatic_confirmation(
+    monkeypatch, platform
+) -> None:
+    metadata = AlbumMetadata(
+        title="叶惠美",
+        artists=["周杰伦"],
+        released="2003-07-31",
+        tracks=[f"Track {index}" for index in range(11)],
+        cover="https://example.com/cover.jpg",
+        label="",
+    )
+    candidate = {
+        "title": "Yeh, Hwei-Mei",
+        "artists": ["Jay Chou"],
+        "release_year": 2003,
+        "track_count": 11,
+        "url": "https://example.com/album",
+        "type": "album",
+    }
+    monkeypatch.setattr(matching_service, "_album_metadata", lambda _request: metadata)
+    monkeypatch.setattr(
+        matching_service,
+        "_destination_adapter",
+        lambda _platform: DestinationAdapter(
+            search=lambda _query, _item_type: [candidate],
+            resolve=lambda _url: None,
+        ),
+    )
+
+    result = matching_service.platform_match_options(
+        "qq_music", "album-id", "album", platform
+    )
+
+    assert result.match is None
+    assert [str(item.url) for item in result.candidates] == [candidate["url"]]
+
+
+@pytest.mark.parametrize("change", [{"release_year": 2004}, {"track_count": 10}])
+def test_unrelated_localized_album_is_not_a_candidate(change) -> None:
+    metadata = AlbumMetadata(
+        title="叶惠美",
+        artists=["周杰伦"],
+        released="2003-07-31",
+        tracks=[f"Track {index}" for index in range(11)],
+        cover="https://example.com/cover.jpg",
+        label="",
+    )
+    candidate = {
+        "title": "Yeh, Hwei-Mei",
+        "artists": ["Jay Chou"],
+        "release_year": 2003,
+        "track_count": 11,
+        **change,
+    }
+    assert (
+        matching_service._candidate_score(metadata, candidate, "album", {"artist"})
+        is None
+    )
+
+
 def test_candidate_search_skips_empty_artist_queries(monkeypatch) -> None:
     metadata = AlbumMetadata(
         title="Groupies 吉他手",

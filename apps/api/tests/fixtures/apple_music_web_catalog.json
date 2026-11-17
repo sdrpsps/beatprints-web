@@ -1,0 +1,402 @@
+{
+  "US": {
+    "track_search": [
+      {
+        "id": "1721464906",
+        "type": "songs",
+        "attributes": {
+          "albumName": "Yeh, Hwei-Mei",
+          "artistName": "Jay Chou",
+          "artwork": {
+            "url": "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/8c/47/86/8c47862d-e254-8b49-30cf-d1f05ebba05b/23UM1IM56855.rgb.jpg/{w}x{h}bb.jpg"
+          },
+          "durationInMillis": 269747,
+          "isrc": "TWK970300503",
+          "name": "Sunny Day",
+          "releaseDate": "2003-07-31",
+          "url": "https://music.apple.com/us/album/sunny-day/1721464893?i=1721464906"
+        }
+      },
+      {
+        "id": "1673209898",
+        "type": "songs",
+        "attributes": {
+          "albumName": "晴天 (女版) - Single",
+          "artistName": "田各田各",
+          "artwork": {
+            "url": "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/5b/02/ff/5b02ff1b-89c8-4e09-e70a-12331d23be38/cover.jpg/{w}x{h}bb.jpg"
+          },
+          "durationInMillis": 198776,
+          "isrc": "FR59R2350945",
+          "name": "晴天 (女版)",
+          "releaseDate": "2023-02-07",
+          "url": "https://music.apple.com/us/album/%E6%99%B4%E5%A4%A9-%E5%A5%B3%E7%89%88/1673209625?i=1673209898"
+        }
+      }
+    ],
+    "album_search": [
+      {
+        "id": "1721464893",
+        "type": "albums",
+        "attributes": {
+          "artistName": "Jay Chou",
+          "artwork": {
+            "url": "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/8c/47/86/8c47862d-e254-8b49-30cf-d1f05ebba05b/23UM1IM56855.rgb.jpg/{w}x{h}bb.jpg"
+          },
+          "copyright": "℗ 2003 JVR Music International Ltd.",
+          "name": "Yeh, Hwei-Mei",
+          "recordLabel": "Universal Music Taiwan (JVR)",
+          "releaseDate": "2003-07-29",
+          "trackCount": 11,
+          "url": "https://music.apple.com/us/album/%E8%91%89%E6%83%A0%E7%BE%8E/1721464893"
+        }
+      },
+      {
+        "id": "1632147960",
+        "type": "albums",
+        "attributes": {
+          "artistName": "苏念一",
+          "artwork": {
+            "url": "https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/e2/a7/8d/e2a78db0-8a76-8940-a990-97607e713b98/cover.jpg/{w}x{h}bb.jpg"
+          },
+          "copyright": "℗ 2020 谱巢音乐",
+          "name": "晴天 - Single",
+          "recordLabel": "谱巢文化",
+          "releaseDate": "2020-11-24",
+          "trackCount": 1,
+          "url": "https://music.apple.com/us/album/%E6%99%B4%E5%A4%A9-single/1632147960"
+        }
+      }
+    ],
+    "track": {
+      "id": "1721464906",
+      "type": "songs",
+      "attributes": {
+        "albumName": "Yeh, Hwei-Mei",
+        "artistName": "Jay Chou",
+        "artwork": {
+          "url": "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/8c/47/86/8c47862d-e254-8b49-30cf-d1f05ebba05b/23UM1IM56855.rgb.jpg/{w}x{h}bb.jpg"
+        },
+        "durationInMillis": 269747,
+        "isrc": "TWK970300503",
+        "name": "Sunny Day",
+        "releaseDate": "2003-07-31",
+        "url": "https://music.apple.com/us/album/sunny-day/1721464893?i=1721464906"
+      },
+      "relationships": {
+        "albums": {
+          "href": "/v1/catalog/us/songs/1721464906/albums",
+          "data": [
+            {
+              "id": "1721464893",
+              "type": "albums",
+              "attributes": {
+                "name": "Yeh, Hwei-Mei"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "album": {
+      "id": "1721464893",
+      "type": "albums",
+      "attributes": {
+        "artistName": "Jay Chou",
+        "artwork": {
+          "url": "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/8c/47/86/8c47862d-e254-8b49-30cf-d1f05ebba05b/23UM1IM56855.rgb.jpg/{w}x{h}bb.jpg"
+        },
+        "copyright": "℗ 2003 JVR Music International Ltd.",
+        "name": "Yeh, Hwei-Mei",
+        "recordLabel": "Universal Music Taiwan (JVR)",
+        "releaseDate": "2003-07-29",
+        "trackCount": 11,
+        "url": "https://music.apple.com/us/album/%E8%91%89%E6%83%A0%E7%BE%8E/1721464893"
+      },
+      "relationships": {
+        "tracks": {
+          "href": "/v1/catalog/us/albums/1721464893/tracks",
+          "data": [
+            {
+              "id": "1721464904",
+              "type": "songs",
+              "attributes": {
+                "name": "In The Name of Father"
+              }
+            },
+            {
+              "id": "1721464905",
+              "type": "songs",
+              "attributes": {
+                "name": "Coward"
+              }
+            },
+            {
+              "id": "1721464906",
+              "type": "songs",
+              "attributes": {
+                "name": "Sunny Day"
+              }
+            },
+            {
+              "id": "1721465357",
+              "type": "songs",
+              "attributes": {
+                "name": "Class 3-2"
+              }
+            },
+            {
+              "id": "1721465358",
+              "type": "songs",
+              "attributes": {
+                "name": "Dong-Feng-Po"
+              }
+            },
+            {
+              "id": "1721465363",
+              "type": "songs",
+              "attributes": {
+                "name": "You Hear Me"
+              }
+            },
+            {
+              "id": "1721465367",
+              "type": "songs",
+              "attributes": {
+                "name": "Same Tone"
+              }
+            },
+            {
+              "id": "1721465383",
+              "type": "songs",
+              "attributes": {
+                "name": "Her Eyelashes"
+              }
+            },
+            {
+              "id": "1721465482",
+              "type": "songs",
+              "attributes": {
+                "name": "Cliff"
+              }
+            },
+            {
+              "id": "1721465528",
+              "type": "songs",
+              "attributes": {
+                "name": "Terrace Field"
+              }
+            },
+            {
+              "id": "1721465534",
+              "type": "songs",
+              "attributes": {
+                "name": "Double Blade"
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "CN": {
+    "track_search": [
+      {
+        "id": "535824738",
+        "type": "songs",
+        "attributes": {
+          "albumName": "叶惠美",
+          "artistName": "周杰伦",
+          "artwork": {
+            "url": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/45/8a/e4/458ae484-dc8b-5683-ce04-8d2948346462/JAY.jpg/{w}x{h}bb.jpg"
+          },
+          "durationInMillis": 269747,
+          "isrc": "TWK970300503",
+          "name": "晴天",
+          "releaseDate": "2003-07-31",
+          "url": "https://music.apple.com/cn/album/%E6%99%B4%E5%A4%A9/535824731?i=535824738"
+        }
+      },
+      {
+        "id": "1623572747",
+        "type": "songs",
+        "attributes": {
+          "albumName": "钢琴放松轻听 流行轻音乐 华语经典",
+          "artistName": "纪钧瀚",
+          "artwork": {
+            "url": "https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/6a/73/cd/6a73cdda-ddf5-efbd-9233-4b19c3e2268c/4713812146410.jpg/{w}x{h}bb.jpg"
+          },
+          "durationInMillis": 238098,
+          "isrc": "TWAA72200351",
+          "name": "晴天 (钢琴版)",
+          "releaseDate": "2022-05-11",
+          "url": "https://music.apple.com/cn/album/%E6%99%B4%E5%A4%A9-%E9%92%A2%E7%90%B4%E7%89%88/1623572742?i=1623572747"
+        }
+      }
+    ],
+    "album_search": [
+      {
+        "id": "535824731",
+        "type": "albums",
+        "attributes": {
+          "artistName": "周杰伦",
+          "artwork": {
+            "url": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/45/8a/e4/458ae484-dc8b-5683-ce04-8d2948346462/JAY.jpg/{w}x{h}bb.jpg"
+          },
+          "copyright": "℗ 2003 JVR MUSIC INTERNATIONAL LTD.",
+          "name": "叶惠美",
+          "recordLabel": "JVR MUSIC INTERNATIONAL LTD.",
+          "releaseDate": "2003-07-31",
+          "trackCount": 11,
+          "url": "https://music.apple.com/cn/album/%E8%91%89%E6%83%A0%E7%BE%8E/535824731"
+        }
+      },
+      {
+        "id": "1623572742",
+        "type": "albums",
+        "attributes": {
+          "artistName": "纪钧瀚",
+          "artwork": {
+            "url": "https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/6a/73/cd/6a73cdda-ddf5-efbd-9233-4b19c3e2268c/4713812146410.jpg/{w}x{h}bb.jpg"
+          },
+          "copyright": "℗ 2022 Noble Music Co., Ltd",
+          "name": "钢琴放松轻听 流行轻音乐 华语经典",
+          "recordLabel": "Noble Music Co., Ltd",
+          "releaseDate": "2022-05-11",
+          "trackCount": 20,
+          "url": "https://music.apple.com/cn/album/%E9%8B%BC%E7%90%B4%E6%94%BE%E9%AC%86%E8%BC%95%E8%81%BD-%E6%B5%81%E8%A1%8C%E8%BC%95%E9%9F%B3%E6%A8%82-%E8%8F%AF%E8%AA%9E%E7%B6%93%E5%85%B8/1623572742"
+        }
+      }
+    ],
+    "track": {
+      "id": "535824738",
+      "type": "songs",
+      "attributes": {
+        "albumName": "叶惠美",
+        "artistName": "周杰伦",
+        "artwork": {
+          "url": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/45/8a/e4/458ae484-dc8b-5683-ce04-8d2948346462/JAY.jpg/{w}x{h}bb.jpg"
+        },
+        "durationInMillis": 269747,
+        "isrc": "TWK970300503",
+        "name": "晴天",
+        "releaseDate": "2003-07-31",
+        "url": "https://music.apple.com/cn/album/%E6%99%B4%E5%A4%A9/535824731?i=535824738"
+      },
+      "relationships": {
+        "albums": {
+          "href": "/v1/catalog/cn/songs/535824738/albums",
+          "data": [
+            {
+              "id": "535824731",
+              "type": "albums",
+              "attributes": {
+                "name": "叶惠美"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "album": {
+      "id": "535824731",
+      "type": "albums",
+      "attributes": {
+        "artistName": "周杰伦",
+        "artwork": {
+          "url": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/45/8a/e4/458ae484-dc8b-5683-ce04-8d2948346462/JAY.jpg/{w}x{h}bb.jpg"
+        },
+        "copyright": "℗ 2003 JVR MUSIC INTERNATIONAL LTD.",
+        "name": "叶惠美",
+        "recordLabel": "JVR MUSIC INTERNATIONAL LTD.",
+        "releaseDate": "2003-07-31",
+        "trackCount": 11,
+        "url": "https://music.apple.com/cn/album/%E8%91%89%E6%83%A0%E7%BE%8E/535824731"
+      },
+      "relationships": {
+        "tracks": {
+          "href": "/v1/catalog/cn/albums/535824731/tracks",
+          "data": [
+            {
+              "id": "535824736",
+              "type": "songs",
+              "attributes": {
+                "name": "以父之名"
+              }
+            },
+            {
+              "id": "535824737",
+              "type": "songs",
+              "attributes": {
+                "name": "懦夫"
+              }
+            },
+            {
+              "id": "535824738",
+              "type": "songs",
+              "attributes": {
+                "name": "晴天"
+              }
+            },
+            {
+              "id": "535824739",
+              "type": "songs",
+              "attributes": {
+                "name": "三年二班"
+              }
+            },
+            {
+              "id": "535824740",
+              "type": "songs",
+              "attributes": {
+                "name": "东风破"
+              }
+            },
+            {
+              "id": "535824741",
+              "type": "songs",
+              "attributes": {
+                "name": "你听得到"
+              }
+            },
+            {
+              "id": "535824742",
+              "type": "songs",
+              "attributes": {
+                "name": "同一种调调"
+              }
+            },
+            {
+              "id": "535824743",
+              "type": "songs",
+              "attributes": {
+                "name": "她的睫毛"
+              }
+            },
+            {
+              "id": "535824744",
+              "type": "songs",
+              "attributes": {
+                "name": "爱情悬崖"
+              }
+            },
+            {
+              "id": "535824745",
+              "type": "songs",
+              "attributes": {
+                "name": "梯田"
+              }
+            },
+            {
+              "id": "535824746",
+              "type": "songs",
+              "attributes": {
+                "name": "双刀"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

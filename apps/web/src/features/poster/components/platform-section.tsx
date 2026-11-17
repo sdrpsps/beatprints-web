@@ -66,10 +66,10 @@ export function PlatformSection() {
                 <ItemContent><ItemTitle>{t(destination.labelKey, { defaultValue: destination.label })}</ItemTitle></ItemContent>
                 <ItemActions>
                   <ButtonGroup aria-label={destination.label ?? destination.key}>
-                  {destination.supportsRegions ? <RegionPicker regionCodes={destination.regions ?? []} platform={destination.label ?? destination.key} value={regions[destination.key] ?? "US"} onChange={(value) => setRegion(destination.key, value, t)} /> : null}
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setChoosing(!choosing)} aria-expanded={choosing} aria-controls="platform-picker">
-                    {choosing ? t("poster.listenCancel") : t("poster.listenChange")}
-                  </Button>
+                    {destination.supportsRegions ? <RegionPicker regionCodes={destination.regions ?? []} platform={destination.label ?? destination.key} value={regions[destination.key] ?? "US"} onChange={(value) => setRegion(destination.key, value, t)} /> : null}
+                    <Button type="button" variant={destination.supportsRegions ? "outline" : "ghost"} size="sm" onClick={() => setChoosing(!choosing)} aria-expanded={choosing} aria-controls="platform-picker">
+                      {choosing ? t("poster.listenCancel") : t("poster.listenChange")}
+                    </Button>
                   </ButtonGroup>
                 </ItemActions>
               </Item>

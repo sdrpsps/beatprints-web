@@ -1,484 +1,296 @@
-"""Apple Music source normalization and exact-ID lookup regression coverage."""
+"""Apple Music web catalog integration and exact-ID regression coverage.
 
+The small US/CN responses are recorded public catalog data from 2026-11-17.
+No account credentials or live network are used by these tests.
+"""
+
+import base64
+import copy
+import json
+import time
+from pathlib import Path
+
+import httpx
 import pytest
 
-from beatprints_api.exceptions import UpstreamError
+from beatprints_api.exceptions import PlatformLinkNoMatchError, UpstreamError
+from beatprints_api.integrations.apple_music_client import AppleMusicClient
 from beatprints_api.integrations.catalog import apple_music
-from beatprints_api.integrations.catalog.registry import get_catalog_adapter
+from beatprints_api.integrations.destinations import apple_music as destination
+from beatprints_api.integrations.region import current_region, use_region
+from beatprints_api.services import matching
 
-TRACK = {
-    "wrapperType": "track",
-    "trackId": 12,
-    "trackName": "Song",
-    "artistName": "Artist",
-    "collectionId": 34,
-    "collectionName": "Album",
-    "trackViewUrl": "https://music.apple.com/us/album/34?i=12",
-    "artworkUrl100": "https://example.com/100x100bb.jpg",
-    "releaseDate": "2024-01-02T00:00:00Z",
-    "trackTimeMillis": 123000,
-}
-ALBUM = {
-    "wrapperType": "collection",
-    "collectionId": 34,
-    "collectionName": "Album",
-    "artistName": "Artist",
-    "collectionViewUrl": "https://music.apple.com/us/album/34",
-    "artworkUrl100": "https://example.com/100x100bb.jpg",
-    "releaseDate": "2024-01-02T00:00:00Z",
-    "trackCount": 1,
-}
+FIXTURE = json.loads(
+    (Path(__file__).parent / "fixtures" / "apple_music_web_catalog.json").read_text()
+)
 
 
-def test_search_normalizes_both_types_and_preserves_identity(monkeypatch):
+def fake_jwt(issuer="AMPWebPlay", expires=None):
+    def encode(value):
+        return base64.urlsafe_b64encode(json.dumps(value).encode()).decode().rstrip("=")
+
+    return f'{encode({"alg": "ES256"})}.{encode({"iss": issuer, "exp": expires or time.time() + 3600})}.signature'
+
+
+@pytest.fixture
+def apple_http(monkeypatch):
+    """Exercise the real transport against recorded responses without internet."""
     calls = []
+    token = fake_jwt()
 
-    def get(url, **params):
-        calls.append((url, params))
-        return [TRACK, ALBUM, {}]
+    def handler(request):
+        calls.append(request)
+        assert request.url.host in {"music.apple.com", "amp-api.music.apple.com"}
+        assert "music-user-token" not in request.headers
+        if request.url.host == "music.apple.com":
+            assert "authorization" not in request.headers
+            if request.url.path == "/":
+                return httpx.Response(
+                    200, text='<script src="/assets/index~fixture.js"></script>'
+                )
+            return httpx.Response(200, text=f'let token="{token}";')
 
-    monkeypatch.setattr(apple_music, "_get", get)
-    track = get_catalog_adapter("apple_music").search("Song", "track", 5)[0]
-    album = apple_music.search("Album", "album", 5)[0]
-    assert (
-        track["provider"],
-        track["id"],
-        track["album"]["id"],
-        track["duration"],
-    ) == ("apple_music", "12", "34", "02:03")
-    assert (album["id"], album["track_count"], album["release_year"]) == ("34", 1, 2024)
-    assert "600x600" in track["cover_url"]
-    assert calls[0][1]["entity"] == "song" and calls[1][1]["entity"] == "album"
-
-
-def test_current_metadata_uses_selected_id_and_album_tracks(monkeypatch):
-    calls = []
-
-    def get(url, **params):
-        calls.append(params)
-        return [ALBUM, TRACK] if params["id"] == "34" else [TRACK]
-
-    monkeypatch.setattr(apple_music, "_get", get)
-    track = apple_music.track_metadata("12")
-    album = apple_music.album_metadata("34")
-    assert (track.title, track.album, track.link) == (
-        "Song",
-        "Album",
-        TRACK["trackViewUrl"],
-    )
-    assert album.tracks == ["Song"]
-    assert calls == [{"id": "12"}, {"id": "34", "entity": "song", "limit": 200}]
-    with pytest.raises(UpstreamError):
-        apple_music.track_metadata("missing")
-
-
-@pytest.mark.parametrize("item_type", ["track", "album"])
-def test_public_catalog_fallback_keeps_storefront_and_ranked_ids(
-    monkeypatch, item_type
-):
-    import json
-    from beatprints_api.integrations import apple_music_public
-    from beatprints_api.integrations.destinations import apple_music as destination
-    from beatprints_api.integrations.region import current_region, use_region
-
-    kind = "song" if item_type == "track" else "album"
-    ids = ["12", "13"] if item_type == "track" else ["34", "35"]
-    rows = (
-        [TRACK, {**TRACK, "trackId": 13, "trackName": "Other"}]
-        if item_type == "track"
-        else [ALBUM, {**ALBUM, "collectionId": 35, "collectionName": "Other"}]
-    )
-    items = [
-        {
-            "contentDescriptor": {
-                "kind": kind,
-                "identifiers": {"storeAdamID": identifier},
-            }
-        }
-        for identifier in ids
-    ]
-    items.insert(
-        1,
-        {
-            "contentDescriptor": {
-                "kind": "artist",
-                "identifiers": {"storeAdamID": "999"},
-            }
-        },
-    )
-    html = (
-        '<script type="application/json" id="serialized-server-data">'
-        + json.dumps(
-            {
-                "data": [
-                    {
-                        "intent": {
-                            "$kind": "SearchResultsPageIntent",
-                            "storefront": "cn",
-                            "term": "周杰伦 晴天",
-                        },
-                        "data": {"sections": [{"items": items}]},
+        assert request.headers["authorization"] == f"Bearer {token}"
+        assert request.headers["origin"] == "https://music.apple.com"
+        parts = request.url.path.split("/")
+        region = parts[3].upper()
+        resource = parts[4]
+        data = FIXTURE[region]
+        if resource == "search":
+            assert request.url.params["types"] == "songs,albums"
+            return httpx.Response(
+                200,
+                json={
+                    "results": {
+                        "songs": {"data": data["track_search"]},
+                        "albums": {"data": data["album_search"]},
                     }
-                ]
-            }
-        )
-        + "</script>"
-    )
-    seen = []
+                },
+            )
+        if resource == "songs" and len(parts) == 5:
+            return httpx.Response(200, json={"data": [data["track"]]})
+        if resource in ("songs", "albums") and len(parts) == 6:
+            row = data["track" if resource == "songs" else "album"]
+            return (
+                httpx.Response(200, json={"data": [row]})
+                if row["id"] == parts[5]
+                else httpx.Response(404)
+            )
+        return httpx.Response(500)
 
-    class Response:
-        text = html
-
-        def raise_for_status(self):
-            pass
-
-        def json(self):
-            return {"results": list(reversed(rows))}
-
-    def get(url, **kwargs):
-        seen.append((url, kwargs.get("params")))
-        return Response()
-
-    monkeypatch.setattr(apple_music_public.httpx, "get", get)
-    monkeypatch.setattr(
-        apple_music,
-        "_get",
-        lambda url, **kwargs: (
-            [] if url == apple_music.SEARCH_URL else list(reversed(rows))
-        ),
-    )
-
-    def destination_get(url, **kwargs):
-        seen.append((url, kwargs.get("params")))
-        response = Response()
-        if url == destination.SEARCH_URL:
-            response.json = lambda: {"results": []}
-        return response
-
-    monkeypatch.setattr(destination.http_client, "get", destination_get)
-    with use_region("CN"):
-        source = apple_music.search("周杰伦 晴天", item_type, 2)
-        candidates = destination.search("周杰伦 晴天", item_type)
-        assert current_region() == "CN"
-    assert [item["id"] for item in source] == ids
-    assert [str(item["platform_id"]) for item in candidates] == ids
-    assert all("/cn/search" in url for url, _ in seen if "music.apple.com" in url)
-    assert any(params == {"id": ",".join(ids), "country": "CN"} for _, params in seen)
+    http = httpx.Client(transport=httpx.MockTransport(handler))
+    client = AppleMusicClient(http)
+    monkeypatch.setattr(apple_music, "apple_music_client", client)
+    monkeypatch.setattr(destination, "apple_music_client", client)
+    yield calls
+    http.close()
 
 
-def test_public_album_tracklist_is_used_when_lookup_omits_tracks(monkeypatch):
-    from beatprints_api.integrations import apple_music_public
-
-    calls = []
-    monkeypatch.setattr(apple_music, "_get", lambda *_args, **_kwargs: [ALBUM])
-    monkeypatch.setattr(
-        apple_music_public,
-        "_sections",
-        lambda path: calls.append(path)
-        or [
-            {"id": "track-list - 34", "items": [{"title": "One"}, {"title": "Two"}]},
-            {"id": "track-list - 999", "items": [{"title": "Wrong album"}]},
-        ],
-    )
-    album = apple_music.album_metadata("34")
-    assert album.tracks == ["One", "Two"]
-    assert calls == ["album/34"]
-
-
-def test_public_catalog_invalid_page_is_an_error_not_empty(monkeypatch):
-    from beatprints_api.integrations import apple_music_public
-
-    class Response:
-        text = "<html>unexpected page</html>"
-
-        def raise_for_status(self):
-            pass
-
-    monkeypatch.setattr(
-        apple_music_public.httpx, "get", lambda *_args, **_kwargs: Response()
-    )
-    with pytest.raises(UpstreamError):
-        apple_music_public.search_rows("Song", "track", 5, lambda _ids: [])
-
-
-def test_china_sunny_day_search_resolves_exact_selected_recording(monkeypatch):
-    from beatprints_api.integrations import apple_music_public
-    from beatprints_api.integrations.region import use_region
-
-    row = {
-        **TRACK,
-        "trackId": 535824738,
-        "collectionId": 535824731,
-        "trackName": "晴天",
-        "collectionName": "叶惠美",
-        "artistName": "周杰伦",
-        "trackViewUrl": "https://music.apple.com/cn/album/535824731?i=535824738",
-    }
-    seen = []
-
-    def get(url, **params):
-        seen.append((url, params))
-        return [] if url == apple_music.SEARCH_URL else [row]
-
-    monkeypatch.setattr(apple_music, "_get", get)
-    monkeypatch.setattr(
-        apple_music_public,
-        "_sections",
-        lambda path, params=None: [
-            {
-                "items": [
-                    {
-                        "contentDescriptor": {
-                            "kind": "song",
-                            "identifiers": {"storeAdamID": "535824738"},
-                        }
-                    }
-                ]
-            }
-        ],
-    )
-    with use_region("CN"):
-        results = apple_music.search("周杰伦 晴天", "track", 5)
-        selected = results[0]
-        metadata = apple_music.track_metadata(selected["id"])
-    assert (
-        selected["provider"],
-        selected["id"],
-        selected["title"],
-        selected["artists"],
-    ) == ("apple_music", "535824738", "晴天", ["周杰伦"])
-    assert metadata.title == "晴天" and metadata.album == "叶惠美"
-    assert seen[-1] == (apple_music.LOOKUP_URL, {"id": "535824738"})
-
-
-@pytest.mark.parametrize("item_type", ["track", "album"])
 @pytest.mark.parametrize(
-    "intent",
+    ("region", "track_id", "track_title", "album_id", "album_title", "label"),
     [
-        {"$kind": "BrowsePageIntent", "storefront": "cn"},
-        {
-            "$kind": "SearchResultsPageIntent",
-            "storefront": "cn",
-            "term": "what is love",
-        },
-        {"$kind": "SearchResultsPageIntent", "storefront": "kr", "term": "dynamite"},
+        (
+            "US",
+            "1721464906",
+            "Sunny Day",
+            "1721464893",
+            "Yeh, Hwei-Mei",
+            "Universal Music Taiwan (JVR)",
+        ),
+        (
+            "CN",
+            "535824738",
+            "晴天",
+            "535824731",
+            "叶惠美",
+            "JVR MUSIC INTERNATIONAL LTD.",
+        ),
     ],
 )
-def test_public_search_rejects_wrong_page_storefront_or_term(
-    monkeypatch, item_type, intent
+def test_source_search_and_current_metadata_preserve_selected_identity(
+    apple_http, region, track_id, track_title, album_id, album_title, label
 ):
-    import json
-    from beatprints_api.integrations import apple_music_public
-    from beatprints_api.integrations.region import use_region
-
-    body = {
-        "data": [
-            {
-                "intent": intent,
-                "data": {
-                    "sections": [
-                        {
-                            "items": [
-                                {
-                                    "contentDescriptor": {
-                                        "kind": (
-                                            "song" if item_type == "track" else "album"
-                                        ),
-                                        "identifiers": {"storeAdamID": "12"},
-                                    }
-                                }
-                            ]
-                        }
-                    ]
-                },
-            }
-        ]
-    }
-
-    class Response:
-        text = '<script id="serialized-server-data">' + json.dumps(body) + "</script>"
-
-        def raise_for_status(self):
-            pass
-
-    monkeypatch.setattr(
-        apple_music_public.httpx, "get", lambda *_args, **_kwargs: Response()
+    with use_region(region):
+        tracks = apple_music.search("晴天", "track", 2)
+        albums = apple_music.search("晴天", "album", 2)
+        track = apple_music.track_metadata(tracks[0]["id"])
+        album = apple_music.album_metadata(albums[0]["id"])
+    assert (tracks[0]["provider"], tracks[0]["id"], tracks[0]["album"]["id"]) == (
+        "apple_music",
+        track_id,
+        album_id,
     )
-
-    def unexpected_lookup(_ids):
-        pytest.fail("Unrelated page data must never be looked up as search results")
-
-    with (
-        use_region("KR"),
-        pytest.raises(UpstreamError, match="unavailable for the selected region"),
-    ):
-        apple_music_public.search_rows("what is love", item_type, 5, unexpected_lookup)
+    assert (albums[0]["id"], albums[0]["track_count"]) == (album_id, 11)
+    assert (track.title, track.album, track.label, track.isrc) == (
+        track_title,
+        album_title,
+        label,
+        "TWK970300503",
+    )
+    assert (album.title, album.label, len(album.tracks)) == (album_title, label, 11)
+    assert "600x600" in track.cover and track.link == tracks[0]["link"]
+    requests = [r for r in apple_http if r.url.host == "amp-api.music.apple.com"]
+    assert all(
+        r.url.path.startswith(f"/v1/catalog/{region.lower()}/") for r in requests
+    )
+    assert any(r.url.path.endswith(f"/songs/{track_id}") for r in requests)
+    assert any(r.url.path.endswith(f"/albums/{album_id}") for r in requests)
 
 
 @pytest.mark.parametrize("item_type", ["track", "album"])
-def test_catalog_falls_back_to_public_page_after_itunes_search_error(
-    monkeypatch, item_type
+def test_destination_search_and_manual_resolution_use_current_metadata(
+    apple_http, item_type
 ):
-    from beatprints_api.integrations import apple_music_public
-    from beatprints_api.integrations.region import current_region, use_region
-
-    expected_row = TRACK if item_type == "track" else ALBUM
-    selected_id = str(
-        expected_row["trackId" if item_type == "track" else "collectionId"]
+    with use_region("US"):
+        candidates = destination.search("晴天", item_type)
+        selected = candidates[0]
+        resolved = destination.resolve(selected["url"])
+    assert resolved.title == selected["title"]
+    assert resolved.artists == ["Jay Chou"]
+    assert resolved.type == item_type
+    assert (resolved.album if item_type == "track" else resolved.track_count) == (
+        "Yeh, Hwei-Mei" if item_type == "track" else 11
     )
+    resource = "songs" if item_type == "track" else "albums"
+    assert any(
+        f"/{resource}/{selected['platform_id']}" in r.url.path for r in apple_http
+    )
+
+
+def test_cross_region_track_matching_uses_isrc_and_keeps_source_identity(apple_http):
+    result = matching.platform_match_options(
+        "apple_music",
+        "535824738",
+        "track",
+        "apple_music",
+        source_region="CN",
+        destination_region="US",
+    )
+    assert result.match is not None
+    assert result.match.title == "Sunny Day" and "1721464906" in str(result.match.url)
+    requests = [r for r in apple_http if r.url.host == "amp-api.music.apple.com"]
+    assert any(r.url.path.endswith("/cn/songs/535824738") for r in requests)
+    assert any(
+        r.url.path.endswith("/us/songs")
+        and r.url.params.get("filter[isrc]") == "TWK970300503"
+        for r in requests
+    )
+
+
+def test_cross_region_album_remains_a_manual_candidate(apple_http):
+    result = matching.platform_match_options(
+        "apple_music",
+        "535824731",
+        "album",
+        "apple_music",
+        source_region="CN",
+        destination_region="US",
+    )
+    assert result.match is None
+    assert any("1721464893" in str(item.url) for item in result.candidates)
+
+
+@pytest.mark.parametrize("item_type", ["track", "album"])
+def test_missing_same_platform_item_is_explicit_no_match(apple_http, item_type):
+    with use_region("US"), pytest.raises(PlatformLinkNoMatchError):
+        destination.adapter.resolve_source("apple_music", "123456789", item_type)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://other.example/us/album/123",
+        "https://music.apple.com/us/artist/example/123",
+        "https://music.apple.com/us/album/example/not-an-id",
+        "https://music.apple.com.evil.example/us/album/123",
+    ],
+)
+def test_manual_link_rejects_non_catalog_or_non_apple_urls(apple_http, url):
+    with pytest.raises(PlatformLinkNoMatchError):
+        destination.resolve(url)
+    assert not apple_http
+
+
+@pytest.mark.parametrize(
+    ("copyright_text", "expected"),
+    [
+        ("℗ 2003 JVR MUSIC INTERNATIONAL LTD.", "JVR MUSIC INTERNATIONAL LTD."),
+        ("(P) 2018 JYP Entertainment Company", "JYP Entertainment Company"),
+        (
+            "℗ 2023 Artist under exclusive license to Label",
+            "Artist under exclusive license to Label",
+        ),
+        ("℗ 2023", ""),
+        ("© 2023 Publisher", ""),
+        ("", ""),
+        (None, ""),
+    ],
+)
+def test_album_label_prefers_record_label_and_uses_only_phonographic_copyright(
+    copyright_text, expected
+):
+    row = {"attributes": {"copyright": copyright_text}}
+    assert AppleMusicClient.album_label(row) == expected
+    row["attributes"]["recordLabel"] = " Actual Label "
+    assert AppleMusicClient.album_label(row) == "Actual Label"
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [(" twk970300503 ", "TWK970300503"), ("not an isrc", None), (None, None)],
+)
+def test_recording_identifier_is_normalized_and_validated(value, expected):
+    row = copy.deepcopy(FIXTURE["CN"]["track"])
+    row["attributes"]["isrc"] = value
+    assert AppleMusicClient.normalize(row, "track")["isrc"] == expected
+
+
+def test_track_label_request_failure_does_not_prevent_generation(monkeypatch):
+    song = copy.deepcopy(FIXTURE["CN"]["track"])
     calls = []
 
-    def get(url, **params):
-        calls.append((url, current_region(), params))
-        if url == apple_music.SEARCH_URL:
-            raise UpstreamError("iTunes search timed out")
-        return [expected_row]
+    def item(identifier, item_type, **_kwargs):
+        calls.append((identifier, item_type, current_region()))
+        if item_type == "track":
+            return song
+        raise UpstreamError("album unavailable")
 
-    def fallback(query, kind, limit, lookup):
-        calls.append(
-            ("public", current_region(), {"query": query, "kind": kind, "limit": limit})
-        )
-        return lookup(selected_id)
-
-    monkeypatch.setattr(apple_music, "_get", get)
-    monkeypatch.setattr(apple_music_public, "search_rows", fallback)
-    with use_region("KR"):
-        results = apple_music.search("what is love", item_type, 5)
-    assert [item["id"] for item in results] == [selected_id]
-    assert [call[1] for call in calls] == ["KR", "KR", "KR"]
-    assert calls[1][2]["query"] == "what is love"
+    monkeypatch.setattr(apple_music.apple_music_client, "item", item)
+    with use_region("CN"):
+        metadata = apple_music.track_metadata(song["id"])
+    assert metadata.title == "晴天" and metadata.label == ""
+    assert calls == [("535824738", "track", "CN"), ("535824731", "album", "CN")]
 
 
-@pytest.mark.parametrize("item_type", ["track", "album"])
-def test_destination_falls_back_to_public_page_after_itunes_search_error(
-    monkeypatch, item_type
-):
-    import httpx
-    from beatprints_api.integrations import apple_music_public
-    from beatprints_api.integrations.destinations import apple_music as destination
-    from beatprints_api.integrations.region import current_region, use_region
-
-    row = TRACK if item_type == "track" else ALBUM
-    selected_id = str(row["trackId" if item_type == "track" else "collectionId"])
+def test_track_does_not_guess_an_unrelated_album_for_label(monkeypatch):
+    song = copy.deepcopy(FIXTURE["CN"]["track"])
+    song["attributes"]["url"] = "https://music.apple.com/cn/song/535824738"
+    song["relationships"]["albums"]["data"][0]["attributes"][
+        "name"
+    ] = "A different album"
     calls = []
-
-    class Response:
-        def raise_for_status(self):
-            pass
-
-        def json(self):
-            return {"results": [row]}
-
-    def get(url, **params):
-        calls.append((url, current_region(), params))
-        if url == destination.SEARCH_URL:
-            raise httpx.ConnectTimeout("search unavailable")
-        return Response()
-
-    def fallback(query, kind, limit, lookup):
-        calls.append(
-            ("public", current_region(), {"query": query, "kind": kind, "limit": limit})
-        )
-        return lookup(selected_id)
-
-    monkeypatch.setattr(destination.http_client, "get", get)
-    monkeypatch.setattr(apple_music_public, "search_rows", fallback)
-    with use_region("KR"):
-        results = destination.search("what is love", item_type)
-    assert [str(item["platform_id"]) for item in results] == [selected_id]
-    assert [call[1] for call in calls] == ["KR", "KR", "KR"]
-    assert calls[-1][2]["params"] == {"id": selected_id, "country": "KR"}
-
-
-def test_search_failure_and_invalid_webpage_remain_an_error(monkeypatch):
-    from beatprints_api.integrations import apple_music_public
-
     monkeypatch.setattr(
-        apple_music,
-        "_get",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(UpstreamError("search failed")),
+        apple_music.apple_music_client,
+        "item",
+        lambda identifier, kind, **_: calls.append((identifier, kind)) or song,
     )
-
-    def unavailable(*_args, **_kwargs):
-        raise UpstreamError(
-            "Apple Music search returned a different storefront or query"
-        )
-
-    monkeypatch.setattr(apple_music_public, "search_rows", unavailable)
-    with pytest.raises(UpstreamError, match="different storefront or query"):
-        apple_music.search("what is love", "track", 5)
+    metadata = apple_music.track_metadata(song["id"])
+    assert metadata.label == "" and calls == [("535824738", "track")]
 
 
 @pytest.mark.parametrize("item_type", ["track", "album"])
-def test_public_search_reports_error_when_ids_cannot_be_resolved(
+def test_partial_invalid_search_data_is_skipped_and_all_invalid_fails(
     monkeypatch, item_type
 ):
-    from beatprints_api.integrations import apple_music_public
-
-    kind = "song" if item_type == "track" else "album"
+    valid = FIXTURE["US"]["track_search" if item_type == "track" else "album_search"][0]
     monkeypatch.setattr(
-        apple_music_public,
-        "_sections",
-        lambda *_args: [
-            {
-                "items": [
-                    {
-                        "contentDescriptor": {
-                            "kind": kind,
-                            "identifiers": {"storeAdamID": "123"},
-                        }
-                    }
-                ]
-            }
-        ],
+        apple_music.apple_music_client, "search", lambda *_: [{"id": "bad"}, valid]
     )
-    with pytest.raises(UpstreamError, match="unavailable for the selected region"):
-        apple_music_public.search_rows("what is love", item_type, 8, lambda _ids: [])
-
-
-@pytest.mark.parametrize("item_type", ["track", "album"])
-def test_public_search_preserves_genuine_empty_results(monkeypatch, item_type):
-    from beatprints_api.integrations import apple_music_public
-
-    monkeypatch.setattr(apple_music_public, "_sections", lambda *_args: [])
-
-    def unexpected_lookup(_ids):
-        pytest.fail("No result IDs should require a lookup")
-
-    assert (
-        apple_music_public.search_rows(
-            "unmatched title", item_type, 8, unexpected_lookup
-        )
-        == []
-    )
-
-
-@pytest.mark.parametrize("item_type", ["track", "album"])
-def test_public_search_keeps_resolvable_results_when_some_ids_are_missing(
-    monkeypatch, item_type
-):
-    from beatprints_api.integrations import apple_music_public
-
-    kind = "song" if item_type == "track" else "album"
-    row = TRACK if item_type == "track" else ALBUM
-    identifier = str(row["trackId" if item_type == "track" else "collectionId"])
+    assert apple_music.search("x", item_type, 5)[0]["id"] == valid["id"]
     monkeypatch.setattr(
-        apple_music_public,
-        "_sections",
-        lambda *_args: [
-            {
-                "items": [
-                    {
-                        "contentDescriptor": {
-                            "kind": kind,
-                            "identifiers": {"storeAdamID": value},
-                        }
-                    }
-                    for value in ["999", identifier]
-                ]
-            }
-        ],
+        apple_music.apple_music_client, "search", lambda *_: [{"id": "bad"}]
     )
-    assert apple_music_public.search_rows(
-        "what is love", item_type, 8, lambda _ids: [row]
-    ) == [row]
+    with pytest.raises(UpstreamError, match="incomplete"):
+        apple_music.search("x", item_type, 5)
+    with pytest.raises(UpstreamError, match="incomplete"):
+        destination.search("x", item_type)
