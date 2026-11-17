@@ -71,7 +71,7 @@ The generation endpoint currently supports:
 - neither field: the backend selects the first four non-empty QQ Music lyric lines;
 - instrumental recordings: `instrumental_text` is rendered instead.
 
-The frontend keeps its enabled lyric sources in a static registry, then reads normalized lyrics
+The frontend obtains enabled lyric sources from the backend capabilities registry, then reads normalized lyrics
 for the exact selected recording with:
 
 ```http
@@ -95,12 +95,16 @@ interval.
 The metadata provider and poster platform are separate concepts:
 
 - `provider` chooses where metadata is fetched: `qq_music`, `netease_music`, `spotify`, or `apple_music`.
-- `qr_platform` optionally chooses one destination from the frontend's static registry.
+- `qr_platform` optionally chooses one destination from the backend capabilities registry.
 
-The frontend maintains static catalog, lyric, and destination registries. They supply labels,
-preferred defaults, and destination capabilities such as accepted public-link domains and source
-providers whose canonical links can be reused directly. A destination's preferred default does
-not override the product-level initial choice of no QR destination.
+The backend registries determine which catalog, lyric, and destination integrations are enabled.
+`GET /v1/capabilities` exposes their availability and source-link reuse behavior. Frontend modules
+supply presentation assets and translated labels for known integrations, with a generic fallback
+for newer backend integrations. No frontend presentation module can enable an integration.
+An unavailable capability remains disabled in the interface. The frontend validates the capability
+response, refreshes it when the window regains focus, and stops the editor with a retry message if
+the response is missing or incompatible.
+No QR destination is selected by default.
 
 When the user chooses no platform, omit `qr_platform`; the poster contains no platform label
 or QR code.

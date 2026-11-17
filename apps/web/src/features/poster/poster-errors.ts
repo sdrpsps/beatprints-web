@@ -1,6 +1,5 @@
 import type { TFunction } from "i18next"
 
-import { getDestination } from "@/features/poster/destinations/registry"
 import type { PosterPlatform } from "@/features/poster/types"
 
 import { ApiError } from "@/features/poster/api"
@@ -27,7 +26,7 @@ export function friendlyError(error: unknown, fallback: string, t: TFunction) {
 }
 
 export function platformUrlError(
-  platform: PosterPlatform,
+  _platform: PosterPlatform,
   value: string,
   t: TFunction,
 ) {
@@ -42,14 +41,5 @@ export function platformUrlError(
     return t("poster.errors.urlErrorProtocol")
   }
 
-  const destination = getDestination(platform)
-  const host = url.hostname.toLowerCase()
-  if (
-    !destination ||
-    !destination.domains.some(
-      (domain) => host === domain || host.endsWith(`.${domain}`),
-    )
-  ) {
-    return t("poster.errors.urlErrorDomain")
-  }
+
 }

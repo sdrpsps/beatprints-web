@@ -21,7 +21,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CoverArt } from "@/features/poster/components/studio-shared"
-import { getCatalogSource } from "@/features/poster/catalogs/registry"
+import { usePosterStore } from "@/features/poster/poster-store"
 import type { SearchResult } from "@/features/poster/types"
 import { cn } from "@/lib/utils"
 
@@ -112,7 +112,7 @@ function CatalogResult({
   onSelect: (result: SearchResult) => void
 }) {
   const { t } = useTranslation()
-  const source = getCatalogSource(result.provider)
+  const source = usePosterStore((s) => s.catalogSources.find((item) => item.key === result.provider))
   const details = [
     result.album?.title,
     result.release_year,
@@ -150,7 +150,7 @@ function CatalogResult({
       <ItemActions className="max-sm:basis-full max-sm:justify-end">
         <Badge variant={selected ? "default" : "secondary"}>
           {selected ? <CheckIcon data-icon="inline-start" /> : null}
-          {source ? t(source.labelKey) : result.provider}
+          {source ? t(source.labelKey, { defaultValue: source.label }) : result.provider}
         </Badge>
       </ItemActions>
     </Item>

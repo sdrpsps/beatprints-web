@@ -28,6 +28,10 @@ export const zhCN = {
     footerUpstreamGenerator: "上游生成器",
   },
   poster: {
+    capabilitiesLoading: "正在加载音乐服务…",
+    capabilitiesError: "无法加载兼容的音乐服务，请检查 API 版本或网络连接。",
+    capabilitiesRetry: "重试",
+    noCatalogs: "当前没有可用的音乐搜索来源。",
     historySaveFailed: "海报已生成，但未能保存到历史记录。",
     brand: "BeatPrints Web",
     tagline: "把喜欢的音乐，排成一张海报",
@@ -48,7 +52,6 @@ export const zhCN = {
     allSources: "全部来源",
     integrationNames: {
       spotify: "Spotify",
-      deezer: "Deezer",
       appleMusic: "Apple Music",
       qqMusic: "QQ 音乐",
       neteaseMusic: "网易云音乐",

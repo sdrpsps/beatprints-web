@@ -25,7 +25,6 @@ import {
   SectionHeading,
   studioSectionClass,
 } from "@/features/poster/components/studio-shared"
-import { enabledCatalogSources } from "@/features/poster/catalogs/registry"
 import { usePosterStore } from "@/features/poster/poster-store"
 import type { CatalogProvider } from "@/features/poster/types"
 import { cn } from "@/lib/utils"
@@ -114,6 +113,7 @@ function SourceFilter() {
   const { t } = useTranslation()
   const provider = usePosterStore((s) => s.provider)
   const setProvider = usePosterStore((s) => s.setProvider)
+  const sources = usePosterStore((s) => s.catalogSources)
 
   return (
     <Field orientation="horizontal" className="justify-end">
@@ -128,9 +128,9 @@ function SourceFilter() {
         size="sm"
         aria-label={t("poster.source")}
       >
-        {enabledCatalogSources().map((item) => (
-          <ToggleGroupItem key={item.key} value={item.key}>
-            {t(item.labelKey)}
+        {sources.map((item) => (
+          <ToggleGroupItem key={item.key} value={item.key} disabled={!item.available}>
+            {t(item.labelKey, { defaultValue: item.label })}
           </ToggleGroupItem>
         ))}
       </ToggleGroup>

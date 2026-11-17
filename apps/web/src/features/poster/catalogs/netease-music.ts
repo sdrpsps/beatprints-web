@@ -1,7 +1,5 @@
-import { registerCatalogSource } from "@/features/poster/catalogs/store"
 
-registerCatalogSource({
+export default {
   key: "netease_music",
   labelKey: "poster.integrationNames.neteaseMusic",
-  default: false,
-})
+}

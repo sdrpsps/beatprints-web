@@ -15,7 +15,6 @@ import { ItemGroup } from "@/components/ui/item"
 import { Spinner } from "@/components/ui/spinner"
 import { PlatformCandidateItem } from "@/features/poster/components/platform-candidate-item"
 import { PlatformFallbackActions } from "@/features/poster/components/platform-fallback-actions"
-import { getDestination } from "@/features/poster/destinations/registry"
 import { usePosterStore } from "@/features/poster/poster-store"
 
 export function PlatformCandidates() {
@@ -26,8 +25,8 @@ export function PlatformCandidates() {
   const platformCandidates = usePosterStore((s) => s.platformCandidates)
   const showManualPlatformLink = usePosterStore((s) => s.showManualPlatformLink)
 
-  const destination = getDestination(qrPlatform)
-  const label = destination ? t(destination.labelKey) : qrPlatform
+  const destination = usePosterStore((s) => s.destinations.find((item) => item.key === qrPlatform))
+  const label = destination ? t(destination.labelKey, { defaultValue: destination.label }) : qrPlatform
 
   if (platformCandidateState === "loading") {
     return (

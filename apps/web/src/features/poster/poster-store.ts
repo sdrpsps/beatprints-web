@@ -4,14 +4,16 @@ import type { TFunction } from "i18next"
 import { toast } from "@/components/ui/toast"
 import {
   fetchLyrics,
+  type Capabilities,
   fetchPlatformMatchOptions,
   generatePoster,
   resolvePlatformUrl,
   searchCatalog,
 } from "@/features/poster/api"
-import { enabledCatalogSources } from "@/features/poster/catalogs/registry"
-import { getDestination } from "@/features/poster/destinations/registry"
-import { enabledLyricsSources } from "@/features/poster/lyrics/registry"
+import { catalogPresentation, lyricsPresentation, destinationPresentation } from "@/features/poster/integration-presentation"
+import type { CatalogSource } from "@/features/poster/catalogs/types"
+import type { PosterDestination } from "@/features/poster/destinations/types"
+import type { IntegrationLabelKey } from "@/features/poster/integration-labels"
 import {
   limitLines,
   lyricsAreReady,
@@ -55,6 +57,12 @@ export type PosterState = {
   setKind: (kind: PosterKind) => void
   setTheme: (theme: Theme) => void
   setAccent: (accent: boolean) => void
+
+  capabilities?: Capabilities
+  catalogSources: CatalogSource[]
+  destinations: PosterDestination[]
+  setCapabilities: (capabilities: Capabilities) => void
+  clearCapabilities: () => void
 
   // Catalog / Search
   query: string
@@ -141,10 +149,6 @@ export type PosterState = {
   restoreFromHistory: (item: PosterHistoryItem, t: TFunction) => void
 }
 
-const defaultSources = enabledCatalogSources()
-const defaultProvider =
-  defaultSources.find((source) => source.default)?.key ?? defaultSources[0]?.key ?? ""
-const lyricSources = enabledLyricsSources()
 
 const emptyLyrics = {
   lyricsSource: undefined,
@@ -182,7 +186,7 @@ function selectedLyrics(state: PosterState) {
 
 function needsPlatformUrl(state: PosterState) {
   return Boolean(state.qrPlatform) &&
-    !getDestination(state.qrPlatform)?.reusesSourceLink(state.selected?.provider ?? "")
+    !state.destinations.find((item) => item.key === state.qrPlatform)?.reusesSourceLink?.(state.selected?.provider ?? "")
 }
 
 export const usePosterStore = create<PosterState>((set, get) => ({
@@ -211,15 +215,79 @@ export const usePosterStore = create<PosterState>((set, get) => ({
     set({ accent })
   },
 
+  capabilities: undefined,
+  catalogSources: [],
+  destinations: [],
+  clearCapabilities: () => {
+    searchAbort?.abort()
+    lyricsAbort?.abort()
+    platformAbort?.abort()
+    generationAbort?.abort()
+    get().clearPlatform()
+    set((state) => ({
+      capabilities: undefined, searchState: "idle",
+      lyricsState: state.lyricsState === "loading" ? "idle" : state.lyricsState,
+      generationState: state.output ? "success" : "idle",
+      lyricsMode: state.lyricsState === "loading" ? "manual" : state.lyricsMode,
+    }))
+  },
+  setCapabilities: (capabilities) => {
+    const fallbackKey = (key: string) => key as IntegrationLabelKey
+    const catalogs = capabilities.catalogs.map((item) => ({
+      ...(catalogPresentation(item.key) ?? { key: item.key, labelKey: fallbackKey(item.key) }),
+      label: item.label, available: item.available,
+    }))
+    const lyrics = capabilities.lyrics.filter((item) => item.available).map((item) => ({
+      ...(lyricsPresentation(item.key) ?? { key: item.key, labelKey: fallbackKey(item.key) }),
+      label: item.label, default: item.default,
+    }))
+    const destinations = capabilities.destinations.map((item) => {
+      const local = destinationPresentation(item.key)
+      const destination: PosterDestination = {
+        ...(local ?? { key: item.key, labelKey: fallbackKey(item.key) }),
+        label: item.label, available: item.available, fixedCode: item.fixed_code,
+        reusesSourceLink: (provider) => item.reuses_source_links.includes(provider),
+      }
+      return destination
+    })
+    const current = get()
+    const provider = catalogs.find((item) => item.key === current.provider && item.available)?.key
+      ?? catalogs.find((item) => item.available)?.key ?? ""
+    if (current.provider !== provider) {
+      searchAbort?.abort()
+      set({ searchResults: [], searchState: "idle", searchError: undefined })
+    }
+    if (current.selected && !catalogs.some((item) => item.key === current.selected?.provider && item.available)) {
+      lyricsAbort?.abort()
+      generationAbort?.abort()
+      set({ generationState: current.output ? "success" : "idle" })
+      get().clearPlatform()
+    } else if (current.qrPlatform && !destinations.some((item) => item.key === current.qrPlatform && item.available)) {
+      generationAbort?.abort()
+      set({ generationState: current.output ? "success" : "idle" })
+      get().clearPlatform()
+    }
+    if (current.lyricsSource && !lyrics.some((item) => item.key === current.lyricsSource)) {
+      lyricsAbort?.abort()
+      generationAbort?.abort()
+      set({ generationState: current.output ? "success" : "idle" })
+      get().markOutputStale()
+      set({ lyricsSource: undefined, lyricsState: "idle", lyricsError: undefined,
+        lyrics: [], selectedLines: [], lyricEdits: {}, instrumental: false, lyricsMode: "manual" })
+    }
+    set({ capabilities, catalogSources: catalogs, destinations, lyricsSources: lyrics, provider })
+  },
+
   // Catalog / Search
   query: "",
-  provider: defaultProvider,
+  provider: "",
   searchResults: [],
   searchState: "idle",
   searchError: undefined,
   selected: undefined,
   setQuery: (query) => set({ query }),
   setProvider: (provider, t) => {
+    if (!get().catalogSources.some((source) => source.key === provider && source.available)) return
     if (!provider || provider === get().provider) return
     searchAbort?.abort()
     set({ provider, searchResults: [], searchState: "idle", searchError: undefined })
@@ -234,7 +302,7 @@ export const usePosterStore = create<PosterState>((set, get) => ({
   search: async (t, overrideProvider) => {
     const activeProvider = overrideProvider ?? get().provider
     const normalized = get().query.trim()
-    if (!normalized || !activeProvider) return
+    if (!normalized || !get().catalogSources.some((item) => item.key === activeProvider && item.available)) return
 
     searchAbort?.abort()
     const controller = new AbortController()
@@ -260,6 +328,7 @@ export const usePosterStore = create<PosterState>((set, get) => ({
     }
   },
   selectResult: (result, t) => {
+    if (!get().catalogSources.some((item) => item.key === result.provider && item.available)) return
     lyricsAbort?.abort()
     generationAbort?.abort()
     get().markOutputStale()
@@ -268,9 +337,10 @@ export const usePosterStore = create<PosterState>((set, get) => ({
 
     if (get().kind === "track") {
       const defaultLyricSource =
-        lyricSources.find((s) => s.default)?.key ?? lyricSources[0]?.key ?? ""
+        get().lyricsSources.find((s) => s.default)?.key ?? get().lyricsSources[0]?.key ?? ""
       set({ lyricsSource: defaultLyricSource })
-      void get().loadLyrics(result, defaultLyricSource, t)
+      if (defaultLyricSource) void get().loadLyrics(result, defaultLyricSource, t)
+      else set({ lyricsMode: "manual" })
     }
   },
   resetSelection: () => {
@@ -281,9 +351,10 @@ export const usePosterStore = create<PosterState>((set, get) => ({
   },
 
   // Lyrics
-  lyricsSources: lyricSources,
+  lyricsSources: [],
   ...emptyLyrics,
   setLyricsSource: (source, t) => {
+    if (!get().lyricsSources.some((item) => item.key === source)) return
     set({ lyricsSource: source, selectedLines: [], lyricEdits: {} })
     get().markOutputStale()
     const selected = get().selected
@@ -373,6 +444,7 @@ export const usePosterStore = create<PosterState>((set, get) => ({
     set(emptyPlatform)
   },
   setQrPlatform: (value, t) => {
+    if (value && !get().destinations.some((item) => item.key === value && item.available)) return
     get().clearPlatform()
     set({ qrPlatform: value })
 
@@ -760,7 +832,9 @@ export const usePosterStore = create<PosterState>((set, get) => ({
       kind: item.kind,
       theme: item.theme,
       accent: item.accent,
-      provider: snapshot?.selectedItem?.provider ?? defaultProvider,
+      provider: get().catalogSources.some((source) => source.key === snapshot?.selectedItem?.provider && source.available)
+        ? snapshot!.selectedItem!.provider
+        : get().catalogSources.find((source) => source.available)?.key ?? "",
       selected: snapshot?.selectedItem,
       query: "",
       searchResults: [],
@@ -774,7 +848,7 @@ export const usePosterStore = create<PosterState>((set, get) => ({
       shuffle: snapshot?.shuffle ?? false,
       qrFormat: snapshot?.qrFormat ?? "standard",
     })
-    if (snapshot?.qrPlatform && getDestination(snapshot.qrPlatform) && snapshot.selectedItem) {
+    if (snapshot?.qrPlatform && get().destinations.some((d) => d.key === snapshot.qrPlatform && d.available) && snapshot.selectedItem) {
       if (snapshot.platformUrl) {
         set({ qrPlatform: snapshot.qrPlatform, platformUrl: snapshot.platformUrl, platformChoiceMode: "manual" })
         void get().resolveManualPlatformUrl(t)
@@ -803,7 +877,8 @@ export const usePosterStore = create<PosterState>((set, get) => ({
 
 // Selectors for derived computed state
 export const selectCanGenerate = (state: PosterState): boolean => {
-  if (!state.selected) return false
+  if (!state.capabilities || !state.selected) return false
+  if (!state.catalogSources.some((source) => source.key === state.selected?.provider && source.available)) return false
   if (state.generationState === "loading") return false
 
   const ready = lyricsAreReady({
@@ -820,7 +895,7 @@ export const selectCanGenerate = (state: PosterState): boolean => {
   if (!ready) return false
 
   if (state.qrPlatform) {
-    if (!getDestination(state.qrPlatform)) return false
+    if (!state.destinations.some((destination) => destination.key === state.qrPlatform && destination.available)) return false
     if (state.platformChoiceMode === "candidates") return false
     if (state.platformChoiceMode === "manual" && state.platformManualState !== "success") {
       return false

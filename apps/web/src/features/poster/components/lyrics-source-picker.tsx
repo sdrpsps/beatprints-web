@@ -27,7 +27,7 @@ export function LyricsSourcePicker() {
       >
         {lyricsSources.map((source) => (
           <ToggleGroupItem key={source.key} value={source.key}>
-            {t(source.labelKey)}
+            {t(source.labelKey, { defaultValue: source.label })}
           </ToggleGroupItem>
         ))}
       </ToggleGroup>

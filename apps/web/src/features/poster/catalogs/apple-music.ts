@@ -1,7 +1,5 @@
-import { registerCatalogSource } from "@/features/poster/catalogs/store"
 
-registerCatalogSource({
+export default {
   key: "apple_music",
   labelKey: "poster.integrationNames.appleMusic",
-  default: false,
-})
+}

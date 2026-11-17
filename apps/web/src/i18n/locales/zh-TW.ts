@@ -28,6 +28,10 @@ export const zhTW = {
     footerUpstreamGenerator: "上游生成器",
   },
   poster: {
+    capabilitiesLoading: "正在載入音樂服務…",
+    capabilitiesError: "無法載入相容的音樂服務，請檢查 API 版本或網路連線。",
+    capabilitiesRetry: "重試",
+    noCatalogs: "目前沒有可用的音樂搜尋來源。",
     historySaveFailed: "海報已產生，但無法儲存至歷史記錄。",
     brand: "BeatPrints Web",
     tagline: "把喜歡的音樂，排成一張海報",
@@ -48,7 +52,6 @@ export const zhTW = {
     allSources: "全部來源",
     integrationNames: {
       spotify: "Spotify",
-      deezer: "Deezer",
       appleMusic: "Apple Music",
       qqMusic: "QQ 音樂",
       neteaseMusic: "網易雲音樂",

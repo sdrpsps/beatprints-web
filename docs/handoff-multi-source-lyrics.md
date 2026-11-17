@@ -15,7 +15,7 @@ QQ 音乐同时是前后端默认歌词来源。
   `apps/api/src/beatprints_api/integrations/lyrics/base.py`；来源负责检索及行规范化。
 - `apps/api/src/beatprints_api/integrations/lyrics/registry.py` 是唯一启用列表。取消某一来源
   只需移除或注释该来源的一条导入，不应改动 service、route、DTO 或前端条件分支。
-- 前端通过静态歌词 registry 维护来源、顺序和默认项；后端 registry 独立校验并执行来源适配器。
+- 后端 registry 决定启用来源及默认项，前端通过 `/v1/capabilities` 读取可用来源。
 - `GET /v1/lyrics?provider=<selected-provider>&catalog_id=<selected-id>&source=<source-key>`
   基于用户已经选定的目录项目预览歌词，返回带稳定行号的非空行。
 - `netease.py` 与 `qq_music.py` 各自拥有请求、响应解析和来源特有的失败处理；共享的标题、
@@ -31,8 +31,8 @@ QQ 音乐同时是前后端默认歌词来源。
 
 当前用户路径：
 
-1. 用户从 Deezer 或 Spotify 选择精确歌曲结果。
-2. 前端从静态 registry 选择来源，再以原始 `provider + catalog_id` 请求某一来源预览。
+1. 用户从当前启用的音乐目录中选择精确歌曲结果。
+2. 前端从后端返回的可用来源中选择歌词来源，再以原始 `provider + catalog_id` 请求预览。
 3. 用户从该预览中最多选择四行。
 4. 前端将最终四行文字作为 `lyrics` 发给 `POST /v1/posters/track`。
 
@@ -81,8 +81,8 @@ cookie、认证和 FastAPI 适配仍留在应用层。
 
 ## UI 与 API 要求
 
-前端静态 registry 维护来源可用性、顺序和默认项，并在没有至少两个启用来源时隐藏来源切换
-控件。当前已有三个来源，切换控件会由 registry 数据驱动逻辑显示。每个来源的预览应清楚
+前端从后端能力接口读取来源可用性、顺序和默认项，并在没有至少两个可用来源时隐藏来源切换
+控件。当前已有三个来源，切换控件由能力接口返回的数据驱动。每个来源的预览应清楚
 对应当前选择的来源，但不要混合不同来源的行后再提交海报。
 
 新来源需要与 LRCLIB 一致地处理：加载、无歌词、纯音乐、网络失败、未知/禁用来源、用户
@@ -103,7 +103,7 @@ cookie、认证和 FastAPI 适配仍留在应用层。
 - orchestration：优先级/轮换/质量策略、无结果与网络故障的明确区分；
 - API：精确 `provider + catalog_id` 预览、未知来源 404，以及来源异常
   的可预期响应；
-- 前端：来源从静态 registry 读取，选中状态、加载/空/错误状态、最多四行限制，以及最终 `lyrics`
+- 前端：来源从后端能力接口读取，选中状态、加载/空/错误状态、最多四行限制，以及最终 `lyrics`
   请求体；
 - 质量门：`uv run pytest apps/api/tests`、
   `pnpm --filter @beatprints/web lint`、`pnpm --filter @beatprints/web build`。

@@ -8,7 +8,6 @@ import { PlatformCandidates } from "@/features/poster/components/platform-candid
 import { PlatformFallbackActions } from "@/features/poster/components/platform-fallback-actions"
 import { PlatformItemCard } from "@/features/poster/components/platform-item-card"
 import { ManualPlatformLink } from "@/features/poster/components/platform-manual-link"
-import { getDestination } from "@/features/poster/destinations/registry"
 import { usePosterStore } from "@/features/poster/poster-store"
 
 export function PlatformLinkFlow() {
@@ -31,8 +30,8 @@ function AutomaticPlatformMatch() {
   const platformMatch = usePosterStore((s) => s.platformMatch)
   const platformMatchError = usePosterStore((s) => s.platformMatchError)
 
-  const destination = getDestination(qrPlatform)
-  const label = destination ? t(destination.labelKey) : qrPlatform
+  const destination = usePosterStore((s) => s.destinations.find((item) => item.key === qrPlatform))
+  const label = destination ? t(destination.labelKey, { defaultValue: destination.label }) : qrPlatform
 
   if (platformMatchState === "loading") {
     return (

@@ -2,20 +2,29 @@ import assert from "node:assert/strict"
 import { setImmediate } from "node:timers/promises"
 import { createServer } from "vite"
 
-const server = await createServer({ server: { middlewareMode: true }, appType: "custom" })
+const server = await createServer({ server: { middlewareMode: true, ws: false }, appType: "custom" })
 const originals = { fetch: globalThis.fetch, indexedDB: globalThis.indexedDB, create: URL.createObjectURL, revoke: URL.revokeObjectURL }
 try {
   const { usePosterStore: store, selectCanGenerate } = await server.ssrLoadModule("/src/features/poster/poster-store.ts")
   const { friendlyError } = await server.ssrLoadModule("/src/features/poster/poster-errors.ts")
-  const { ApiError } = await server.ssrLoadModule("/src/features/poster/api.ts")
+  const { ApiError, parseCapabilities, fetchCapabilities } = await server.ssrLoadModule("/src/features/poster/api.ts")
   const db = await server.ssrLoadModule("/src/lib/poster-history-db.ts")
   const t = (key) => key
   assert.equal(friendlyError(new ApiError("cover_url must resolve only to public Internet addresses", 422, "cover-request"), "fallback", t).message, "poster.errors.coverAddressError")
   const selected = { id: "source-A", provider: "qq_music", type: "track", title: "Track A", artists: ["Artist"], cover_url: "https://example.com/cover.png", link: "https://y.qq.com/n/ryqq/songDetail/source-A" }
   const json = (data) => new Response(JSON.stringify({ code: 0, data, message: "success" }), { headers: { "Content-Type": "application/json" } })
+  const capability = (key, label = key, available = true) => ({ key, label, available, reason: available ? null : "not_configured", default: false, fixed_code: false, reuses_source_links: [] })
+  const capabilities = {
+    wechat_qr: false,
+    catalogs: [capability("qq_music"), capability("netease_music"), capability("spotify", "Spotify", false)],
+    lyrics: [{ ...capability("qq_music"), default: true }, capability("lrclib")],
+    destinations: [{ ...capability("qq_music"), reuses_source_links: ["qq_music"] }, capability("spotify"), capability("apple_music"), capability("netease_music")],
+  }
   const reset = (state = {}) => {
     store.getState().resetSelection()
-    store.setState({ ...store.getInitialState(), ...state }, true)
+    store.setState(store.getInitialState(), true)
+    store.getState().setCapabilities(capabilities)
+    store.setState(state)
   }
   const pendingFetch = () => {
     let finish
@@ -27,6 +36,56 @@ try {
   URL.createObjectURL = () => `blob:regression-${++serial}`
   URL.revokeObjectURL = (url) => revoked.push(url)
   globalThis.indexedDB = undefined
+
+  globalThis.fetch = async (path, options) => {
+    assert.equal(options.cache, "no-store")
+    assert.equal(path, "/v1/capabilities")
+    return new Response(JSON.stringify({ code: 0, data: capabilities, message: "success" }))
+  }
+  assert.deepEqual(await fetchCapabilities(), capabilities)
+  assert.deepEqual(parseCapabilities(capabilities), capabilities)
+  assert.throws(() => parseCapabilities({ wechat_qr: true }), /capabilities/i)
+  assert.throws(() => parseCapabilities({ ...capabilities, destinations: [{ ...capability("old"), reuses_source_links: undefined }] }), /capabilities/i)
+  assert.throws(() => parseCapabilities({ ...capabilities, catalogs: [capability("duplicate"), capability("duplicate")] }), /capabilities/i)
+  assert.doesNotThrow(() => parseCapabilities({ ...capabilities, future_field: true }))
+  reset()
+  assert.equal(store.getState().provider, "qq_music")
+  assert.deepEqual(store.getState().catalogSources.map((item) => item.key), ["qq_music", "netease_music", "spotify"])
+  assert.equal(store.getState().catalogSources[2].available, false)
+  assert.deepEqual(store.getState().lyricsSources.map((item) => item.key), ["qq_music", "lrclib"])
+  store.getState().setCapabilities({ ...capabilities, catalogs: [capability("future", "Future Music")], lyrics: [], destinations: [capability("future", "Future Music")] })
+  assert.equal(store.getState().provider, "future")
+  assert.equal(store.getState().destinations[0].label, "Future Music")
+  assert.equal(store.getState().lyricsSources.length, 0)
+
+  // A removed destination cannot be restored or used to generate through stale state.
+  reset({ kind: "album", selected: { ...selected, type: "album" }, qrPlatform: "spotify", platformMatchState: "success" })
+  store.getState().setCapabilities({ ...capabilities, destinations: capabilities.destinations.filter((item) => item.key !== "spotify") })
+  assert.equal(store.getState().qrPlatform, "")
+  store.getState().setQrPlatform("spotify", t)
+  assert.equal(store.getState().qrPlatform, "")
+  store.setState({ qrPlatform: "spotify", platformMatchState: "success" })
+  assert.equal(selectCanGenerate(store.getState()), false)
+  store.getState().setCapabilities({ ...capabilities, catalogs: [capability("qq_music", "QQ", false)] })
+  assert.equal(selectCanGenerate(store.getState()), false)
+  assert.equal(store.getState().provider, "")
+
+  reset({ kind: "album", selected: { ...selected, type: "album" }, qrPlatform: "qq_music", platformMatchState: "success" })
+  assert.equal(selectCanGenerate(store.getState()), true)
+  store.getState().clearCapabilities()
+  assert.equal(store.getState().qrPlatform, "")
+  assert.equal(selectCanGenerate(store.getState()), false)
+  reset({ selected, lyricsSource: "qq_music", lyricsMode: "manual", manualLyrics: "Keep this line" })
+  store.getState().setCapabilities({ ...capabilities, lyrics: [] })
+  assert.equal(store.getState().manualLyrics, "Keep this line")
+  assert.equal(store.getState().lyricsMode, "manual")
+
+  reset({ kind: "album", selected: { ...selected, type: "album" }, generationState: "loading", qrPlatform: "spotify" })
+  store.getState().setCapabilities({ ...capabilities, destinations: capabilities.destinations.filter((item) => item.key !== "spotify") })
+  assert.equal(store.getState().generationState, "idle")
+  reset({ selected, lyricsState: "success", lyricsMode: "catalog" })
+  store.getState().clearCapabilities()
+  assert.equal(store.getState().lyricsState, "success")
 
   // A late lyrics response must not resurrect the previous selection.
   reset({ selected })
@@ -157,6 +216,12 @@ try {
   assert.equal(store.getState().platformManualState, "idle")
   assert.equal(store.getState().platformManualMatch, undefined)
   store.setState({ qrPlatform: "disabled", platformChoiceMode: "automatic", platformMatchState: "success" })
+  assert.equal(selectCanGenerate(store.getState()), false)
+
+  // Restoring a disabled source keeps it selected but leaves search on an available source.
+  reset()
+  store.getState().restoreFromHistory({ id: "disabled-source", kind: "album", title: "Old", artists: [], theme: "Light", accent: false, filename: "old.png", blob: new Blob(["old"]), snapshot: { selectedItem: { ...selected, provider: "disabled", type: "album" } } }, t)
+  assert.equal(store.getState().provider, "qq_music")
   assert.equal(selectCanGenerate(store.getState()), false)
 
   // Empty lyrics and old snapshots must clear prior state; saved links are re-resolved.

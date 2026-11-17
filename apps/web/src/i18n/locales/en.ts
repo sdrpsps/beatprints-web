@@ -30,6 +30,10 @@ export const en = {
     footerUpstreamGenerator: "Upstream Generator",
   },
   poster: {
+    capabilitiesLoading: "Loading music services…",
+    capabilitiesError: "Could not load compatible music services. Check the API version or connection.",
+    capabilitiesRetry: "Try again",
+    noCatalogs: "No music search sources are available.",
     historySaveFailed: "Poster created, but it could not be saved to history.",
     brand: "BeatPrints Web",
     tagline: "Turn your favorite music into a poster",
@@ -52,7 +56,6 @@ export const en = {
     allSources: "All sources",
     integrationNames: {
       spotify: "Spotify",
-      deezer: "Deezer",
       appleMusic: "Apple Music",
       qqMusic: "QQ Music",
       neteaseMusic: "NetEase Music",

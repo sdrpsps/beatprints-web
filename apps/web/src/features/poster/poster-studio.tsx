@@ -1,7 +1,11 @@
 import { Disc3Icon, Music2Icon } from "lucide-react"
-import { lazy, Suspense, useLayoutEffect, useRef } from "react"
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
+import { fetchCapabilities } from "@/features/poster/api"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AppearanceSection } from "@/features/poster/components/appearance-section"
@@ -32,6 +36,46 @@ function Editor() {
 }
 
 function StudioContent() {
+  const { t } = useTranslation()
+  const capabilities = usePosterStore((s) => s.capabilities)
+  const setCapabilities = usePosterStore((s) => s.setCapabilities)
+  const clearCapabilities = usePosterStore((s) => s.clearCapabilities)
+  const [attempt, setAttempt] = useState(0)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    let controller: AbortController | undefined
+    const refresh = () => {
+      controller?.abort()
+      const active = new AbortController()
+      controller = active
+      fetchCapabilities(active.signal).then((data) => {
+        if (!active.signal.aborted) {
+          setCapabilities(data)
+          setFailed(false)
+        }
+      }).catch(() => {
+        if (!active.signal.aborted) {
+          clearCapabilities()
+          setFailed(true)
+        }
+      })
+    }
+    refresh()
+    window.addEventListener("focus", refresh)
+    return () => {
+      controller?.abort()
+      window.removeEventListener("focus", refresh)
+    }
+  }, [attempt, clearCapabilities, setCapabilities])
+
+  if (!capabilities) return failed ? (
+    <Alert variant="destructive">
+      <AlertDescription>{t("poster.capabilitiesError")}</AlertDescription>
+      <Button variant="outline" onClick={() => { setFailed(false); setAttempt((value) => value + 1) }}>{t("poster.capabilitiesRetry")}</Button>
+    </Alert>
+  ) : <Spinner aria-label={t("poster.capabilitiesLoading")} />
+  if (!capabilities.catalogs.some((item) => item.available)) return <Alert><AlertDescription>{t("poster.noCatalogs")}</AlertDescription></Alert>
   return (
     <div className="grid grid-cols-[minmax(0,0.86fr)_minmax(430px,1.14fr)] items-start gap-[clamp(32px,5vw,76px)] max-[960px]:grid-cols-1 max-sm:gap-10.5">
       <Editor />

@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/input-group"
 import { Spinner } from "@/components/ui/spinner"
 import { PlatformItemCard } from "@/features/poster/components/platform-item-card"
-import { getDestination } from "@/features/poster/destinations/registry"
 import { usePosterStore } from "@/features/poster/poster-store"
 
 export function ManualPlatformLink() {
@@ -34,8 +33,8 @@ export function ManualPlatformLink() {
     (s) => s.showPlatformCandidates,
   )
 
-  const destination = getDestination(qrPlatform)
-  const label = destination ? t(destination.labelKey) : qrPlatform
+  const destination = usePosterStore((s) => s.destinations.find((item) => item.key === qrPlatform))
+  const label = destination ? t(destination.labelKey, { defaultValue: destination.label }) : qrPlatform
   const error = platformManualError
 
   return (
