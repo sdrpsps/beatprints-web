@@ -44,7 +44,7 @@ export const zhTW = {
     searchAlbum: "搜尋專輯或歌手",
     searchTrackDescription: "輸入歌名、歌手或專輯，找到準確的錄音版本。",
     searchAlbumDescription: "輸入專輯名或歌手，確認發行版本。",
-    searchTrackPlaceholder: "例如：Best Things in Life The Dreamliners",
+    searchTrackPlaceholder: "例如：晴天 周杰倫",
     searchAlbumPlaceholder: "例如：Summer Breeze Piper",
     search: "搜尋",
     searching: "正在尋找",

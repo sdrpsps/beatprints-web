@@ -48,7 +48,7 @@ export const en = {
       "Enter track, artist, or album to find the exact recording.",
     searchAlbumDescription:
       "Enter album title or artist to verify the release.",
-    searchTrackPlaceholder: "e.g., Best Things in Life The Dreamliners",
+    searchTrackPlaceholder: "e.g., 晴天 周杰倫",
     searchAlbumPlaceholder: "e.g., Summer Breeze Piper",
     search: "Search",
     searching: "Searching",

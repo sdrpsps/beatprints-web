@@ -17,7 +17,7 @@ export const ko = {
     heroBody: "음악 카탈로그에서 정확한 작품을 찾고 가사를 최대 네 줄 선택해 다운로드할 수 있는 PNG 포스터를 만드세요.",
     track: "곡 포스터", album: "앨범 포스터", searchTrack: "곡, 아티스트 또는 앨범 검색", searchAlbum: "앨범 또는 아티스트 검색",
     searchTrackDescription: "곡, 아티스트 또는 앨범을 입력해 정확한 음원을 찾으세요.", searchAlbumDescription: "앨범명 또는 아티스트를 입력해 발매 정보를 확인하세요.",
-    searchTrackPlaceholder: "예: Best Things in Life The Dreamliners", searchAlbumPlaceholder: "예: Summer Breeze Piper",
+    searchTrackPlaceholder: "예: 晴天 周杰倫", searchAlbumPlaceholder: "예: Summer Breeze Piper",
     search: "검색", searching: "검색 중", source: "검색 소스", allSources: "모든 소스",
     integrationNames: { spotify: "Spotify", appleMusic: "Apple Music", qqMusic: "QQ Music", neteaseMusic: "NetEase Music", lrclib: "LRCLIB" },
     selectWork: "작품 선택", selectedWork: "선택한 작품", loadingSearchResults: "검색 결과를 불러오는 중", searchResults: "검색 결과",

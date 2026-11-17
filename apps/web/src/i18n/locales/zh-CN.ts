@@ -44,7 +44,7 @@ export const zhCN = {
     searchAlbum: "搜索专辑或歌手",
     searchTrackDescription: "输入歌名、歌手或专辑，找到准确的录音版本。",
     searchAlbumDescription: "输入专辑名或歌手，确认发行版本。",
-    searchTrackPlaceholder: "例如：Best Things in Life The Dreamliners",
+    searchTrackPlaceholder: "例如：晴天 周杰伦",
     searchAlbumPlaceholder: "例如：Summer Breeze Piper",
     search: "搜索",
     searching: "正在查找",

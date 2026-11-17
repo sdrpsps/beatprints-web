@@ -40,7 +40,7 @@ export const ja = {
     searchAlbum: "アルバムまたはアーティストを検索",
     searchTrackDescription: "曲名、アーティスト、アルバムを入力して正しい録音を探します。",
     searchAlbumDescription: "アルバム名またはアーティストを入力して作品を確認します。",
-    searchTrackPlaceholder: "例：Best Things in Life The Dreamliners",
+    searchTrackPlaceholder: "例：晴天 周杰倫",
     searchAlbumPlaceholder: "例：Summer Breeze Piper",
     search: "検索", searching: "検索中", source: "検索元", allSources: "すべての検索元",
     integrationNames: { spotify: "Spotify", appleMusic: "Apple Music", qqMusic: "QQ Music", neteaseMusic: "NetEase Music", lrclib: "LRCLIB" },
