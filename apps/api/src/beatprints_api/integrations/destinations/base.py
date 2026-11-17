@@ -20,6 +20,8 @@ class DestinationAdapter:
     label: str = ""
     scannable: Callable[[str], Scannable | None] = lambda _link: None
     standard_scannable: Callable[[str], Scannable | None] | None = None
+    configured: Callable[[], bool] = lambda: True
+    fixed_code: bool = False
     supports_isrc: bool = False
     resolve_source: Callable[[str, int | str, str], PlatformLinkMatchData | None] | None = None
     reuses_source_link: Callable[[str], bool] = lambda _provider: False

@@ -34,3 +34,7 @@ def get_destination_adapter(key: str) -> DestinationAdapter:
 
 def destination_keys() -> tuple[str, ...]:
     return tuple(_adapters)
+
+
+def destination_adapters() -> tuple[DestinationAdapter, ...]:
+    return tuple(_adapters.values())

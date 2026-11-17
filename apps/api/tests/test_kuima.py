@@ -73,4 +73,4 @@ def test_capabilities_report_configuration(monkeypatch) -> None:
     client = TestClient(app)
     for url, available in [(None, False), ("http://example.test", True)]:
         monkeypatch.setattr(system, "settings", replace(system.settings, wechat_qr_base_url=url))
-        assert client.get("/capabilities").json()["data"]["wechat_qr"] is available
+        assert client.get("/v1/capabilities").json()["data"]["wechat_qr"] is available

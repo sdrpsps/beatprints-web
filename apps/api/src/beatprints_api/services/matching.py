@@ -5,6 +5,8 @@ from collections.abc import Callable
 from difflib import SequenceMatcher
 
 from beatprints_api.integrations.destinations import DestinationAdapter, get_destination_adapter
+from beatprints_api.integrations.catalog import get_catalog_adapter
+from beatprints_api.integrations.lyrics import get_lyrics_source
 from beatprints_api.exceptions import PlatformLinkNoMatchError, UpstreamError
 from beatprints_api.models.destinations import (
     PlatformLinkMatchData,
@@ -378,6 +380,8 @@ def platform_match_options(
     source_metadata_fn = source_metadata_fn or _source_metadata
     source_isrc_fn = source_isrc_fn or _source_isrc
     adapter = destination_adapter_fn(platform)
+    if adapter.resolve_source is not None:
+        get_catalog_adapter(provider)
     direct_match = (
         adapter.resolve_source(provider, catalog_id, item_type)
         if adapter.resolve_source is not None
@@ -436,6 +440,8 @@ def resolve_platform_url(platform: str, url: str):
 def preview_lyrics(
     provider: str, catalog_id: int | str, source: str | None = None
 ) -> LyricsPreviewData:
+    if source is not None:
+        get_lyrics_source(source)
     request = TrackPosterRequest(provider=provider, catalog_id=catalog_id)
     metadata = _track_metadata(request)
     return lyrics_service.preview(provider, catalog_id, metadata, source)

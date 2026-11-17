@@ -93,6 +93,9 @@ def test_web_app_is_served_without_shadowing_api(tmp_path: Path) -> None:
     assert web_client.get("/favicon.svg").text == "<svg></svg>"
     assert web_client.head("/favicon.svg").status_code == 200
     assert web_client.get("/health").json()["data"]["status"] == "ok"
+    assert web_client.get("/v1/capabilities").headers["cache-control"] == "no-store"
+    assert web_client.get("/v1/nonexistent").status_code == 404
+    assert web_client.get("/v1/nonexistent").json()["message"] == "Not Found"
 
 
 def test_agent_document_is_discoverable_and_served_as_public_text(
@@ -820,3 +823,103 @@ def test_openapi_includes_descriptions_and_request_examples() -> None:
     assert schema["components"]["schemas"]["TrackMetadataInput"]["properties"][
         "duration"
     ]["examples"] == ["03:23"]
+
+
+def test_capabilities_follow_registries_and_configuration(monkeypatch) -> None:
+    from beatprints_api.integrations.catalog import registry as catalogs
+    from beatprints_api.integrations.destinations import registry as destinations
+    from beatprints_api.integrations.lyrics import registry as lyrics
+
+    response = client.get("/v1/capabilities")
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert {item["key"] for item in data["catalogs"]} == set(catalogs._adapters)
+    assert {item["key"] for item in data["destinations"]} == set(destinations._adapters)
+    assert {item["key"] for item in data["lyrics"]} == set(lyrics._adapters)
+    for item in data["destinations"]:
+        adapter = destinations.get_destination_adapter(item["key"])
+        assert set(item["reuses_source_links"]) == {
+            source.key for source in catalogs.catalog_adapters() if adapter.reuses_source_link(source.key)
+        }
+
+    # A removed role must not remove the same key from another role.
+    monkeypatch.setattr(catalogs, "_adapters", {k: v for k, v in catalogs._adapters.items() if k != "spotify"})
+    monkeypatch.setattr(lyrics, "_adapters", {k: v for k, v in lyrics._adapters.items() if k != "lrclib"})
+    data = client.get("/v1/capabilities").json()["data"]
+    assert "spotify" not in {item["key"] for item in data["catalogs"]}
+    assert "spotify" in {item["key"] for item in data["destinations"]}
+    assert "lrclib" not in {item["key"] for item in data["lyrics"]}
+
+
+def test_capabilities_reports_unconfigured_catalog(monkeypatch) -> None:
+    from dataclasses import replace
+    from beatprints_api.integrations.catalog import registry
+
+    original = registry._adapters["spotify"]
+    monkeypatch.setitem(registry._adapters, "spotify", replace(original, configured=lambda: False))
+    catalogs = client.get("/v1/capabilities").json()["data"]["catalogs"]
+    spotify = next(item for item in catalogs if item["key"] == "spotify")
+    assert spotify["available"] is False
+    assert spotify["reason"] == "not_configured"
+
+
+@pytest.mark.parametrize("key", ["spotify", "apple_music", "qq_music", "netease_music"])
+@pytest.mark.parametrize("item_type", ["track", "album"])
+def test_disabled_destination_rejected_by_matching_and_resolution(monkeypatch, key, item_type) -> None:
+    from beatprints_api.integrations.destinations import registry
+
+    monkeypatch.setattr(registry, "_adapters", {k: v for k, v in registry._adapters.items() if k != key})
+    data = client.get("/v1/capabilities").json()["data"]
+    assert key not in {item["key"] for item in data["destinations"]}
+    assert client.get(f"/v1/platform-links/{key}/options", params={
+        "provider": "qq_music", "catalog_id": "1", "type": item_type,
+    }).status_code == 404
+    assert client.get(f"/v1/platform-links/{key}/resolve", params={"url": "https://example.com/item"}).status_code == 404
+
+
+@pytest.mark.parametrize("key", ["spotify", "apple_music", "qq_music", "netease_music"])
+@pytest.mark.parametrize("item_type", ["track", "album"])
+def test_disabled_catalog_cannot_use_direct_destination_match(monkeypatch, key, item_type) -> None:
+    from beatprints_api.integrations.catalog import registry
+
+    monkeypatch.setattr(registry, "_adapters", {k: v for k, v in registry._adapters.items() if k != key})
+    data = client.get("/v1/capabilities").json()["data"]
+    assert key not in {item["key"] for item in data["catalogs"]}
+    assert key in {item["key"] for item in data["destinations"]}
+    assert client.get("/v1/search", params={"query": "example", "type": item_type, "provider": key}).status_code == 404
+    assert client.get(f"/v1/platform-links/{key}/options", params={
+        "provider": key, "catalog_id": "1", "type": item_type,
+    }).status_code == 404
+
+
+@pytest.mark.parametrize("key", ["qq_music", "netease", "lrclib"])
+def test_disabled_lyrics_rejected_before_fetching_metadata(monkeypatch, key) -> None:
+    from beatprints_api.integrations.lyrics import registry
+
+    monkeypatch.setattr(registry, "_adapters", {k: v for k, v in registry._adapters.items() if k != key})
+    response = client.get("/v1/lyrics", params={"provider": "qq_music", "catalog_id": "1", "source": key})
+    assert response.status_code == 404
+
+
+def test_capabilities_is_only_exposed_under_v1() -> None:
+    assert client.get("/v1/capabilities").status_code == 200
+    assert not any(getattr(route, "path", None) == "/capabilities" for route in app.routes)
+    schema = client.get("/openapi.json").json()["paths"]
+    assert "/v1/capabilities" in schema
+    assert "/capabilities" not in schema
+
+
+@pytest.mark.parametrize("item_type", ["track", "album"])
+def test_cached_metadata_does_not_bypass_disabled_catalog(monkeypatch, item_type) -> None:
+    from beatprints_api.integrations.catalog import registry
+    from beatprints_api.services import catalog as catalog_service
+    from beatprints_api.models.poster import TrackPosterRequest, AlbumPosterRequest
+    from beatprints_api.exceptions import UnsupportedCatalogSourceError
+
+    cache_fn = "_cached_track_metadata" if item_type == "track" else "_cached_album_metadata"
+    monkeypatch.setattr(catalog_service, cache_fn, lambda *_args: object())
+    monkeypatch.setattr(registry, "_adapters", {k: v for k, v in registry._adapters.items() if k != "qq_music"})
+    request_type = TrackPosterRequest if item_type == "track" else AlbumPosterRequest
+    load = catalog_service.track_metadata if item_type == "track" else catalog_service.album_metadata
+    with pytest.raises(UnsupportedCatalogSourceError):
+        load(request_type(provider="qq_music", catalog_id="123"))

@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
@@ -59,6 +59,8 @@ def create_app(web_root: Path | None = None) -> FastAPI:
             include_in_schema=False,
         )
         def serve_web_app(path: str) -> FileResponse:
+            if path == "v1" or path.startswith("v1/"):
+                raise HTTPException(status_code=404, detail="Not Found")
             requested_file = (resolved_web_root / path).resolve()
             if (
                 requested_file.is_relative_to(resolved_web_root)

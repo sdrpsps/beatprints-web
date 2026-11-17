@@ -69,6 +69,7 @@ def track_metadata(request: TrackPosterRequest) -> deez.TrackMetadata:
             label=value.label,
         )
     provider, track_id = _catalog_reference(request)
+    get_catalog_adapter(provider)
     return copy.deepcopy(_cached_track_metadata(provider, track_id, _metadata_cache_token()))
 
 
@@ -80,6 +81,7 @@ def album_metadata(request: AlbumPosterRequest) -> deez.AlbumMetadata:
             tracks=value.tracks.copy(), cover=str(value.cover_url), label=value.label,
         )
     provider, album_id = _catalog_reference(request)
+    get_catalog_adapter(provider)
     metadata = copy.deepcopy(_cached_album_metadata(provider, album_id, _metadata_cache_token()))
     if request.shuffle:
         random.shuffle(metadata.tracks)
