@@ -5,6 +5,7 @@ import re
 import threading
 import time
 from typing import Literal
+from urllib.parse import quote
 
 import httpx
 
@@ -24,6 +25,8 @@ class SpotifyNotConfiguredError(SpotifyError, IntegrationNotConfiguredError):
 class SpotifyClient:
     TOKEN_URL = "https://accounts.spotify.com/api/token"
     API_URL = "https://api.spotify.com/v1"
+    SCANNABLES_URL = "https://scannables.scdn.co/uri/plain"
+    MAX_CODE_IMAGE_BYTES = 2 * 1024 * 1024
 
     def __init__(
         self,
@@ -35,7 +38,9 @@ class SpotifyClient:
         self._token: str | None = None
         self._token_expires_at = 0.0
         self._token_lock = threading.Lock()
+        self._code_lock = threading.Lock()
         self._http: httpx.Client | None = None
+        self._code_http: httpx.Client | None = None
 
     @property
     def _client(self) -> httpx.Client:
@@ -55,6 +60,39 @@ class SpotifyClient:
         if self._http is not None:
             self._http.close()
             self._http = None
+        if self._code_http is not None:
+            self._code_http.close()
+            self._code_http = None
+
+    @property
+    def _code_client(self) -> httpx.Client:
+        with self._code_lock:
+            if self._code_http is None:
+                self._code_http = httpx.Client(
+                    timeout=httpx.Timeout(10.0, connect=5.0),
+                    limits=httpx.Limits(
+                        max_connections=10,
+                        max_keepalive_connections=5,
+                        keepalive_expiry=30.0,
+                    ),
+                    headers={"User-Agent": "BeatPrints-API/0.1"},
+                )
+            return self._code_http
+
+    def code_png(self, uri: str, width: int) -> bytes:
+        """Fetch scan-ready Spotify Code artwork without Web API authentication."""
+        url = f"{self.SCANNABLES_URL}/png/ffffff/black/{width}/{quote(uri, safe=':')}"
+        try:
+            response = self._code_client.get(url)
+            response.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise SpotifyError(f"Could not generate Spotify Code: {exc}") from exc
+        content_type = response.headers.get("content-type", "").split(";", 1)[0]
+        if content_type != "image/png":
+            raise SpotifyError("Spotify Code service returned an unexpected image type")
+        if len(response.content) > self.MAX_CODE_IMAGE_BYTES:
+            raise SpotifyError("Spotify Code image exceeds the 2 MB limit")
+        return response.content
 
     @property
     def configured(self) -> bool:

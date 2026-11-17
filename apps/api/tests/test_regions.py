@@ -10,7 +10,7 @@ from BeatPrints import deez
 from beatprints_api.integrations.region import current_region, use_region
 from beatprints_api.integrations.catalog import apple_music
 from beatprints_api.integrations.destinations import apple_music as apple_destination
-from beatprints_api.integrations.spotify_client import SpotifyClient
+from beatprints_api.integrations.clients.spotify import SpotifyClient
 from beatprints_api.main import app
 from beatprints_api.models import TrackPosterRequest, AlbumPosterRequest
 from beatprints_api.services import catalog

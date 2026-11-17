@@ -2,28 +2,11 @@
 
 from datetime import UTC, datetime
 
-import httpx
-
 from BeatPrints import deez
 from beatprints_api.exceptions import UpstreamError
 from beatprints_api.integrations.catalog.base import CatalogAdapter
 from beatprints_api.integrations.catalog.registry import register
-
-SEARCH_URL = "https://c.y.qq.com/soso/fcgi-bin/client_search_cp"
-TRACK_URL = "https://c.y.qq.com/v8/fcg-bin/fcg_play_single_song.fcg"
-ALBUM_URL = "https://c.y.qq.com/v8/fcg-bin/fcg_v8_album_info_cp.fcg"
-
-
-def _get(url: str, **params: object) -> dict:
-    try:
-        response = httpx.get(url, params=params, timeout=15.0)
-        response.raise_for_status()
-        payload = response.json()
-    except (httpx.HTTPError, ValueError) as exc:
-        raise UpstreamError(f"QQ Music catalog request failed: {exc}") from exc
-    if not isinstance(payload, dict):
-        raise UpstreamError("QQ Music catalog returned an invalid response")
-    return payload
+from beatprints_api.integrations.clients.qq_music import qq_music_client
 
 
 def _artists(values: object) -> list[str]:
@@ -138,14 +121,7 @@ def _album_result(row: dict) -> dict | None:
 
 
 def search(query: str, item_type: str, limit: int) -> list[dict]:
-    payload = _get(
-        SEARCH_URL,
-        format="json",
-        p=1,
-        n=limit,
-        w=query,
-        t=0 if item_type == "track" else 8,
-    )
+    payload = qq_music_client.search(query, item_type, limit)
     data = payload.get("data") or {}
     if not isinstance(data, dict):
         return []
@@ -162,7 +138,7 @@ def search(query: str, item_type: str, limit: int) -> list[dict]:
 
 
 def track_metadata(catalog_id: int | str) -> deez.TrackMetadata:
-    data = _get(TRACK_URL, songmid=str(catalog_id), format="json").get("data") or []
+    data = qq_music_client.track(catalog_id).get("data") or []
     row = data[0] if isinstance(data, list) and data else None
     if not isinstance(row, dict):
         raise UpstreamError("QQ Music track was not found")
@@ -174,14 +150,7 @@ def track_metadata(catalog_id: int | str) -> deez.TrackMetadata:
     ):
         raise UpstreamError("QQ Music track response was incomplete")
     try:
-        album = (
-            _get(
-                ALBUM_URL,
-                albummid=normalized["album"]["id"],
-                format="json",
-            ).get("data")
-            or {}
-        )
+        album = qq_music_client.album(normalized["album"]["id"]).get("data") or {}
     except UpstreamError:
         album = {}
     metadata = deez.TrackMetadata(
@@ -198,7 +167,7 @@ def track_metadata(catalog_id: int | str) -> deez.TrackMetadata:
 
 
 def album_metadata(catalog_id: int | str) -> deez.AlbumMetadata:
-    data = _get(ALBUM_URL, albummid=str(catalog_id), format="json").get("data") or {}
+    data = qq_music_client.album(catalog_id).get("data") or {}
     if not isinstance(data, dict):
         raise UpstreamError("QQ Music album was not found")
     normalized = _album_result(data)

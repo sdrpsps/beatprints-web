@@ -4,7 +4,7 @@ from PIL import Image
 from BeatPrints import deez, image as beatprints_image
 from beatprints_api.integrations.catalog.base import CatalogAdapter
 from beatprints_api.integrations.catalog.registry import register
-from beatprints_api.integrations.spotify_client import spotify_client
+from beatprints_api.integrations.clients.spotify import spotify_client
 
 
 def _normalized_label(value: object) -> str:

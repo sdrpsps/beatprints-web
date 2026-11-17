@@ -6,7 +6,7 @@ from urllib.parse import parse_qs, urlparse
 from pydantic import ValidationError
 
 from beatprints_api.exceptions import PlatformLinkNoMatchError, UpstreamError
-from beatprints_api.integrations.apple_music_client import (
+from beatprints_api.integrations.clients.apple_music import (
     AppleMusicNotFound,
     apple_music_client,
 )

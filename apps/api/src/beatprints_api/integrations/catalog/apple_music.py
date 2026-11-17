@@ -3,7 +3,7 @@
 from BeatPrints import deez
 
 from beatprints_api.exceptions import UpstreamError
-from beatprints_api.integrations.apple_music_client import apple_music_client
+from beatprints_api.integrations.clients.apple_music import apple_music_client
 from beatprints_api.integrations.catalog.base import CatalogAdapter
 from beatprints_api.integrations.catalog.registry import register
 from beatprints_api.integrations.regions.apple_music import REGIONS

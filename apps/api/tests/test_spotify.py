@@ -12,7 +12,7 @@ from beatprints_api.integrations.destinations import (
 )
 from beatprints_api.integrations.destinations.scannable import fallback_scannable
 from beatprints_api.integrations.catalog import spotify as spotify_catalog
-from beatprints_api.integrations.spotify_client import (
+from beatprints_api.integrations.clients.spotify import (
     SpotifyClient,
     SpotifyError,
     SpotifyNotConfiguredError,
@@ -28,6 +28,53 @@ def test_spotify_requires_credentials() -> None:
 
     with pytest.raises(SpotifyNotConfiguredError):
         client.search("SUMMER BREEZE", "track", 5)
+
+
+def test_spotify_code_client_does_not_require_catalog_credentials() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url == (
+            "https://scannables.scdn.co/uri/plain/png/ffffff/black/"
+            "560/spotify:track:4uLU6hMCjMI75M1A2tKUQC"
+        )
+        assert "Authorization" not in request.headers
+        return httpx.Response(
+            200, headers={"content-type": "image/png"}, content=b"png"
+        )
+
+    client = SpotifyClient(client_id=None, client_secret=None)
+    client._code_http = httpx.Client(transport=httpx.MockTransport(handler))
+    code_http = client._code_http
+    assert client.code_png("spotify:track:4uLU6hMCjMI75M1A2tKUQC", 560) == b"png"
+    assert client._http is None
+    client.close()
+    assert code_http.is_closed
+
+
+@pytest.mark.parametrize(
+    ("response", "message"),
+    [
+        (httpx.Response(503), "Could not generate"),
+        (httpx.Response(200, headers={"content-type": "text/html"}), "image type"),
+        (
+            httpx.Response(
+                200,
+                headers={"content-type": "image/png"},
+                content=b"x" * (SpotifyClient.MAX_CODE_IMAGE_BYTES + 1),
+            ),
+            "2 MB",
+        ),
+    ],
+)
+def test_spotify_code_rejects_invalid_service_responses(response, message) -> None:
+    client = SpotifyClient(client_id=None, client_secret=None)
+    client._code_http = httpx.Client(
+        transport=httpx.MockTransport(lambda _request: response)
+    )
+    try:
+        with pytest.raises(SpotifyError, match=message):
+            client.code_png("spotify:track:123", 560)
+    finally:
+        client.close()
 
 
 @pytest.mark.parametrize("item_type", ["track", "album"])
@@ -293,7 +340,7 @@ def test_spotify_code_scannable_uses_spotify_image_service_output(monkeypatch) -
         calls.append((uri, width))
         return payload.getvalue()
 
-    monkeypatch.setattr(spotify.spotify_code_client, "png", png)
+    monkeypatch.setattr(spotify.spotify_client, "code_png", png)
     scannable = spotify.scannable(
         "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC"
     )

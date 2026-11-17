@@ -6,6 +6,8 @@ import pytest
 from BeatPrints.deez import AlbumMetadata, TrackMetadata
 from beatprints_api.integrations.catalog import netease_music as netease_catalog
 from beatprints_api.integrations.catalog import qq_music as qq_catalog
+from beatprints_api.integrations.clients import qq_music as qq_client_module
+from beatprints_api.integrations.clients import netease_music as netease_client_module
 from beatprints_api.integrations.destinations import (
     apple_music,
     netease_music,
@@ -163,7 +165,11 @@ def test_same_source_destination_resolves_its_canonical_link(
 def test_missing_same_platform_item_is_reported_as_no_match(
     monkeypatch, destination, item_type
 ) -> None:
-    monkeypatch.setattr(destination, "_get", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(
+        getattr(destination, f"{destination.adapter.key}_client"),
+        "_get",
+        lambda *_args, **_kwargs: {},
+    )
     with pytest.raises(PlatformLinkNoMatchError):
         destination.adapter.resolve_source(destination.adapter.key, "123", item_type)
 
@@ -178,7 +184,11 @@ def test_missing_same_platform_item_is_reported_as_no_match(
 def test_incomplete_album_response_is_reported_as_upstream_error(
     monkeypatch, destination, payload
 ) -> None:
-    monkeypatch.setattr(destination, "_get", lambda *_args, **_kwargs: payload)
+    monkeypatch.setattr(
+        getattr(destination, f"{destination.adapter.key}_client"),
+        "_get",
+        lambda *_args, **_kwargs: payload,
+    )
     with pytest.raises(UpstreamError) as result:
         destination.adapter.resolve_source(destination.adapter.key, "123", "album")
     assert not isinstance(result.value, PlatformLinkNoMatchError)
@@ -187,8 +197,8 @@ def test_incomplete_album_response_is_reported_as_upstream_error(
 @pytest.mark.parametrize(
     ("adapter", "expected_url"),
     [
-        (qq_catalog, qq_catalog.SEARCH_URL),
-        (netease_catalog, netease_catalog.SEARCH_URL),
+        (qq_catalog, qq_client_module.SEARCH_URL),
+        (netease_catalog, netease_client_module.SEARCH_URL),
     ],
 )
 def test_catalog_sources_normalize_track_search_results(
@@ -216,7 +226,7 @@ def test_catalog_sources_normalize_track_search_results(
                     }
                 }
             }
-        if url == netease_catalog.TRACK_URL:
+        if url == netease_client_module.TRACK_URL:
             return {
                 "songs": [
                     {
@@ -252,13 +262,13 @@ def test_catalog_sources_normalize_track_search_results(
             }
         }
 
-    monkeypatch.setattr(adapter, "_get", get)
+    monkeypatch.setattr(getattr(adapter, f"{adapter.adapter.key}_client"), "_get", get)
 
     result = adapter.search("track", "track", 5)
 
     assert seen[0] == expected_url
     if adapter is netease_catalog:
-        assert seen[1] == netease_catalog.TRACK_URL
+        assert seen[1] == netease_client_module.TRACK_URL
     assert result[0]["provider"] == adapter.adapter.key
     assert result[0]["duration"] == "03:15"
     assert result[0]["album"]["title"].endswith("Album")
@@ -266,7 +276,7 @@ def test_catalog_sources_normalize_track_search_results(
 
 def test_qq_catalog_normalizes_current_track_metadata(monkeypatch) -> None:
     def get(url: str, **_params: object) -> dict:
-        if url == qq_catalog.ALBUM_URL:
+        if url == qq_client_module.ALBUM_URL:
             return {"data": {"company": "QQ Records"}}
         return {
             "data": [
@@ -282,7 +292,7 @@ def test_qq_catalog_normalizes_current_track_metadata(monkeypatch) -> None:
         }
 
     monkeypatch.setattr(
-        qq_catalog,
+        qq_catalog.qq_music_client,
         "_get",
         get,
     )
@@ -297,7 +307,7 @@ def test_qq_catalog_normalizes_current_track_metadata(monkeypatch) -> None:
 
 def test_qq_catalog_reads_current_album_track_names(monkeypatch) -> None:
     monkeypatch.setattr(
-        qq_catalog,
+        qq_catalog.qq_music_client,
         "_get",
         lambda _url, **_params: {
             "data": {
@@ -320,7 +330,7 @@ def test_qq_catalog_reads_current_album_track_names(monkeypatch) -> None:
 
 def test_netease_catalog_reads_track_label_from_its_album(monkeypatch) -> None:
     monkeypatch.setattr(
-        netease_catalog,
+        netease_catalog.netease_music_client,
         "_get",
         lambda _url, **_params: {
             "songs": [
@@ -385,7 +395,7 @@ def test_qq_link_parser_rejects_lookalike_host() -> None:
 
 def test_netease_search_treats_malformed_result_as_empty(monkeypatch) -> None:
     monkeypatch.setattr(
-        netease_music,
+        netease_music.netease_music_client,
         "_get",
         lambda _url, **_params: {"result": "upstream returned no result object"},
     )
@@ -400,7 +410,7 @@ def test_netease_search_uses_plain_catalog_endpoint(monkeypatch) -> None:
         seen["url"] = url
         return {"result": {"songs": []}}
 
-    monkeypatch.setattr(netease_music, "_get", get)
+    monkeypatch.setattr(netease_music.netease_music_client, "_get", get)
 
     assert netease_music.search("KUN", "track") == []
     assert seen["url"] == "https://music.163.com/api/search/get"
@@ -408,7 +418,7 @@ def test_netease_search_uses_plain_catalog_endpoint(monkeypatch) -> None:
 
 def test_qq_album_resolve_returns_current_artist_and_total(monkeypatch) -> None:
     monkeypatch.setattr(
-        qq_music,
+        qq_music.qq_music_client,
         "_get",
         lambda _url, **_params: {
             "data": {

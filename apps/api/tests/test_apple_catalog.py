@@ -14,7 +14,7 @@ import httpx
 import pytest
 
 from beatprints_api.exceptions import PlatformLinkNoMatchError, UpstreamError
-from beatprints_api.integrations.apple_music_client import AppleMusicClient
+from beatprints_api.integrations.clients.apple_music import AppleMusicClient
 from beatprints_api.integrations.catalog import apple_music
 from beatprints_api.integrations.destinations import apple_music as destination
 from beatprints_api.integrations.region import current_region, use_region

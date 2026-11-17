@@ -11,6 +11,8 @@ from beatprints_api.exceptions import (
     UpstreamError,
 )
 from beatprints_api.integrations.lyrics import netease, qq_music
+from beatprints_api.integrations.clients import netease_music as netease_client_module
+from beatprints_api.integrations.clients import qq_music as qq_client_module
 from beatprints_api.integrations.lyrics.base import (
     LyricsSourceAdapter,
     LyricsSourceResult,
@@ -118,11 +120,11 @@ def test_netease_fetches_confident_original_recording(monkeypatch) -> None:
         requests.append((url, params))
         return fixture(
             "netease_search.json"
-            if url == netease.SEARCH_URL
+            if url == netease_client_module.SEARCH_URL
             else "netease_lyrics.json"
         )
 
-    monkeypatch.setattr(netease, "_get_json", get_json)
+    monkeypatch.setattr(netease.netease_music_client, "_get", get_json)
 
     assert netease.fetch(metadata()) == LyricsSourceResult(
         instrumental=False,
@@ -138,19 +140,19 @@ def test_netease_fetches_confident_original_recording(monkeypatch) -> None:
 
 def test_netease_reports_instrumental_and_no_match(monkeypatch) -> None:
     monkeypatch.setattr(
-        netease,
-        "_get_json",
+        netease.netease_music_client,
+        "_get",
         lambda url, **_params: (
             fixture("netease_search.json")
-            if url == netease.SEARCH_URL
+            if url == netease_client_module.SEARCH_URL
             else {"pureMusic": True, "code": 200}
         ),
     )
     assert netease.fetch(metadata()) == LyricsSourceResult(instrumental=True, lines=())
 
     monkeypatch.setattr(
-        netease,
-        "_get_json",
+        netease.netease_music_client,
+        "_get",
         lambda _url, **_params: {"result": {"songs": []}, "code": 200},
     )
     with pytest.raises(LyricsNotFoundError, match="confident"):
@@ -164,11 +166,11 @@ def test_qq_music_fetches_confident_original_recording(monkeypatch) -> None:
         requests.append((url, params))
         return fixture(
             "qq_music_search.json"
-            if url == qq_music.SEARCH_URL
+            if url == qq_client_module.SEARCH_URL
             else "qq_music_lyrics.json"
         )
 
-    monkeypatch.setattr(qq_music, "_get_json", get_json)
+    monkeypatch.setattr(qq_music.qq_music_client, "_get", get_json)
 
     assert qq_music.fetch(metadata()) == LyricsSourceResult(
         instrumental=False,
@@ -186,19 +188,19 @@ def test_qq_music_fetches_confident_original_recording(monkeypatch) -> None:
 def test_qq_music_reports_instrumental_and_no_match(monkeypatch) -> None:
     search = fixture("qq_music_search.json")
     monkeypatch.setattr(
-        qq_music,
-        "_get_json",
+        qq_music.qq_music_client,
+        "_get",
         lambda url, **_params: (
             search
-            if url == qq_music.SEARCH_URL
+            if url == qq_client_module.SEARCH_URL
             else {"retcode": 0, "code": 0, "lyric": "[00:01.00]纯音乐"}
         ),
     )
     assert qq_music.fetch(metadata()) == LyricsSourceResult(instrumental=True, lines=())
 
     monkeypatch.setattr(
-        qq_music,
-        "_get_json",
+        qq_music.qq_music_client,
+        "_get",
         lambda _url, **_params: {"code": 0, "data": {"song": {"list": []}}},
     )
     with pytest.raises(LyricsNotFoundError, match="confident"):
@@ -212,8 +214,13 @@ def test_provider_network_failures_are_not_reported_as_no_match(
     def fail(*_args, **_kwargs):
         raise httpx.ConnectError("offline")
 
-    monkeypatch.setattr(provider.httpx, "get", fail)
+    client = (
+        provider.netease_music_client
+        if provider is netease
+        else provider.qq_music_client
+    )
+    monkeypatch.setattr(client.http, "get", fail)
 
     with pytest.raises(UpstreamError, match="request failed") as exc_info:
-        provider._get_json("https://example.com")
+        provider.fetch(metadata())
     assert not isinstance(exc_info.value, LyricsNotFoundError)

@@ -15,8 +15,7 @@ from beatprints_api.integrations.destinations.base import DestinationAdapter
 from beatprints_api.integrations.destinations.registry import register
 from beatprints_api.exceptions import PlatformLinkNoMatchError, UpstreamError
 from beatprints_api.models.destinations import PlatformLinkMatchData
-from beatprints_api.integrations.spotify_client import SpotifyError, spotify_client
-from beatprints_api.integrations.destinations.spotify_code import spotify_code_client
+from beatprints_api.integrations.clients.spotify import SpotifyError, spotify_client
 
 CODE_SCALE = 1.06
 CODE_WIDTH = 560
@@ -110,7 +109,7 @@ def scannable(link: str):
     uri = _uri(link)
     if uri is None:
         return None
-    content = spotify_code_client.png(uri, CODE_WIDTH)
+    content = spotify_client.code_png(uri, CODE_WIDTH)
     try:
         with Image.open(io.BytesIO(content)) as source:
             code = source.convert("L")

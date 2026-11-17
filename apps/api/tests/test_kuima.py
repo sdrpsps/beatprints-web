@@ -8,8 +8,8 @@ from PIL import Image
 
 from beatprints_api.exceptions import UpstreamError
 from beatprints_api.integrations.destinations import apple_music
-from beatprints_api.integrations.destinations.kuima import KuimaClient
-from beatprints_api.integrations.destinations import kuima
+from beatprints_api.integrations.clients.kuima import KuimaClient
+from beatprints_api.integrations.clients import kuima
 
 
 @pytest.fixture(autouse=True)

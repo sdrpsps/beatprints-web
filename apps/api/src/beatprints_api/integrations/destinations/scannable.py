@@ -8,7 +8,7 @@ from qrcode.constants import ERROR_CORRECT_H, ERROR_CORRECT_M
 
 from BeatPrints import image as beatprints_image
 from BeatPrints import write
-from beatprints_api.integrations.destinations.kuima import kuima_client
+from beatprints_api.integrations.clients.kuima import kuima_client
 
 
 def empty_scannable(_theme: str = "Light") -> Image.Image:

@@ -9,7 +9,7 @@ import httpx
 import pytest
 
 from beatprints_api.exceptions import UpstreamError
-from beatprints_api.integrations.apple_music_client import (
+from beatprints_api.integrations.clients.apple_music import (
     AppleMusicClient,
     AppleMusicNotFound,
     _web_token,

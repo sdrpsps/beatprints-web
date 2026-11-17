@@ -2,11 +2,10 @@
 
 import html
 
-import httpx
-
 from BeatPrints import deez
 
-from beatprints_api.exceptions import LyricsNotFoundError, UpstreamError
+from beatprints_api.exceptions import LyricsNotFoundError
+from beatprints_api.integrations.clients.qq_music import qq_music_client
 from beatprints_api.integrations.lyrics.base import (
     LyricsSourceAdapter,
     LyricsSourceResult,
@@ -18,36 +17,6 @@ from beatprints_api.integrations.lyrics.common import (
     search_title_variants,
 )
 from beatprints_api.integrations.lyrics.registry import register
-
-SEARCH_URL = "https://c.y.qq.com/soso/fcgi-bin/client_search_cp"
-LYRICS_URL = "https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg"
-_HEADERS = {
-    "Referer": "https://y.qq.com/",
-    "User-Agent": "BeatPrints-API/1.1",
-}
-
-
-def _get_json(url: str, **params: object) -> dict:
-    try:
-        response = httpx.get(
-            url,
-            params=params,
-            headers=_HEADERS,
-            timeout=15.0,
-            follow_redirects=True,
-        )
-        response.raise_for_status()
-        payload = response.json()
-    except (httpx.HTTPError, ValueError) as exc:
-        raise UpstreamError(f"QQ Music lyrics request failed: {exc}") from exc
-    if not isinstance(payload, dict):
-        raise UpstreamError("QQ Music lyrics source returned an invalid response")
-    if payload.get("code") not in (None, 0) or payload.get("retcode") not in (
-        None,
-        0,
-    ):
-        raise UpstreamError("QQ Music lyrics source returned an error response")
-    return payload
 
 
 def _artists(row: dict) -> list[str]:
@@ -96,14 +65,7 @@ def fetch(metadata: deez.TrackMetadata) -> LyricsSourceResult:
     for title in search_title_variants(metadata.title):
         query = " ".join([title, *metadata.artists])
         song_mid = _select_song(
-            _get_json(
-                SEARCH_URL,
-                format="json",
-                p=1,
-                n=10,
-                w=query,
-                t=0,
-            ),
+            qq_music_client.search(query, "track", 10),
             metadata,
         )
         if song_mid is not None:
@@ -111,13 +73,7 @@ def fetch(metadata: deez.TrackMetadata) -> LyricsSourceResult:
     if song_mid is None:
         raise LyricsNotFoundError("No confident QQ Music lyrics match was found")
 
-    payload = _get_json(
-        LYRICS_URL,
-        songmid=song_mid,
-        format="json",
-        nobase64=1,
-        g_tk=5381,
-    )
+    payload = qq_music_client.lyrics(song_mid)
     lines = lrc_lines(html.unescape(str(payload.get("lyric") or "")))
     if len(lines) <= 2 and any(instrumental_text(line) for line in lines):
         return LyricsSourceResult(instrumental=True, lines=())

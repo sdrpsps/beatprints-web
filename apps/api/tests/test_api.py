@@ -13,7 +13,7 @@ from beatprints_api.exceptions import (
     UnsupportedLyricsSourceError,
     UpstreamError,
 )
-from beatprints_api.integrations.spotify_client import SpotifyNotConfiguredError
+from beatprints_api.integrations.clients.spotify import SpotifyNotConfiguredError
 from beatprints_api.main import app, create_app
 from beatprints_api.models import PlatformLinkMatchData, PlatformMatchOptionsData
 
