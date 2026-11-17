@@ -137,8 +137,10 @@ metadata mapping, and optional platform capabilities such as Spotify ISRC lookup
 engine applies title/version, artist, release, duration, track-count, ranking, and ambiguity rules.
 The response contains an optional confirmed `match` and ranked `candidates` from the same lookup.
 When the selected source and QR destination are the same enabled platform, the destination
-reuses that source item's canonical link. Cross-platform destinations continue through the
-conservative matching, candidate, and manual-link journey.
+reuses that source item's canonical link when it is available in the destination region. If the
+same ID is unavailable there, the backend retrieves the source metadata in its original region
+and searches the destination region for ranked alternatives. Upstream service failures remain
+errors. Cross-platform destinations follow the same conservative matching and manual-link journey.
 
 Candidate search deliberately has broader recall than automatic confirmation. It ranks by title,
 artist, album, year, duration, and track count, but never silently confirms a weak result. The UI

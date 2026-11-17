@@ -272,10 +272,11 @@ Link。推荐优先传平台分享功能生成的 HTTPS/Universal Link：扫码�
 启用的目标键。启用列表集中在 `beatprints_api/integrations/destinations/registry.py`：
 
 ```bash
-curl "http://localhost:8000/v1/platform-links/apple_music/options?provider=qq_music&catalog_id=001example&type=track"
+curl "http://localhost:8000/v1/platform-links/apple_music/options?provider=apple_music&catalog_id=1790520817&type=track&source_region=US&destination_region=JP"
 ```
 
-该接口始终先读取未经改变的 `provider + catalog_id`，再使用所有目标平台共享的匹配规则。
+该接口始终使用未经改变的 `provider + catalog_id`。同平台的来源 ID 在目标地区无法直接解析时，
+服务读取来源地区的资料，并继续在目标地区搜索；实际的上游服务故障仍返回错误。
 平台适配器只负责检索、链接解析和 Spotify ISRC 等额外能力；统一引擎负责标题版本、艺人、
 发行信息、时长、曲目数和歧义判断。响应同时包含可选的 `match` 和同次检索得到的 `candidates`，
 不会把近似同名作品静默确认。调用方将成功结果的 `url` 写入对应 `platform_links.<platform>` 后生成海报。未指定
@@ -299,7 +300,7 @@ Spotify Code 由 Spotify 的 scannable 图服务生成，不需要额外的开�
 
 Apple Music、QQ 音乐和网易云音乐继续使用普通二维码。所有平台标记和二维码均使用同一套
 海报主题色规则；平台之间只允许标记与编码格式不同，不能为 Apple Music 或其他平台另走封面
-取色路径。二维码背景和 quiet zone 始终保持白色，以提高相机识别稳定性。
+取色路径。二维码背景随海报主题显示。
 
 Apple Music 会使用 Apple Music Symbol 加二维码的紧凑组合，并与 Spotify Code 一样采用海报主题色，
 以保持相同的视觉位置、比例和配色逻辑。它不是 App Clip Code；扫码仍会打开调用方提供的

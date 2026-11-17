@@ -238,9 +238,7 @@ async def _generate(
     except UpstreamError as exc:
         raise UpstreamServiceError(str(exc)) from exc
 
-    timings = (
-        result.timings_ms if isinstance(result, PosterResult) else {}
-    )
+    timings = result.timings_ms if isinstance(result, PosterResult) else {}
     log_event(
         logger,
         logging.INFO,
@@ -251,9 +249,7 @@ async def _generate(
         theme=request.theme,
         qr_platform=request.qr_platform or "none",
         response_bytes=(
-            len(result.content)
-            if isinstance(result, PosterResult)
-            else len(result[0])
+            len(result.content) if isinstance(result, PosterResult) else len(result[0])
         ),
         queue_ms=round(queue_ms),
         timings_ms={name: round(duration) for name, duration in timings.items()},
@@ -268,14 +264,13 @@ async def _generate(
         "生成包含歌曲标题、歌手、时长、歌词、封面和调色板的 PNG。\n\n"
         "`provider` 只控制元数据来源；`qr_platform` 单独控制"
         "左下角显示哪个音乐平台。未提供 `qr_platform` 时不显示平台标识或二维码。"
-        "每张海报最多显示一个二维码，其颜色从封面提取，并在白色背景上保持安全"
-        "对比度。"
+        "每张海报最多显示一个二维码，平台标记与二维码使用海报主题色。"
     ),
     responses={
         200: {
             "description": (
                 "生成成功，响应体是 PNG 图片。只有请求明确提供 qr_platform 时，"
-                "图片左下角才包含对应平台的封面取色二维码。"
+                "图片左下角才包含对应平台的主题色二维码。"
             ),
             "content": {"image/png": {}},
         },
@@ -307,14 +302,13 @@ async def track_poster(
         "生成包含专辑标题、歌手、曲目列表、封面和调色板的 PNG。\n\n"
         "`provider` 只控制元数据来源；`qr_platform` 单独控制"
         "左下角显示哪个音乐平台。未提供 `qr_platform` 时不显示平台标识或二维码。"
-        "每张海报最多显示一个二维码，其颜色从封面提取，并在白色背景上保持安全"
-        "对比度。"
+        "每张海报最多显示一个二维码，平台标记与二维码使用海报主题色。"
     ),
     responses={
         200: {
             "description": (
                 "生成成功，响应体是 PNG 图片。只有请求明确提供 qr_platform 时，"
-                "图片左下角才包含对应平台的封面取色二维码。"
+                "图片左下角才包含对应平台的主题色二维码。"
             ),
             "content": {"image/png": {}},
         },

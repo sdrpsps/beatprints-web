@@ -191,14 +191,22 @@ class PosterSource(BaseModel):
             ],
         ),
     ] = None
-    source_region: Annotated[str | None, Field(
-        pattern=r"^[A-Z]{2}$", examples=["JP"],
-        description="读取来源目录元数据的地区，应与所选搜索结果使用的地区一致；省略时使用 US。",
-    )] = None
-    destination_region: Annotated[str | None, Field(
-        pattern=r"^[A-Z]{2}$", examples=["US"],
-        description="目标平台地区。未提供可复用的来源平台链接时用于解析该来源直链；已提供的 platform_links 原样使用，不会按此地区重新解析。省略时使用 US。",
-    )] = None
+    source_region: Annotated[
+        str | None,
+        Field(
+            pattern=r"^[A-Z]{2}$",
+            examples=["JP"],
+            description="读取来源目录元数据的地区，应与所选搜索结果使用的地区一致；省略时使用 US。",
+        ),
+    ] = None
+    destination_region: Annotated[
+        str | None,
+        Field(
+            pattern=r"^[A-Z]{2}$",
+            examples=["US"],
+            description="目标平台地区。未提供可复用的来源平台链接时用于解析该来源直链；已提供的 platform_links 原样使用，不会按此地区重新解析。省略时使用 US。",
+        ),
+    ] = None
     platform_links: Annotated[
         PosterPlatformLinks | None,
         Field(
@@ -216,7 +224,7 @@ class PosterSource(BaseModel):
                 "明确选择要在海报左下角显示二维码的平台；不提供时不显示任何"
                 "平台标识或二维码。若所选目的地声明可复用来源链接，可省略对应"
                 "platform_links。每张海报只显示一个平台，"
-                "二维码和平台名称使用从封面提取并经过对比度保护的颜色。"
+                "二维码和平台标记使用海报主题色。"
             ),
             examples=["spotify"],
         ),
@@ -249,17 +257,11 @@ class PosterSource(BaseModel):
         return self
 
     def validate_source(self, metadata: object | None) -> None:
-        supplied = sum(
-            value is not None for value in (self.catalog_id, metadata)
-        )
+        supplied = sum(value is not None for value in (self.catalog_id, metadata))
         if supplied != 1:
-            raise ValueError(
-                "Exactly one of catalog_id or metadata must be supplied"
-            )
+            raise ValueError("Exactly one of catalog_id or metadata must be supplied")
         if metadata is None and not self.provider:
-            raise ValueError(
-                "provider is required when catalog_id is supplied"
-            )
+            raise ValueError("provider is required when catalog_id is supplied")
 
 
 class TrackPosterRequest(PosterSource):

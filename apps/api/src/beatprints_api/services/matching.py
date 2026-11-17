@@ -4,7 +4,10 @@ from datetime import date
 from collections.abc import Callable
 from difflib import SequenceMatcher
 
-from beatprints_api.integrations.destinations import DestinationAdapter, get_destination_adapter
+from beatprints_api.integrations.destinations import (
+    DestinationAdapter,
+    get_destination_adapter,
+)
 from beatprints_api.integrations.region import use_region
 from beatprints_api.integrations.catalog import get_catalog_adapter
 from beatprints_api.integrations.lyrics import get_lyrics_source
@@ -22,7 +25,6 @@ from beatprints_api.services import catalog as catalog_service
 from beatprints_api.services import lyrics as lyrics_service
 
 from BeatPrints import deez
-
 
 
 def _match_text(value: object) -> str:
@@ -51,7 +53,7 @@ def _duration_seconds(value: str) -> int | None:
     try:
         minutes, seconds = value.split(":", maxsplit=1)
         return int(minutes) * 60 + int(seconds)
-    except (AttributeError, ValueError):
+    except AttributeError, ValueError:
         return None
 
 
@@ -74,12 +76,34 @@ def _album_metadata(request: AlbumPosterRequest) -> deez.AlbumMetadata:
 
 
 _VERSION_MARKERS = {
-    "live", "remaster", "remastered", "acoustic", "instrumental",
-    "karaoke", "radio edit", "demo", "mono", "stereo", "deluxe",
-    "extended", "现场版", "現場版", "重制版", "重製版", "伴奏",
-    "纯音乐", "純音樂", "原声", "原聲", "混音", "豪华版", "豪華版",
+    "live",
+    "remaster",
+    "remastered",
+    "acoustic",
+    "instrumental",
+    "karaoke",
+    "radio edit",
+    "demo",
+    "mono",
+    "stereo",
+    "deluxe",
+    "extended",
+    "现场版",
+    "現場版",
+    "重制版",
+    "重製版",
+    "伴奏",
+    "纯音乐",
+    "純音樂",
+    "原声",
+    "原聲",
+    "混音",
+    "豪华版",
+    "豪華版",
 }
-_VERSION_SUFFIX = re.compile(r"(?:^|[\s\[(（【\-–—])(?P<value>[^\])）】]+)(?=$|[\s\])）】])")
+_VERSION_SUFFIX = re.compile(
+    r"(?:^|[\s\[(（【\-–—])(?P<value>[^\])）】]+)(?=$|[\s\])）】])"
+)
 
 
 def _catalog_title_parts(
@@ -91,9 +115,11 @@ def _catalog_title_parts(
         marker
         for marker in _VERSION_MARKERS
         if any(
-            marker in region
-            if any(ord(character) > 127 for character in marker)
-            else re.search(rf"(?<![a-z]){re.escape(marker)}(?![a-z])", region)
+            (
+                marker in region
+                if any(ord(character) > 127 for character in marker)
+                else re.search(rf"(?<![a-z]){re.escape(marker)}(?![a-z])", region)
+            )
             for region in version_regions
         )
     )
@@ -125,7 +151,9 @@ def _artist_match_state(source: str, candidate: str) -> str:
 
     def latin_only(value: str) -> bool:
         letters = [character for character in value if character.isalpha()]
-        return bool(letters) and all("LATIN" in unicodedata.name(character, "") for character in letters)
+        return bool(letters) and all(
+            "LATIN" in unicodedata.name(character, "") for character in letters
+        )
 
     return "mismatched" if latin_only(source) and latin_only(candidate) else "unknown"
 
@@ -193,9 +221,7 @@ def _candidate_score(
 
     source_artists = [str(artist) for artist in metadata.artists]
     candidate_artists = [str(artist) for artist in candidate.get("artists") or []]
-    artist_score, artist_state = _artist_comparison(
-        source_artists, candidate_artists
-    )
+    artist_score, artist_state = _artist_comparison(source_artists, candidate_artists)
     if artist_state == "unknown":
         artist_score = 0.45
     if "artist" in origins:
@@ -220,10 +246,15 @@ def _candidate_score(
             0.5
             if not source_duration or not candidate_duration
             else (
-                1.0 if abs(source_duration - candidate_duration) <= 2
-                else 0.8 if abs(source_duration - candidate_duration) <= 5
-                else 0.35 if abs(source_duration - candidate_duration) <= 15
-                else 0.0
+                1.0
+                if abs(source_duration - candidate_duration) <= 2
+                else (
+                    0.8
+                    if abs(source_duration - candidate_duration) <= 5
+                    else (
+                        0.35 if abs(source_duration - candidate_duration) <= 15 else 0.0
+                    )
+                )
             )
         )
         score += album_score * 0.08 + duration_score * 0.10
@@ -250,7 +281,9 @@ def _source_metadata(provider: str, catalog_id: int | str, item_type: str):
     return (
         _track_metadata(TrackPosterRequest(provider=provider, catalog_id=catalog_id))
         if item_type == "track"
-        else _album_metadata(AlbumPosterRequest(provider=provider, catalog_id=catalog_id))
+        else _album_metadata(
+            AlbumPosterRequest(provider=provider, catalog_id=catalog_id)
+        )
     )
 
 
@@ -266,7 +299,9 @@ def _source_isrc(
     return catalog_service.source_isrc(provider, catalog_id, metadata)
 
 
-def _matching_queries(metadata, item_type: str, isrc: str | None) -> list[tuple[str, str]]:
+def _matching_queries(
+    metadata, item_type: str, isrc: str | None
+) -> list[tuple[str, str]]:
     title = str(metadata.title).strip()
     artist = _metadata_artists(metadata).strip()
     queries: list[tuple[str, str]] = []
@@ -289,9 +324,7 @@ def _collect_destination_candidates(
 ) -> list[tuple[dict, set[str]]]:
     candidates: dict[str, dict] = {}
     origins: dict[str, set[str]] = {}
-    for origin, query in _matching_queries(
-        metadata, item_type, isrc
-    ):
+    for origin, query in _matching_queries(metadata, item_type, isrc):
         for candidate in search(query, item_type):
             url = str(candidate.get("url") or "")
             if not url:
@@ -300,8 +333,7 @@ def _collect_destination_candidates(
             candidates.setdefault(identity, candidate)
             origins.setdefault(identity, set()).add(origin)
     return [
-        (candidate, origins[identity])
-        for identity, candidate in candidates.items()
+        (candidate, origins[identity]) for identity, candidate in candidates.items()
     ]
 
 
@@ -323,8 +355,12 @@ def _has_hard_conflict(metadata, candidate: dict, item_type: str) -> bool:
         source_count = len(metadata.tracks)
         candidate_count = candidate.get("track_count")
         return bool(
-            source_year and candidate_year and source_year != candidate_year
-            or source_count and candidate_count and source_count != candidate_count
+            source_year
+            and candidate_year
+            and source_year != candidate_year
+            or source_count
+            and candidate_count
+            and source_count != candidate_count
         )
     source_duration = _duration_seconds(metadata.duration)
     candidate_duration = candidate.get("duration_seconds")
@@ -386,11 +422,16 @@ def platform_match_options(
     if adapter.resolve_source is not None:
         get_catalog_adapter(provider)
     with use_region(destination_region):
-        direct_match = (
-            adapter.resolve_source(provider, catalog_id, item_type)
-            if adapter.resolve_source is not None
-            else None
-        )
+        try:
+            direct_match = (
+                adapter.resolve_source(provider, catalog_id, item_type)
+                if adapter.resolve_source is not None
+                else None
+            )
+        except PlatformLinkNoMatchError:
+            # A catalog ID can be absent in the target storefront even when a
+            # related release is available there. Search candidates instead.
+            direct_match = None
     if direct_match is not None:
         match = direct_match
         return PlatformMatchOptionsData(match=match, candidates=[match])
@@ -431,7 +472,9 @@ def match_metadata(
     confirmed = _can_confirm(metadata, ranked, item_type, isrc)
     return PlatformMatchOptionsData(
         match=(
-            PlatformLinkMatchData.model_validate(confirmed) if confirmed is not None else None
+            PlatformLinkMatchData.model_validate(confirmed)
+            if confirmed is not None
+            else None
         ),
         candidates=[
             PlatformLinkMatchData.model_validate(candidate)

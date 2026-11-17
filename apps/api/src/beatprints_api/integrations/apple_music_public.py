@@ -38,7 +38,9 @@ def _sections(path: str, params: dict | None = None) -> list[dict]:
     try:
         response = httpx.get(
             f"https://music.apple.com/{current_region().lower()}/{path}",
-            params=params, timeout=15.0, follow_redirects=True,
+            params=params,
+            timeout=15.0,
+            follow_redirects=True,
         )
         response.raise_for_status()
         parser = _PageDataParser()
@@ -53,18 +55,23 @@ def _sections(path: str, params: dict | None = None) -> list[dict]:
             if (
                 not isinstance(intent, dict)
                 or intent.get("$kind") != "SearchResultsPageIntent"
-                or str(intent.get("storefront", "")).casefold() != current_region().casefold()
+                or str(intent.get("storefront", "")).casefold()
+                != current_region().casefold()
                 or not isinstance(intent.get("term"), str)
                 or not isinstance(expected_term, str)
                 or intent["term"].strip().casefold() != expected_term.strip().casefold()
             ):
-                raise UpstreamError("Apple Music search returned a different storefront or query")
+                raise UpstreamError(
+                    "Apple Music search returned a different storefront or query"
+                )
         sections = pages[0]["data"]["sections"]
         if not isinstance(sections, list):
             raise ValueError("missing page sections")
         return [section for section in sections if isinstance(section, dict)]
     except (httpx.HTTPError, ValueError, KeyError, TypeError, IndexError) as exc:
-        raise UpstreamError(f"Apple Music public catalog request failed: {exc}") from exc
+        raise UpstreamError(
+            f"Apple Music public catalog request failed: {exc}"
+        ) from exc
 
 
 SEARCH_UNAVAILABLE = "Apple Music search is unavailable for the selected region"
@@ -88,12 +95,22 @@ def search_rows(
         if not isinstance(items, list):
             continue
         for item in items:
-            descriptor = item.get("contentDescriptor") if isinstance(item, dict) else None
+            descriptor = (
+                item.get("contentDescriptor") if isinstance(item, dict) else None
+            )
             if not isinstance(descriptor, dict) or descriptor.get("kind") != kind:
                 continue
             identities = descriptor.get("identifiers")
-            identifier = str(identities.get("storeAdamID", "")) if isinstance(identities, dict) else ""
-            if identifier.isascii() and identifier.isdigit() and identifier not in identifiers:
+            identifier = (
+                str(identities.get("storeAdamID", ""))
+                if isinstance(identities, dict)
+                else ""
+            )
+            if (
+                identifier.isascii()
+                and identifier.isdigit()
+                and identifier not in identifiers
+            ):
                 identifiers.append(identifier)
                 if len(identifiers) >= limit:
                     break
@@ -107,7 +124,9 @@ def search_rows(
         raise UpstreamError(SEARCH_UNAVAILABLE) from exc
     key = "trackId" if item_type == "track" else "collectionId"
     expected = "track" if item_type == "track" else "collection"
-    by_id = {str(row.get(key)): row for row in rows if row.get("wrapperType") == expected}
+    by_id = {
+        str(row.get(key)): row for row in rows if row.get("wrapperType") == expected
+    }
     resolved = [by_id[identifier] for identifier in identifiers if identifier in by_id]
     if not resolved:
         raise UpstreamError(SEARCH_UNAVAILABLE)
@@ -125,7 +144,13 @@ def album_tracks(catalog_id: int | str) -> list[str]:
         items = section.get("items")
         if not isinstance(items, list):
             break
-        tracks = [item["title"] for item in items if isinstance(item, dict) and isinstance(item.get("title"), str) and item["title"].strip()]
+        tracks = [
+            item["title"]
+            for item in items
+            if isinstance(item, dict)
+            and isinstance(item.get("title"), str)
+            and item["title"].strip()
+        ]
         if tracks:
             return tracks
     raise UpstreamError("Apple Music album response contained no tracks")

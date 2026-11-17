@@ -7,7 +7,7 @@ WEB_PACKAGE := @beatprints/web
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup dev dev\:api dev\:web sync\:api install\:web start\:api test test\:api lint lint\:api format\:api lock lock\:api lock\:web build build\:api build\:web docker\:up docker\:down docker\:logs
+.PHONY: help setup dev dev\:api dev\:web sync\:api install\:web start\:api test test\:api test\:web test\:release lint lint\:api lint\:web format\:api lock lock\:api lock\:web build build\:api build\:web docker\:up docker\:down docker\:logs
 
 help: ## 显示可用命令
 	@printf '%s\n' \
@@ -19,7 +19,10 @@ help: ## 显示可用命令
 		'  install:web   使用 pnpm 安装 workspace 依赖' \
 		'  start:api     使用生产入口启动 API' \
 		'  test:api      运行 API 测试' \
+		'  test:web      运行 Web 回归测试' \
+		'  test:release  运行发布脚本测试' \
 		'  lint:api      检查 Python 格式' \
+		'  lint:web      检查 Web 代码' \
 		'  format:api    格式化 Python 代码' \
 		'  lock:api      更新 uv.lock' \
 		'  lock:web      更新 pnpm-lock.yaml' \
@@ -61,16 +64,27 @@ start\:api: ## 使用生产入口启动 API
 	cd $(API_DIR) && $(UV) run beatprints-api
 
 test: ## 运行全部测试
-	$(MAKE) test:api
+	$(MAKE) test:api test:web test:release
 
 test\:api: ## 运行 API 测试
 	cd $(API_DIR) && $(UV) run pytest
 
+test\:web: ## 运行 Web 回归测试
+	$(PNPM) --filter $(WEB_PACKAGE) test
+	$(PNPM) --filter $(WEB_PACKAGE) test:seo
+	$(PNPM) --filter $(WEB_PACKAGE) test:i18n
+
+test\:release: ## 运行发布脚本测试
+	python3 -m unittest discover -s .github/tests -v
+
 lint: ## 运行全部静态检查
-	$(MAKE) lint:api
+	$(MAKE) lint:api lint:web
 
 lint\:api: ## 检查 Python 格式
 	cd $(API_DIR) && $(UV) run black --check src tests
+
+lint\:web: ## 检查 Web 代码
+	$(PNPM) --filter $(WEB_PACKAGE) lint
 
 format\:api: ## 格式化 Python 代码
 	cd $(API_DIR) && $(UV) run black src tests

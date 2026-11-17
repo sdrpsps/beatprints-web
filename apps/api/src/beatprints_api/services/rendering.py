@@ -1,8 +1,8 @@
 from beatprints_api.integrations.region import use_region
+
 """Poster rendering, artwork safety checks, and destination-code composition."""
 
 import atexit
-import colorsys
 import ipaddress
 import socket
 import tempfile
@@ -40,6 +40,8 @@ beatprints_image.get_palette = extract_palette
 
 MAX_COVER_BYTES = 15 * 1024 * 1024
 ALLOWED_COVER_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
+
+
 def _public_cover_addresses(host: str, port: int) -> tuple[str, ...]:
     try:
         addresses = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
@@ -47,10 +49,13 @@ def _public_cover_addresses(host: str, port: int) -> tuple[str, ...]:
         raise UpstreamError(f"Could not resolve cover host: {host}") from exc
     # Connect only to validated addresses; a private DNS answer must never be
     # passed to the network backend, even when public answers are also present.
-    ips = tuple(dict.fromkeys(
-        address[4][0] for address in addresses
-        if ipaddress.ip_address(address[4][0]).is_global
-    ))
+    ips = tuple(
+        dict.fromkeys(
+            address[4][0]
+            for address in addresses
+            if ipaddress.ip_address(address[4][0]).is_global
+        )
+    )
     if not ips:
         raise ValueError("cover_url must resolve only to public Internet addresses")
     return ips
@@ -73,7 +78,9 @@ class _PublicCoverTransport(httpx.HTTPTransport):
     def __init__(self):
         super().__init__(
             trust_env=False,
-            limits=httpx.Limits(max_connections=20, max_keepalive_connections=10, keepalive_expiry=30.0),
+            limits=httpx.Limits(
+                max_connections=20, max_keepalive_connections=10, keepalive_expiry=30.0
+            ),
         )
         # HTTPX 0.28.1 has no public network_backend parameter. Keep this single
         # hook covered by a transport regression test when updating HTTPX.
@@ -177,13 +184,22 @@ def selected_platform_link(
     adapter = get_destination_adapter(selected_platform)
     values = links.root if links is not None else {}
     link = values.get(selected_platform)
-    if link is None and destination_region and provider and catalog_id is not None and item_type and adapter.resolve_source:
+    if (
+        link is None
+        and destination_region
+        and provider
+        and catalog_id is not None
+        and item_type
+        and adapter.resolve_source
+    ):
         with use_region(destination_region):
             resolved = adapter.resolve_source(provider, catalog_id, item_type)
         if resolved is not None:
             link = resolved.url
         else:
-            raise ValueError("The destination could not be resolved in the selected region")
+            raise ValueError(
+                "The destination could not be resolved in the selected region"
+            )
     if (
         link is None
         and source_link
@@ -198,44 +214,10 @@ def selected_platform_link(
     return adapter, str(link)
 
 
-def _relative_luminance(color: tuple[int, int, int]) -> float:
-    channels = [
-        (
-            channel / 255 / 12.92
-            if channel / 255 <= 0.04045
-            else ((channel / 255 + 0.055) / 1.055) ** 2.4
-        )
-        for channel in color
-    ]
-    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
-
-
-def _contrast_with_white(color: tuple[int, int, int]) -> float:
-    return 1.05 / (_relative_luminance(color) + 0.05)
-
-
-def cover_qr_color(cover_path: Path) -> tuple[int, int, int]:
-    with Image.open(cover_path) as cover:
-        palette = extract_palette(cover, size=8)
-    saturation = lambda color: colorsys.rgb_to_hsv(
-        *(channel / 255 for channel in color)
-    )[1]
-    high_contrast = [color for color in palette if _contrast_with_white(color) >= 4.5]
-    if high_contrast:
-        return max(high_contrast, key=saturation)
-    selected = max(palette, key=saturation)
-    for step in range(19, -1, -1):
-        darkened = tuple(round(channel * step / 20) for channel in selected)
-        if _contrast_with_white(darkened) >= 4.5:
-            return darkened
-    return 0, 0, 0
-
-
 @contextmanager
 def provider_rendering(
     provider: str | None,
     platform_link: tuple[DestinationAdapter, str] | None,
-    qr_color: tuple[int, int, int] | None,
     qr_format: str = "standard",
 ):
     with rendering_lock:
@@ -248,11 +230,15 @@ def provider_rendering(
             cover_renderer = get_catalog_adapter(provider).cover_renderer
             if cover_renderer is not None:
                 beatprints_image.cover = cover_renderer
-        if platform_link is not None and qr_color is not None:
+        if platform_link is not None:
             adapter, link = platform_link
-            render_code = adapter.standard_scannable if qr_format == "standard" and adapter.standard_scannable else adapter.scannable
+            render_code = (
+                adapter.standard_scannable
+                if qr_format == "standard" and adapter.standard_scannable
+                else adapter.scannable
+            )
             beatprints_image.scannable = render_code(link) or fallback_scannable(
-                adapter.label, link, qr_color
+                adapter.label, link
             )
         try:
             yield
@@ -310,12 +296,21 @@ def _fitted_text_size(value: str, fonts, size: int, max_width: int) -> int:
 def _draw_release_and_label(draw, metadata, color, position) -> None:
     label_fonts = write.font("Regular")
     _write_right_aligned_text(
-        draw, position, metadata.released, color, label_fonts, poster.s.LABEL,
+        draw,
+        position,
+        metadata.released,
+        color,
+        label_fonts,
+        poster.s.LABEL,
     )
     line_height = poster.s.LABEL + int(round((poster.s.LABEL * 6) / 42, 1))
     _write_right_aligned_text(
-        draw, (position[0], position[1] + line_height), metadata.label, color,
-        label_fonts, _fitted_text_size(metadata.label, label_fonts, poster.s.LABEL, 1400),
+        draw,
+        (position[0], position[1] + line_height),
+        metadata.label,
+        color,
+        label_fonts,
+        _fitted_text_size(metadata.label, label_fonts, poster.s.LABEL, 1400),
     )
 
 
@@ -324,15 +319,27 @@ def _paste_scannable(poster_image, scannable, metadata) -> None:
     box = scannable.info.get("square_code_box")
     if metadata.released.strip() and metadata.label.strip():
         # Measure with the same mixed-font renderer and positioning as the poster.
-        mask = Image.new("RGB", (1500, poster_image.height - poster.p.LABEL[1]), (0, 0, 0))
-        _draw_release_and_label(ImageDraw.Draw(mask), metadata, (255, 255, 255), (1450, 0))
+        mask = Image.new(
+            "RGB", (1500, poster_image.height - poster.p.LABEL[1]), (0, 0, 0)
+        )
+        _draw_release_and_label(
+            ImageDraw.Draw(mask), metadata, (255, 255, 255), (1450, 0)
+        )
         bounds = mask.getbbox()
         if bounds and box:
             top, bottom = bounds[1], bounds[3]
-            size = min(bottom - top, poster.s.SCANCODE[0], poster_image.height - poster.p.LABEL[1] - top)
+            size = min(
+                bottom - top,
+                poster.s.SCANCODE[0],
+                poster_image.height - poster.p.LABEL[1] - top,
+            )
             if size > 0:
-                code = scannable.crop(box).resize((size, size), Image.Resampling.LANCZOS)
-                poster_image.paste(code, (poster.p.SCANCODE[0], poster.p.LABEL[1] + top), code)
+                code = scannable.crop(box).resize(
+                    (size, size), Image.Resampling.LANCZOS
+                )
+                poster_image.paste(
+                    code, (poster.p.SCANCODE[0], poster.p.LABEL[1] + top), code
+                )
                 return
         if bounds:
             content = scannable.getbbox()
@@ -447,7 +454,9 @@ def _render_album_poster(
             )
             x += width + track_layout.gap
 
-        poster_image.save(directory / poster_filename(metadata.title, metadata.artists[0]))
+        poster_image.save(
+            directory / poster_filename(metadata.title, metadata.artists[0])
+        )
 
 
 def _render_track_poster(
@@ -490,7 +499,9 @@ def _render_track_poster(
             poster.s.LYRICS,
             anchor="lt",
         )
-        poster_image.save(directory / poster_filename(metadata.title, metadata.artists[0]))
+        poster_image.save(
+            directory / poster_filename(metadata.title, metadata.artists[0])
+        )
 
 
 def render_track(
@@ -503,13 +514,14 @@ def render_track(
         request.qr_platform,
         provider,
         getattr(metadata, "link", None),
-        request.destination_region, request.catalog_id, "track",
+        request.destination_region,
+        request.catalog_id,
+        "track",
     )
     with tempfile.TemporaryDirectory(prefix="beatprints-") as temp:
         directory, cover_path = Path(temp), Path(temp) / "cover"
         download_cover(metadata.cover, cover_path)
-        qr_color = cover_qr_color(cover_path) if platform_link is not None else None
-        with provider_rendering(provider, platform_link, qr_color, request.qr_format):
+        with provider_rendering(provider, platform_link, request.qr_format):
             _render_track_poster(
                 directory,
                 metadata=metadata,
@@ -530,13 +542,14 @@ def render_album(request: AlbumPosterRequest, metadata) -> PosterResult:
         request.qr_platform,
         provider,
         getattr(metadata, "link", None),
-        request.destination_region, request.catalog_id, "album",
+        request.destination_region,
+        request.catalog_id,
+        "album",
     )
     with tempfile.TemporaryDirectory(prefix="beatprints-") as temp:
         directory, cover_path = Path(temp), Path(temp) / "cover"
         download_cover(metadata.cover, cover_path)
-        qr_color = cover_qr_color(cover_path) if platform_link is not None else None
-        with provider_rendering(provider, platform_link, qr_color, request.qr_format):
+        with provider_rendering(provider, platform_link, request.qr_format):
             _render_album_poster(
                 directory,
                 metadata=metadata,

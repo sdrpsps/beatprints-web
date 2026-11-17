@@ -25,5 +25,7 @@ class DestinationAdapter:
     regions: tuple[str, ...] = ()
     fixed_code: bool = False
     supports_isrc: bool = False
-    resolve_source: Callable[[str, int | str, str], PlatformLinkMatchData | None] | None = None
+    resolve_source: (
+        Callable[[str, int | str, str], PlatformLinkMatchData | None] | None
+    ) = None
     reuses_source_link: Callable[[str], bool] = lambda _provider: False

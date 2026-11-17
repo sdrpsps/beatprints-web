@@ -21,7 +21,9 @@ def resolve_track(metadata: deez.TrackMetadata) -> str | None:
     from beatprints_api.services import matching
 
     options = matching.match_metadata(
-        metadata, "track", spotify_client.search_candidates,
+        metadata,
+        "track",
+        spotify_client.search_candidates,
     )
     if options.match is None:
         return None

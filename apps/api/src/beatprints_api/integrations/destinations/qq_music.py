@@ -8,7 +8,10 @@ import httpx
 
 from beatprints_api.integrations.destinations.base import DestinationAdapter
 from beatprints_api.integrations.destinations.registry import register
-from beatprints_api.integrations.destinations.scannable import icon_qr_scannable, standard_icon_qr_scannable
+from beatprints_api.integrations.destinations.scannable import (
+    icon_qr_scannable,
+    standard_icon_qr_scannable,
+)
 from beatprints_api.exceptions import PlatformLinkNoMatchError, UpstreamError
 from beatprints_api.models.destinations import PlatformLinkMatchData
 
@@ -149,6 +152,10 @@ def resolve(url: str) -> PlatformLinkMatchData:
         ).get("data")
         or {}
     )
+    if not row:
+        raise PlatformLinkNoMatchError("QQ Music album was not found")
+    if not isinstance(row, dict) or not row.get("name"):
+        raise UpstreamError("QQ Music album response was incomplete")
     singer_name = str(row.get("singername") or "").strip()
     return PlatformLinkMatchData(
         title=row.get("name"),

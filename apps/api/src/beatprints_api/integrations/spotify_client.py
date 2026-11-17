@@ -80,7 +80,9 @@ class SpotifyClient:
                 )
                 response.raise_for_status()
             except httpx.HTTPError as exc:
-                raise SpotifyError(f"Could not authenticate with Spotify: {exc}") from exc
+                raise SpotifyError(
+                    f"Could not authenticate with Spotify: {exc}"
+                ) from exc
 
             payload = response.json()
             self._token = payload["access_token"]
@@ -107,7 +109,11 @@ class SpotifyClient:
         )
         key = "tracks" if search_type == "track" else "albums"
         return [
-            self._format_track(item) if search_type == "track" else self._format_album(item)
+            (
+                self._format_track(item)
+                if search_type == "track"
+                else self._format_album(item)
+            )
             for item in payload[key]["items"]
         ]
 
@@ -119,13 +125,21 @@ class SpotifyClient:
             if not url or not title:
                 continue
             album = result.get("album") or {}
-            candidates.append({
-                "url": url, "title": title, "artists": result.get("artists") or [], "type": item_type,
-                "album": album.get("title") if item_type == "track" else None,
-                "release_year": result.get("release_year"), "duration_seconds": result.get("duration_seconds"),
-                "track_count": result.get("track_count"), "cover_url": result.get("cover_url"),
-                "isrc": result.get("isrc"), "platform_id": result.get("id"),
-            })
+            candidates.append(
+                {
+                    "url": url,
+                    "title": title,
+                    "artists": result.get("artists") or [],
+                    "type": item_type,
+                    "album": album.get("title") if item_type == "track" else None,
+                    "release_year": result.get("release_year"),
+                    "duration_seconds": result.get("duration_seconds"),
+                    "track_count": result.get("track_count"),
+                    "cover_url": result.get("cover_url"),
+                    "isrc": result.get("isrc"),
+                    "platform_id": result.get("id"),
+                }
+            )
         return candidates
 
     def _get(self, path: str, params: dict | None = None) -> dict:
@@ -149,7 +163,9 @@ class SpotifyClient:
 
     def track_metadata(self, track_id: str) -> dict:
         track = self._get(f"/tracks/{track_id}", {"market": current_region()})
-        album = self._get(f"/albums/{track['album']['id']}", {"market": current_region()})
+        album = self._get(
+            f"/albums/{track['album']['id']}", {"market": current_region()}
+        )
         seconds = int(track["duration_ms"]) // 1000
         minutes, remaining_seconds = divmod(seconds, 60)
         return {
@@ -231,7 +247,11 @@ class SpotifyClient:
             "cover_url": cls._cover_url(album),
             "link": item["external_urls"]["spotify"],
             "release_date": release_date,
-            "release_year": int(release_date[:4]) if release_date and len(release_date) >= 4 else None,
+            "release_year": (
+                int(release_date[:4])
+                if release_date and len(release_date) >= 4
+                else None
+            ),
             "release_date_precision": album.get("release_date_precision"),
             "album": {"id": album["id"], "title": album["name"]},
             "duration_seconds": seconds,
@@ -252,7 +272,11 @@ class SpotifyClient:
             "cover_url": cls._cover_url(item),
             "link": item["external_urls"]["spotify"],
             "release_date": release_date,
-            "release_year": int(release_date[:4]) if release_date and len(release_date) >= 4 else None,
+            "release_year": (
+                int(release_date[:4])
+                if release_date and len(release_date) >= 4
+                else None
+            ),
             "release_date_precision": item.get("release_date_precision"),
             "track_count": item.get("total_tracks"),
         }

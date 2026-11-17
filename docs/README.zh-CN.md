@@ -10,9 +10,9 @@
 [TrueMyst / elysianmyst 创作的 BeatPrints](https://github.com/TrueMyst/BeatPrints) 构建：
 原项目负责音乐海报的核心排版与渲染，本项目为它补充了 Web 创作界面、HTTP API、音乐目录集成和自部署能力。
 
-[English](README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md) · [한국어](README.ko.md)
+[English](../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md) · [한국어](README.ko.md)
 
-[快速开始](#快速开始) · [Docker 部署](#docker-部署) · [API 文档](apps/api/README.md) · [前端开发](apps/web/README.md)
+[快速开始](#快速开始) · [Docker 部署](#docker-部署) · [API 文档](../apps/api/README.md) · [前端开发](../apps/web/README.md)
 
 </div>
 
@@ -96,7 +96,7 @@ Spotify 搜索是可选能力。需要时，在 `.env` 中配置
 
 微信葵花码需要二维码服务。Docker Compose 会自动启动该服务；本地开发时可通过
 `WECHAT_QR_BASE_URL` 指定服务地址（例如 `http://127.0.0.1:8080`）；未配置时隐藏微信葵花码选项。标准二维码不需要
-该服务，Spotify 始终使用 Spotify Code。部署和调用详情请参阅 [API 文档](apps/api/README.md#本地启动)。
+该服务，Spotify 始终使用 Spotify Code。部署和调用详情请参阅 [API 文档](../apps/api/README.md#本地启动)。
 
 ### 常用命令
 
@@ -167,7 +167,7 @@ MAX_CONCURRENT_JOBS=1
 
 ## 配置
 
-主要环境变量记录在 [`.env.example`](.env.example)：
+主要环境变量记录在 [`.env.example`](../.env.example)：
 
 | 变量 | 用途 | 默认值 |
 | --- | --- | --- |
@@ -201,9 +201,9 @@ MAX_CONCURRENT_JOBS=1
 
 进一步阅读：
 
-- [前端开发指南](apps/web/README.md)
-- [API 部署与调用示例](apps/api/README.md)
-- [前端产品流程与 API 映射](docs/frontend-product-brief.md)
+- [前端开发指南](../apps/web/README.md)
+- [API 部署与调用示例](../apps/api/README.md)
+- [前端产品流程与 API 映射](frontend-product-brief.md)
 
 ## API 概览
 
@@ -231,10 +231,10 @@ POST /v1/posters/album
 
 支持地区的集成通过 `GET /v1/capabilities` 返回来源和目标各自的地区列表。调用方应保留
 搜索时选择的来源地区，直至生成海报；来源地区和二维码目标地区独立选择，省略时默认为 `US`。
-各步骤的参数和示例见 [地区工作流](apps/api/README.md#音乐平台)。
+各步骤的参数和示例见 [地区工作流](../apps/api/README.md#音乐平台)。
 
 完整的请求字段、跨平台匹配方式、错误结构与 `curl` 示例请参阅
-[BeatPrints API 文档](apps/api/README.md)，或在服务启动后打开 `/docs`。
+[BeatPrints API 文档](../apps/api/README.md)，或在服务启动后打开 `/docs`。
 
 ## 构建与发布
 
@@ -259,5 +259,5 @@ ghcr.io/sdrpsps/beatprints-web:latest
 微信葵花码生成功能使用 [AnglerS888/葵码生成器](https://github.com/AnglerS888/kuima-generator)，
 感谢其作者与贡献者。
 
-项目采用 [CC BY-NC-SA 4.0](LICENSE) 许可，仅供非商业使用。使用、分发或创建衍生作品时，
+项目采用 [CC BY-NC-SA 4.0](../LICENSE) 许可，仅供非商业使用。使用、分发或创建衍生作品时，
 请保留署名并以相同许可共享；商业使用前请先取得原作者授权。

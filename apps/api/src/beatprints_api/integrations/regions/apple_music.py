@@ -14,6 +14,5 @@ REGIONS = tuple(
     "NE NG NI NL NO NP NZ OM PA PE PG PH PK PL PT PY "
     "QA RO RS RU RW SA SB SC SE SG SI SK SL SN SR ST "
     "SV SZ TC TD TH TJ TM TN TO TR TT TW TZ UA UG US "
-    "UY UZ VC VE VG VN VU XK YE ZA ZM ZW "
-    .split()
+    "UY UZ VC VE VG VN VU XK YE ZA ZM ZW ".split()
 )

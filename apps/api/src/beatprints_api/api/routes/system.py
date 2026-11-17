@@ -8,7 +8,10 @@ from beatprints_api.models import ApiResponse, HealthData
 from beatprints_api.services.release_notes import get_release_notes
 from beatprints_api.integrations.catalog import catalog_adapters
 from beatprints_api.integrations.destinations.registry import destination_adapters
-from beatprints_api.integrations.lyrics.registry import lyrics_sources, default_lyrics_source_key
+from beatprints_api.integrations.lyrics.registry import (
+    lyrics_sources,
+    default_lyrics_source_key,
+)
 
 router = APIRouter(tags=["System"])
 
@@ -37,8 +40,13 @@ class IntegrationCapability(BaseModel):
     available: bool = True
     reason: str | None = None
     default: bool = False
-    supports_regions: bool = Field(default=False, description="此集成是否支持按地区读取目录。")
-    regions: list[str] = Field(default_factory=list, description="该集成支持的两位大写地区代码；来自官方服务地区清单快照，并非实时查询。")
+    supports_regions: bool = Field(
+        default=False, description="此集成是否支持按地区读取目录。"
+    )
+    regions: list[str] = Field(
+        default_factory=list,
+        description="该集成支持的两位大写地区代码；来自官方服务地区清单快照，并非实时查询。",
+    )
     fixed_code: bool = False
     reuses_source_links: list[str] = []
 
@@ -50,28 +58,73 @@ class CapabilitiesData(BaseModel):
     destinations: list[IntegrationCapability]
 
 
-@router.get("/v1/capabilities", response_model=ApiResponse[CapabilitiesData], summary="查询可用功能", description="按注册顺序返回已启用的来源、歌词和目的地集成，以及各自的可用性和地区清单。地区清单是维护的官方服务地区快照，不代表每个作品在该地区均可用。")
+@router.get(
+    "/v1/capabilities",
+    response_model=ApiResponse[CapabilitiesData],
+    summary="查询可用功能",
+    description="按注册顺序返回已启用的来源、歌词和目的地集成，以及各自的可用性和地区清单。地区清单是维护的官方服务地区快照，不代表每个作品在该地区均可用。",
+)
 def capabilities(response: Response) -> ApiResponse[CapabilitiesData]:
     response.headers["Cache-Control"] = "no-store"
     catalogs = catalog_adapters()
     destinations = destination_adapters()
-    return ApiResponse(code=0, data=CapabilitiesData(
-        wechat_qr=bool(settings.wechat_qr_base_url),
-        catalogs=[IntegrationCapability(key=a.key, label=a.label, available=a.configured(),
-                    reason=None if a.configured() else "not_configured", supports_regions=a.supports_regions, regions=list(a.regions)) for a in catalogs],
-        lyrics=[IntegrationCapability(key=a.key, label=a.label, default=a.key == default_lyrics_source_key())
-                for a in lyrics_sources()],
-        destinations=[IntegrationCapability(key=a.key, label=a.label, available=a.configured(),
-                      reason=None if a.configured() else "not_configured", fixed_code=a.fixed_code, supports_regions=a.supports_regions, regions=list(a.regions),
-                      reuses_source_links=[c.key for c in catalogs if a.reuses_source_link(c.key)])
-                      for a in destinations],
-    ), message="success")
+    return ApiResponse(
+        code=0,
+        data=CapabilitiesData(
+            wechat_qr=bool(settings.wechat_qr_base_url),
+            catalogs=[
+                IntegrationCapability(
+                    key=a.key,
+                    label=a.label,
+                    available=a.configured(),
+                    reason=None if a.configured() else "not_configured",
+                    supports_regions=a.supports_regions,
+                    regions=list(a.regions),
+                )
+                for a in catalogs
+            ],
+            lyrics=[
+                IntegrationCapability(
+                    key=a.key,
+                    label=a.label,
+                    default=a.key == default_lyrics_source_key(),
+                )
+                for a in lyrics_sources()
+            ],
+            destinations=[
+                IntegrationCapability(
+                    key=a.key,
+                    label=a.label,
+                    available=a.configured(),
+                    reason=None if a.configured() else "not_configured",
+                    fixed_code=a.fixed_code,
+                    supports_regions=a.supports_regions,
+                    regions=list(a.regions),
+                    reuses_source_links=[
+                        c.key for c in catalogs if a.reuses_source_link(c.key)
+                    ],
+                )
+                for a in destinations
+            ],
+        ),
+        message="success",
+    )
 
 
 class ReleaseNotesData(BaseModel):
     body: str
 
 
-@router.get("/v1/release-notes", response_model=ApiResponse[ReleaseNotesData], summary="获取版本更新内容")
-def release_notes(version: Annotated[str, Query(pattern=r"^\d{1,6}\.\d{1,6}\.\d{1,6}$")]) -> ApiResponse[ReleaseNotesData]:
-    return ApiResponse(code=0, data=ReleaseNotesData(body=get_release_notes(version)), message="success")
+@router.get(
+    "/v1/release-notes",
+    response_model=ApiResponse[ReleaseNotesData],
+    summary="获取版本更新内容",
+)
+def release_notes(
+    version: Annotated[str, Query(pattern=r"^\d{1,6}\.\d{1,6}\.\d{1,6}$")],
+) -> ApiResponse[ReleaseNotesData]:
+    return ApiResponse(
+        code=0,
+        data=ReleaseNotesData(body=get_release_notes(version)),
+        message="success",
+    )

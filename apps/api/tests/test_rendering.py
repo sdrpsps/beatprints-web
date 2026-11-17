@@ -143,19 +143,32 @@ def test_album_track_layout_keeps_every_track_when_titles_are_wide() -> None:
     )
 
 
-@pytest.mark.parametrize("ips", [
-    [], ["::1"], ["fe80::1"],
-    ["169.254.169.254"], ["10.0.0.1"], ["100.64.0.1"], ["::ffff:127.0.0.1"],
-])
+@pytest.mark.parametrize(
+    "ips",
+    [
+        [],
+        ["::1"],
+        ["fe80::1"],
+        ["169.254.169.254"],
+        ["10.0.0.1"],
+        ["100.64.0.1"],
+        ["::ffff:127.0.0.1"],
+    ],
+)
 def test_cover_connection_rejects_non_public_dns(monkeypatch, ips) -> None:
     monkeypatch.setattr(
-        rendering.socket, "getaddrinfo",
+        rendering.socket,
+        "getaddrinfo",
         lambda *_args, **_kwargs: [
             (socket.AF_INET, socket.SOCK_STREAM, 6, "", (ip, 443)) for ip in ips
         ],
     )
     connected = []
-    monkeypatch.setattr(httpcore.SyncBackend, "connect_tcp", lambda *_args, **_kwargs: connected.append(True))
+    monkeypatch.setattr(
+        httpcore.SyncBackend,
+        "connect_tcp",
+        lambda *_args, **_kwargs: connected.append(True),
+    )
     with pytest.raises(ValueError, match="only to public"):
         rendering._PublicCoverBackend().connect_tcp("mixed.example", 443)
     assert connected == []
@@ -163,19 +176,26 @@ def test_cover_connection_rejects_non_public_dns(monkeypatch, ips) -> None:
 
 def test_cover_connection_filters_private_dns_answers(monkeypatch) -> None:
     monkeypatch.setattr(
-        rendering.socket, "getaddrinfo",
+        rendering.socket,
+        "getaddrinfo",
         lambda *_args, **_kwargs: [
             (socket.AF_INET, socket.SOCK_STREAM, 6, "", (ip, 443))
             for ip in ("127.0.0.1", "8.8.8.8", "fd27:712::1")
         ],
     )
     connected = []
-    monkeypatch.setattr(httpcore.SyncBackend, "connect_tcp", lambda _self, host, port, **_kwargs: connected.append(host))
+    monkeypatch.setattr(
+        httpcore.SyncBackend,
+        "connect_tcp",
+        lambda _self, host, port, **_kwargs: connected.append(host),
+    )
     rendering._PublicCoverBackend().connect_tcp("mixed.example", 443)
     assert connected == ["8.8.8.8"]
 
 
-def test_cover_transport_pins_dns_and_preserves_tls_hostname_and_host(monkeypatch) -> None:
+def test_cover_transport_pins_dns_and_preserves_tls_hostname_and_host(
+    monkeypatch,
+) -> None:
     dns_calls, connections, tls_names, writes = [], [], [], []
 
     def resolve(host, port, **_kwargs):
@@ -186,7 +206,9 @@ def test_cover_transport_pins_dns_and_preserves_tls_hostname_and_host(monkeypatc
 
     class Stream:
         def read(self, _max_bytes, timeout=None):
-            return b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\nConnection: close\r\n\r\nbody"
+            return (
+                b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\nConnection: close\r\n\r\nbody"
+            )
 
         def write(self, buffer, timeout=None):
             writes.append(buffer)
@@ -207,7 +229,9 @@ def test_cover_transport_pins_dns_and_preserves_tls_hostname_and_host(monkeypatc
 
     monkeypatch.setattr(rendering.socket, "getaddrinfo", resolve)
     monkeypatch.setattr(httpcore.SyncBackend, "connect_tcp", connect)
-    with httpx.Client(transport=rendering._PublicCoverTransport(), trust_env=False) as client:
+    with httpx.Client(
+        transport=rendering._PublicCoverTransport(), trust_env=False
+    ) as client:
         response = client.get("https://cover.example/art.png")
     assert response.content == b"body"
     assert dns_calls == ["cover.example"]
@@ -242,8 +266,12 @@ def test_cover_redirect_cannot_connect_to_private_host(monkeypatch, tmp_path) ->
 
     monkeypatch.setattr(rendering.socket, "getaddrinfo", resolve)
     monkeypatch.setattr(httpcore.SyncBackend, "connect_tcp", connect)
-    with httpx.Client(transport=rendering._PublicCoverTransport(), trust_env=False) as client:
+    with httpx.Client(
+        transport=rendering._PublicCoverTransport(), trust_env=False
+    ) as client:
         monkeypatch.setattr(rendering, "cover_client", client)
         with pytest.raises(ValueError, match="only to public"):
-            rendering.download_cover("http://cover.example/image.png", tmp_path / "cover")
+            rendering.download_cover(
+                "http://cover.example/image.png", tmp_path / "cover"
+            )
     assert connections == ["8.8.8.8"]

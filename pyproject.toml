@@ -21,6 +21,7 @@ beatprints-api = "beatprints_api.__main__:main"
 
 [dependency-groups]
 dev = [
+    "black==26.5.1",
     "pytest==8.4.1",
 ]
 

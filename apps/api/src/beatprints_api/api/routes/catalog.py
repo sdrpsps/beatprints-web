@@ -49,31 +49,55 @@ ERROR_RESPONSES = {
 @router.get(
     "/platform-links/{platform}/options",
     summary="匹配目标平台并返回候选",
+    description=(
+        "以所选来源的 provider、catalog_id 和来源地区读取歌曲或专辑。"
+        "若目标地区无法直接解析同平台的来源 ID，继续在目标地区搜索并返回"
+        "经过保守匹配的结果与排序候选；不会自动确认低置信度候选。"
+        "目标平台发生真正的服务错误时返回 502。"
+    ),
     response_model=ApiResponse[PlatformMatchOptionsData],
     response_model_exclude_none=True,
     responses=ERROR_RESPONSES,
 )
 async def platform_match_options(
     platform: str,
-    provider: Annotated[CatalogProvider, Query()],
-    catalog_id: Annotated[str, Query(min_length=1)],
-    type: Annotated[Literal["track", "album"], Query()],
+    provider: Annotated[CatalogProvider, Query(examples=["apple_music"])],
+    catalog_id: Annotated[str, Query(min_length=1, examples=["1790520817"])],
+    type: Annotated[Literal["track", "album"], Query(examples=["track"])],
     limit: Annotated[int, Query(ge=1, le=10)] = 8,
-    source_region: Annotated[str | None, Query(
-        pattern=r"^[A-Z]{2}$", examples=["JP"],
-        description="来源目录地区，须与所选搜索结果使用的地区一致；省略时使用 US。",
-    )] = None,
-    destination_region: Annotated[str | None, Query(
-        pattern=r"^[A-Z]{2}$", examples=["US"],
-        description="目标平台检索及来源直链解析使用的地区；独立于来源地区，省略时使用 US。",
-    )] = None,
+    source_region: Annotated[
+        str | None,
+        Query(
+            pattern=r"^[A-Z]{2}$",
+            examples=["US"],
+            description="来源目录地区，须与所选搜索结果使用的地区一致；省略时使用 US。",
+        ),
+    ] = None,
+    destination_region: Annotated[
+        str | None,
+        Query(
+            pattern=r"^[A-Z]{2}$",
+            examples=["JP"],
+            description="目标平台检索及来源直链解析使用的地区；独立于来源地区，省略时使用 US。",
+        ),
+    ] = None,
 ) -> ApiResponse[PlatformMatchOptionsData]:
     try:
         result = await run_in_threadpool(
             matching_service.platform_match_options,
-            provider, catalog_id, type, platform, limit,
-            **({"source_region": source_region, "destination_region": destination_region}
-               if source_region or destination_region else {}),
+            provider,
+            catalog_id,
+            type,
+            platform,
+            limit,
+            **(
+                {
+                    "source_region": source_region,
+                    "destination_region": destination_region,
+                }
+                if source_region or destination_region
+                else {}
+            ),
         )
     except IntegrationNotConfiguredError as exc:
         raise UpstreamServiceError(str(exc), unavailable=True) from exc
@@ -84,6 +108,7 @@ async def platform_match_options(
     except UpstreamError as exc:
         raise UpstreamServiceError(str(exc)) from exc
     return ApiResponse(code=0, data=result, message="success")
+
 
 THEMES = [
     "Light",
@@ -144,10 +169,14 @@ async def search(
         Literal["track", "album"],
         Query(description="搜索类型：track 表示歌曲，album 表示专辑。"),
     ] = "track",
-    region: Annotated[str | None, Query(
-        pattern=r"^[A-Z]{2}$", examples=["JP"],
-        description="目录地区的两位大写代码；省略时使用 US。支持地区的目录由 /v1/capabilities 的 regions 列出；all 对支持地区的来源使用同一地区。",
-    )] = None,
+    region: Annotated[
+        str | None,
+        Query(
+            pattern=r"^[A-Z]{2}$",
+            examples=["JP"],
+            description="目录地区的两位大写代码；省略时使用 US。支持地区的目录由 /v1/capabilities 的 regions 列出；all 对支持地区的来源使用同一地区。",
+        ),
+    ] = None,
     limit: Annotated[
         int,
         Query(
@@ -161,12 +190,12 @@ async def search(
     try:
         with use_region(region):
             results = await run_in_threadpool(
-            catalog_service.search_catalog,
-            query,
-            type,
-            limit,
-            provider,
-        )
+                catalog_service.search_catalog,
+                query,
+                type,
+                limit,
+                provider,
+            )
     except IntegrationNotConfiguredError as exc:
         raise UpstreamServiceError(str(exc), unavailable=True) from exc
     except UnsupportedCatalogSourceError as exc:
@@ -206,10 +235,14 @@ async def preview_lyrics(
             description="所选歌曲在 provider 中的 ID，来自 /v1/search。",
         ),
     ],
-    region: Annotated[str | None, Query(
-        pattern=r"^[A-Z]{2}$", examples=["JP"],
-        description="读取所选歌曲元数据的来源地区，应与搜索时一致；省略时使用 US。歌词来源通过 source 单独选择。",
-    )] = None,
+    region: Annotated[
+        str | None,
+        Query(
+            pattern=r"^[A-Z]{2}$",
+            examples=["JP"],
+            description="读取所选歌曲元数据的来源地区，应与搜索时一致；省略时使用 US。歌词来源通过 source 单独选择。",
+        ),
+    ] = None,
     source: Annotated[
         str | None,
         Query(
@@ -221,11 +254,11 @@ async def preview_lyrics(
     try:
         with use_region(region):
             result = await run_in_threadpool(
-            matching_service.preview_lyrics,
-            provider,
-            catalog_id,
-            source,
-        )
+                matching_service.preview_lyrics,
+                provider,
+                catalog_id,
+                source,
+            )
     except IntegrationNotConfiguredError as exc:
         raise UpstreamServiceError(str(exc), unavailable=True) from exc
     except UnsupportedCatalogSourceError as exc:
@@ -255,16 +288,20 @@ async def preview_lyrics(
 async def resolve_platform_url(
     platform: str,
     url: Annotated[str, Query(min_length=1, max_length=2000)],
-    region: Annotated[str | None, Query(
-        pattern=r"^[A-Z]{2}$", examples=["US"],
-        description="目标平台读取链接当前资料的地区；与来源地区独立，省略时使用 US。",
-    )] = None,
+    region: Annotated[
+        str | None,
+        Query(
+            pattern=r"^[A-Z]{2}$",
+            examples=["US"],
+            description="目标平台读取链接当前资料的地区；与来源地区独立，省略时使用 US。",
+        ),
+    ] = None,
 ) -> ApiResponse[PlatformLinkMatchData]:
     try:
         with use_region(region):
             result = await run_in_threadpool(
-            matching_service.resolve_platform_url, platform, url
-        )
+                matching_service.resolve_platform_url, platform, url
+            )
     except PlatformLinkNoMatchError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except UnsupportedDestinationError as exc:

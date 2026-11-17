@@ -1,4 +1,5 @@
 from beatprints_api.integrations.regions.apple_music import REGIONS
+
 """Apple Music destination adapter."""
 
 from pathlib import Path
@@ -10,7 +11,10 @@ from beatprints_api.integrations.region import current_region
 from beatprints_api.integrations import apple_music_public
 from beatprints_api.integrations.destinations.base import DestinationAdapter
 from beatprints_api.integrations.destinations.registry import register
-from beatprints_api.integrations.destinations.scannable import icon_qr_scannable, standard_icon_qr_scannable
+from beatprints_api.integrations.destinations.scannable import (
+    icon_qr_scannable,
+    standard_icon_qr_scannable,
+)
 from beatprints_api.exceptions import PlatformLinkNoMatchError, UpstreamError
 from beatprints_api.models.destinations import PlatformLinkMatchData
 
@@ -32,11 +36,15 @@ def _result_data(result: dict) -> PlatformLinkMatchData:
     title = result.get("trackName") if is_track else result.get("collectionName")
     url = result.get("trackViewUrl") if is_track else result.get("collectionViewUrl")
     if not isinstance(title, str) or not isinstance(url, str):
-        raise PlatformLinkNoMatchError("Apple Music did not return a usable catalog item")
+        raise PlatformLinkNoMatchError(
+            "Apple Music did not return a usable catalog item"
+        )
     return PlatformLinkMatchData(
         url=url,
         title=title,
-        artists=[result["artistName"]] if isinstance(result.get("artistName"), str) else [],
+        artists=(
+            [result["artistName"]] if isinstance(result.get("artistName"), str) else []
+        ),
         album=result.get("collectionName") if is_track else None,
         release_year=_release_year(result.get("releaseDate")),
         duration_seconds=(
@@ -60,7 +68,9 @@ def _search_candidates(results: list) -> list[dict]:
         except PlatformLinkNoMatchError:
             continue
         candidate["platform_id"] = (
-            result.get("trackId") if candidate["type"] == "track" else result.get("collectionId")
+            result.get("trackId")
+            if candidate["type"] == "track"
+            else result.get("collectionId")
         )
         candidates.append(candidate)
     return candidates
@@ -83,7 +93,7 @@ def search(query: str, item_type: str) -> list[dict]:
         payload = response.json()
         results = payload.get("results", []) if isinstance(payload, dict) else []
         candidates = _search_candidates(results) if isinstance(results, list) else []
-    except (httpx.HTTPError, ValueError):
+    except httpx.HTTPError, ValueError:
         # The public Apple Music page may still be available when iTunes search fails.
         candidates = []
     if candidates:
@@ -91,10 +101,16 @@ def search(query: str, item_type: str) -> list[dict]:
 
     def lookup(ids: str) -> list[dict]:
         try:
-            response = http_client.get(LOOKUP_URL, params={"id": ids, "country": current_region()})
+            response = http_client.get(
+                LOOKUP_URL, params={"id": ids, "country": current_region()}
+            )
             response.raise_for_status()
             rows = response.json().get("results", [])
-            return [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+            return (
+                [row for row in rows if isinstance(row, dict)]
+                if isinstance(rows, list)
+                else []
+            )
         except (httpx.HTTPError, ValueError) as exc:
             raise UpstreamError(f"Apple Music lookup failed: {exc}") from exc
 
@@ -111,8 +127,12 @@ def resolve(url: str) -> PlatformLinkMatchData:
     if not (host == "music.apple.com" or host.endswith(".music.apple.com")):
         raise PlatformLinkNoMatchError("URL is not an Apple Music link")
     track_ids = parse_qs(parsed.query).get("i", [])
-    identifier = track_ids[0] if track_ids else next(
-        (part for part in reversed(parsed.path.split("/")) if part.isdigit()), None
+    identifier = (
+        track_ids[0]
+        if track_ids
+        else next(
+            (part for part in reversed(parsed.path.split("/")) if part.isdigit()), None
+        )
     )
     if not identifier:
         raise PlatformLinkNoMatchError("Apple Music link does not contain a catalog ID")
@@ -126,16 +146,23 @@ def resolve(url: str) -> PlatformLinkMatchData:
     except (httpx.HTTPError, ValueError) as exc:
         raise UpstreamError(f"Apple Music lookup failed: {exc}") from exc
     for result in results:
-        if isinstance(result, dict) and result.get("wrapperType") in {"track", "collection"}:
+        if isinstance(result, dict) and result.get("wrapperType") in {
+            "track",
+            "collection",
+        }:
             return _result_data(result)
     raise PlatformLinkNoMatchError("Apple Music link did not resolve to a catalog item")
 
 
-def _resolve_source(provider: str, catalog_id: int | str, item_type: str) -> PlatformLinkMatchData | None:
+def _resolve_source(
+    provider: str, catalog_id: int | str, item_type: str
+) -> PlatformLinkMatchData | None:
     if provider != "apple_music":
         return None
     kind = "song" if item_type == "track" else "album"
-    result = resolve(f"https://music.apple.com/{current_region().lower()}/{kind}/{catalog_id}")
+    result = resolve(
+        f"https://music.apple.com/{current_region().lower()}/{kind}/{catalog_id}"
+    )
     if result.type != item_type:
         raise PlatformLinkNoMatchError("Apple Music catalog item type did not match")
     return result
@@ -146,8 +173,10 @@ def _scannable_link(url: str) -> str:
     parsed = urlparse(url)
     parts = [part for part in parsed.path.split("/") if part]
     track_ids = parse_qs(parsed.query).get("i", [])
-    identifier = track_ids[0] if track_ids else next(
-        (part for part in reversed(parts) if part.isdigit()), None
+    identifier = (
+        track_ids[0]
+        if track_ids
+        else next((part for part in reversed(parts) if part.isdigit()), None)
     )
     if not identifier or not identifier.isdigit():
         return url
@@ -159,15 +188,14 @@ def _scannable_link(url: str) -> str:
 adapter = register(
     DestinationAdapter(
         key="apple_music",
-        supports_regions=True, regions=REGIONS,
+        supports_regions=True,
+        regions=REGIONS,
         label="Apple Music",
         search=search,
         resolve=resolve,
         resolve_source=_resolve_source,
         reuses_source_link=lambda provider: provider == "apple_music",
-        scannable=lambda link: icon_qr_scannable(
-            _scannable_link(link), ASSET_PATH
-        ),
+        scannable=lambda link: icon_qr_scannable(_scannable_link(link), ASSET_PATH),
         standard_scannable=lambda link: standard_icon_qr_scannable(link, ASSET_PATH),
     )
 )

@@ -7,7 +7,9 @@ _adapters: dict[str, LyricsSourceAdapter] = {}
 _default_key: str | None = None
 
 
-def register(adapter: LyricsSourceAdapter, *, default: bool = False) -> LyricsSourceAdapter:
+def register(
+    adapter: LyricsSourceAdapter, *, default: bool = False
+) -> LyricsSourceAdapter:
     """Register an enabled source; only one source provides legacy defaults."""
 
     global _default_key

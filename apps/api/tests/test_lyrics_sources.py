@@ -194,9 +194,7 @@ def test_qq_music_reports_instrumental_and_no_match(monkeypatch) -> None:
             else {"retcode": 0, "code": 0, "lyric": "[00:01.00]纯音乐"}
         ),
     )
-    assert qq_music.fetch(metadata()) == LyricsSourceResult(
-        instrumental=True, lines=()
-    )
+    assert qq_music.fetch(metadata()) == LyricsSourceResult(instrumental=True, lines=())
 
     monkeypatch.setattr(
         qq_music,

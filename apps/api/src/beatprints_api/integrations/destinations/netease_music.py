@@ -7,7 +7,10 @@ import httpx
 
 from beatprints_api.integrations.destinations.base import DestinationAdapter
 from beatprints_api.integrations.destinations.registry import register
-from beatprints_api.integrations.destinations.scannable import icon_qr_scannable, standard_icon_qr_scannable
+from beatprints_api.integrations.destinations.scannable import (
+    icon_qr_scannable,
+    standard_icon_qr_scannable,
+)
 from beatprints_api.exceptions import PlatformLinkNoMatchError, UpstreamError
 from beatprints_api.models.destinations import PlatformLinkMatchData
 
@@ -128,6 +131,10 @@ def resolve(url: str) -> PlatformLinkMatchData:
         )
     data = _get(f"https://music.163.com/api/v1/album/{item_id}")
     album = data.get("album") or {}
+    if not album:
+        raise PlatformLinkNoMatchError("NetEase Music album was not found")
+    if not isinstance(album, dict) or not album.get("name"):
+        raise UpstreamError("NetEase Music album response was incomplete")
     return PlatformLinkMatchData(
         title=album.get("name"),
         artists=_artists(album.get("artists")),
@@ -154,7 +161,9 @@ adapter = register(
         label="网易云音乐",
         search=search,
         resolve=resolve,
-        scannable=lambda link: icon_qr_scannable(link, ASSET_PATH, version="2", mask=24, margin=19),
+        scannable=lambda link: icon_qr_scannable(
+            link, ASSET_PATH, version="2", mask=24, margin=19
+        ),
         standard_scannable=lambda link: standard_icon_qr_scannable(link, ASSET_PATH),
         resolve_source=_resolve_source,
         reuses_source_link=lambda provider: provider == "netease_music",

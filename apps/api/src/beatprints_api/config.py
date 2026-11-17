@@ -77,7 +77,8 @@ def load_settings() -> Settings:
         metadata_cache_ttl_seconds=_integer("METADATA_CACHE_TTL_SECONDS", 600),
         spotify_client_id=os.getenv("SPOTIFY_CLIENT_ID") or None,
         spotify_client_secret=os.getenv("SPOTIFY_CLIENT_SECRET") or None,
-        wechat_qr_base_url=(os.getenv("WECHAT_QR_BASE_URL") or "").strip().rstrip("/") or None,
+        wechat_qr_base_url=(os.getenv("WECHAT_QR_BASE_URL") or "").strip().rstrip("/")
+        or None,
         max_concurrent_jobs=_integer("MAX_CONCURRENT_JOBS", 1),
         port=_integer("PORT", 8000),
         workers=_integer("WEB_CONCURRENCY", 1),

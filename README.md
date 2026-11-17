@@ -10,7 +10,7 @@ Find the exact track or album from real music catalogs, pick lyric lines and pla
 [BeatPrints by TrueMyst / elysianmyst](https://github.com/TrueMyst/BeatPrints):
 the upstream project provides the core poster typography and rendering engine, while this project adds a modern web creation interface, an HTTP API, multi-platform music catalog integrations, and self-hosting capabilities.
 
-[English](README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md) · [한국어](README.ko.md)
+[English](README.md) · [简体中文](docs/README.zh-CN.md) · [繁體中文](docs/README.zh-TW.md) · [日本語](docs/README.ja.md) · [한국어](docs/README.ko.md)
 
 [Quick Start](#quick-start) · [Docker Deployment](#docker-deployment) · [API Documentation](apps/api/README.md) · [Frontend Guide](apps/web/README.md)
 

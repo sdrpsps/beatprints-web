@@ -1,5 +1,6 @@
 """Production-startup regression coverage."""
 
+import ast
 import subprocess
 import sys
 
@@ -11,7 +12,10 @@ def test_catalog_capabilities_follow_the_provider_registry_order() -> None:
     response = TestClient(app).get("/v1/capabilities")
     assert response.status_code == 200
     assert [item["key"] for item in response.json()["data"]["catalogs"]] == [
-        "apple_music", "spotify", "qq_music", "netease_music"
+        "apple_music",
+        "spotify",
+        "qq_music",
+        "netease_music",
     ]
 
 
@@ -56,13 +60,26 @@ def test_each_integration_can_be_disabled_by_its_registry_import(tmp_path) -> No
     for kind, modules in registry_modules.items():
         for module in modules:
             target = tmp_path / f"{kind}_{module}"
-            shutil.copytree(source, target / "beatprints_api", ignore=shutil.ignore_patterns("__pycache__"))
+            shutil.copytree(
+                source,
+                target / "beatprints_api",
+                ignore=shutil.ignore_patterns("__pycache__"),
+            )
             registry = target / "beatprints_api" / "integrations" / kind / "registry.py"
             lines = registry.read_text().splitlines(keepends=True)
-            prefix = f"from beatprints_api.integrations.{kind} import {module} "
-            matches = [line for line in lines if line.startswith(prefix)]
+            imports = ast.parse("".join(lines)).body
+            matches = [
+                node
+                for node in imports
+                if isinstance(node, ast.ImportFrom)
+                and node.module == f"beatprints_api.integrations.{kind}"
+                and len(node.names) == 1
+                and node.names[0].name == module
+            ]
             assert len(matches) == 1
-            registry.write_text("".join(line for line in lines if not line.startswith(prefix)))
+            registry.write_text(
+                "".join(lines[: matches[0].lineno - 1] + lines[matches[0].end_lineno :])
+            )
             script = """
 import json
 from fastapi.testclient import TestClient
@@ -71,10 +88,21 @@ response = TestClient(app).get('/v1/capabilities')
 assert response.status_code == 200
 print(json.dumps(response.json()['data']))
 """
-            result = subprocess.run([sys.executable, "-c", script], cwd=target, capture_output=True, text=True, check=False)
+            result = subprocess.run(
+                [sys.executable, "-c", script],
+                cwd=target,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
             assert result.returncode == 0, result.stderr
             data = json.loads(result.stdout.splitlines()[-1])
             assert module not in {item["key"] for item in data[roles[kind]]}
-            if module in ("spotify", "apple_music", "qq_music", "netease_music") and kind in ("catalog", "destinations"):
+            if module in (
+                "spotify",
+                "apple_music",
+                "qq_music",
+                "netease_music",
+            ) and kind in ("catalog", "destinations"):
                 other = "destinations" if kind == "catalog" else "catalogs"
                 assert module in {item["key"] for item in data[other]}

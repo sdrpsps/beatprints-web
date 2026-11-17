@@ -72,7 +72,9 @@ def create_app(web_root: Path | None = None) -> FastAPI:
                 "ko": "ko/index.html",
             }
             page = pages.get(path.rstrip("/"))
-            requested_file = (resolved_web_root / (page if page is not None else path)).resolve()
+            requested_file = (
+                resolved_web_root / (page if page is not None else path)
+            ).resolve()
             if (
                 requested_file.is_relative_to(resolved_web_root)
                 and requested_file.is_file()

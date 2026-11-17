@@ -67,25 +67,41 @@ def track_metadata(request: TrackPosterRequest) -> deez.TrackMetadata:
     if request.metadata is not None:
         value = request.metadata
         return deez.TrackMetadata(
-            title=value.title, artists=value.artists, album=value.album,
-            released=value.released, duration=value.duration, cover=str(value.cover_url),
+            title=value.title,
+            artists=value.artists,
+            album=value.album,
+            released=value.released,
+            duration=value.duration,
+            cover=str(value.cover_url),
             label=value.label,
         )
     provider, track_id = _catalog_reference(request)
     get_catalog_adapter(provider)
-    return copy.deepcopy(_cached_track_metadata(provider, track_id, _metadata_cache_token(), current_region()))
+    return copy.deepcopy(
+        _cached_track_metadata(
+            provider, track_id, _metadata_cache_token(), current_region()
+        )
+    )
 
 
 def album_metadata(request: AlbumPosterRequest) -> deez.AlbumMetadata:
     if request.metadata is not None:
         value = request.metadata
         return deez.AlbumMetadata(
-            title=value.title, artists=value.artists, released=value.released,
-            tracks=value.tracks.copy(), cover=str(value.cover_url), label=value.label,
+            title=value.title,
+            artists=value.artists,
+            released=value.released,
+            tracks=value.tracks.copy(),
+            cover=str(value.cover_url),
+            label=value.label,
         )
     provider, album_id = _catalog_reference(request)
     get_catalog_adapter(provider)
-    metadata = copy.deepcopy(_cached_album_metadata(provider, album_id, _metadata_cache_token(), current_region()))
+    metadata = copy.deepcopy(
+        _cached_album_metadata(
+            provider, album_id, _metadata_cache_token(), current_region()
+        )
+    )
     if request.shuffle:
         random.shuffle(metadata.tracks)
     return metadata
@@ -103,9 +119,7 @@ def clear_metadata_cache() -> None:
     _cached_album_metadata.cache_clear()
 
 
-def search_catalog(
-    query: str, item_type: str, limit: int, provider: str
-) -> list[dict]:
+def search_catalog(query: str, item_type: str, limit: int, provider: str) -> list[dict]:
     if provider != "all":
         adapter = get_catalog_adapter(provider)
         return adapter.search(query, item_type, limit)

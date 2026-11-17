@@ -10,9 +10,9 @@
 [TrueMyst / elysianmyst 創作的 BeatPrints](https://github.com/TrueMyst/BeatPrints) 建立：
 原專案負責音樂海報的核心排版與算圖，本專案為它補充 Web 創作介面、HTTP API、多平台音樂目錄整合和自行部署功能。
 
-[English](README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md) · [한국어](README.ko.md)
+[English](../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md) · [한국어](README.ko.md)
 
-[快速開始](#快速開始) · [Docker 部署](#docker-部署) · [API 文件](apps/api/README.md) · [前端開發](apps/web/README.md)
+[快速開始](#快速開始) · [Docker 部署](#docker-部署) · [API 文件](../apps/api/README.md) · [前端開發](../apps/web/README.md)
 
 </div>
 
@@ -84,7 +84,7 @@ make dev
 
 Spotify 搜尋是可選功能。需要時，在 `.env` 中設定 `SPOTIFY_CLIENT_ID` 與 `SPOTIFY_CLIENT_SECRET`；未設定 Spotify 憑證時，仍可使用 QQ 音樂、網易雲音樂及 Apple Music 搜尋。
 
-微信葵花碼需要 QR 服務。Docker Compose 會自動啟動；本機開發時可用 `WECHAT_QR_BASE_URL` 指定服務位址（例如 `http://127.0.0.1:8080`），未設定時會隱藏微信選項。部署詳情請參閱 [API 文件](apps/api/README.md#本地启动)。標準 QR Code 不需要此服務；Spotify 一律使用 Spotify Code。
+微信葵花碼需要 QR 服務。Docker Compose 會自動啟動；本機開發時可用 `WECHAT_QR_BASE_URL` 指定服務位址（例如 `http://127.0.0.1:8080`），未設定時會隱藏微信選項。部署詳情請參閱 [API 文件](../apps/api/README.md#本地启动)。標準 QR Code 不需要此服務；Spotify 一律使用 Spotify Code。
 
 ### 常用命令
 
@@ -146,7 +146,7 @@ MAX_CONCURRENT_JOBS=1
 
 ## 設定
 
-主要環境變數記錄在 [`.env.example`](.env.example)：
+主要環境變數記錄在 [`.env.example`](../.env.example)：
 
 | 變數 | 用途 | 預設值 |
 | --- | --- | --- |
@@ -180,9 +180,9 @@ MAX_CONCURRENT_JOBS=1
 
 進一步閱讀：
 
-- [前端開發指南](apps/web/README.md)
-- [API 部署與呼叫範例](apps/api/README.md)
-- [前端產品流程與 API 對應](docs/frontend-product-brief.md)
+- [前端開發指南](../apps/web/README.md)
+- [API 部署與呼叫範例](../apps/api/README.md)
+- [前端產品流程與 API 對應](frontend-product-brief.md)
 
 ## API 概覽
 
@@ -208,9 +208,9 @@ POST /v1/posters/track
 POST /v1/posters/album
 ```
 
-支援地區的整合可透過 `GET /v1/capabilities` 查詢來源與目標各自支援的地區。呼叫方應從搜尋到生成海報持續保留所選來源地區；來源與 QR 目的地地區彼此獨立，省略時預設為 `US`。各步驟的參數與範例見[地區工作流程](apps/api/README.md#音乐平台)。
+支援地區的整合可透過 `GET /v1/capabilities` 查詢來源與目標各自支援的地區。呼叫方應從搜尋到生成海報持續保留所選來源地區；來源與 QR 目的地地區彼此獨立，省略時預設為 `US`。各步驟的參數與範例見[地區工作流程](../apps/api/README.md#音乐平台)。
 
-完整請求格式、跨平台比對、錯誤處理與 `curl` 範例請參閱 [BeatPrints API 文件](apps/api/README.md)，或在服務啟動後開啟 `/docs`。
+完整請求格式、跨平台比對、錯誤處理與 `curl` 範例請參閱 [BeatPrints API 文件](../apps/api/README.md)，或在服務啟動後開啟 `/docs`。
 
 ## 建置與發布
 
@@ -232,4 +232,4 @@ ghcr.io/sdrpsps/beatprints-web:latest
 
 微信葵花碼使用 [AnglerS888/kuima-generator](https://github.com/AnglerS888/kuima-generator) 產生，感謝其作者與貢獻者。
 
-本專案採用 [CC BY-NC-SA 4.0](LICENSE)，僅供非商業使用。使用、散布或製作衍生作品時請保留署名並以相同授權分享；商業使用前請取得原作者授權。
+本專案採用 [CC BY-NC-SA 4.0](../LICENSE)，僅供非商業使用。使用、散布或製作衍生作品時請保留署名並以相同授權分享；商業使用前請取得原作者授權。

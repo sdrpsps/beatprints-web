@@ -18,6 +18,5 @@ REGIONS = tuple(
     "RW SA SB SC SE SG SH SI SJ SK SL SM SN SR ST SV "
     "SX SZ TC TD TG TH TJ TK TL TN TO TR TT TV TW TZ "
     "UA UG UM US UY UZ VC VE VG VI VN VU WF WS XK YT "
-    "ZA ZM ZW "
-    .split()
+    "ZA ZM ZW ".split()
 )

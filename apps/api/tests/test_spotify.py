@@ -1,5 +1,6 @@
 from io import BytesIO
 
+import httpx
 from PIL import Image
 import pytest
 
@@ -13,8 +14,10 @@ from beatprints_api.integrations.destinations.scannable import fallback_scannabl
 from beatprints_api.integrations.catalog import spotify as spotify_catalog
 from beatprints_api.integrations.spotify_client import (
     SpotifyClient,
+    SpotifyError,
     SpotifyNotConfiguredError,
 )
+from beatprints_api.exceptions import PlatformLinkNoMatchError
 from beatprints_api.models import TrackPosterRequest
 from beatprints_api.services import catalog as catalog_service
 from beatprints_api.services import rendering
@@ -25,6 +28,25 @@ def test_spotify_requires_credentials() -> None:
 
     with pytest.raises(SpotifyNotConfiguredError):
         client.search("SUMMER BREEZE", "track", 5)
+
+
+@pytest.mark.parametrize("item_type", ["track", "album"])
+@pytest.mark.parametrize("status", [404, 503])
+def test_spotify_direct_lookup_distinguishes_missing_items_from_outages(
+    monkeypatch, item_type, status
+) -> None:
+    def fail(_catalog_id):
+        request = httpx.Request("GET", "https://api.spotify.com/v1/items/1")
+        response = httpx.Response(status, request=request)
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise SpotifyError("Spotify request failed") from exc
+
+    monkeypatch.setattr(spotify.spotify_client, f"{item_type}_metadata", fail)
+    expected = PlatformLinkNoMatchError if status == 404 else SpotifyError
+    with pytest.raises(expected):
+        spotify._resolve_source("spotify", "A" * 22, item_type)
 
 
 def test_spotify_formats_track_search_result() -> None:
@@ -62,15 +84,18 @@ def test_spotify_uses_album_label_when_available() -> None:
 
 
 def test_spotify_preserves_exclusive_license_label() -> None:
-    assert SpotifyClient._album_label(
-        {
-            "label": (
-                "Shenhe Media Limited under exclusive license to "
-                "88rising Records LLC"
-            ),
-            "copyrights": [],
-        }
-    ) == "Shenhe Media Limited under exclusive license to 88rising Records LLC"
+    assert (
+        SpotifyClient._album_label(
+            {
+                "label": (
+                    "Shenhe Media Limited under exclusive license to "
+                    "88rising Records LLC"
+                ),
+                "copyrights": [],
+            }
+        )
+        == "Shenhe Media Limited under exclusive license to 88rising Records LLC"
+    )
 
 
 def test_spotify_derives_deprecated_label_from_phonographic_copyright() -> None:
@@ -221,25 +246,25 @@ def test_no_qr_platform_means_no_selected_link() -> None:
 def test_rendering_hides_platform_area_without_manual_selection() -> None:
     original = rendering.beatprints_image.scannable
 
-    with rendering.provider_rendering(None, None, None):
+    with rendering.provider_rendering(None, None):
         image = rendering.beatprints_image.scannable("Light")
         assert image.getbbox() is None
 
     assert rendering.beatprints_image.scannable is original
 
 
-def test_platform_scannable_uses_cover_color() -> None:
-    color = (82, 44, 126)
+@pytest.mark.parametrize("theme", ["Light", "Dark", "Nord"])
+def test_fallback_scannable_uses_poster_theme_color(theme) -> None:
+    color = rendering.beatprints_image.t.THEMES[theme]
 
-    image = fallback_scannable("Any platform", "https://example.com/track/1", color)(
-        "Light"
-    )
+    image = fallback_scannable("Any platform", "https://example.com/track/1")(theme)
 
     assert image.mode == "RGBA"
     assert image.size == rendering.beatprints_image.s.SCANCODE
     assert image.getbbox() is not None
     colors = image.getcolors(maxcolors=image.width * image.height) or []
     assert color + (255,) in {value for _count, value in colors}
+    assert image.getpixel((0, 0))[3] == 0
 
 
 def test_spotify_uri_accepts_canonical_track_and_album_urls() -> None:
@@ -281,10 +306,18 @@ def test_spotify_code_scannable_uses_spotify_image_service_output(monkeypatch) -
     assert image.getpixel((212, 60)) == (50, 47, 48, 255)
 
 
-def test_apple_music_scannable_uses_the_same_theme_color_rule_as_spotify_code(monkeypatch) -> None:
+def test_apple_music_scannable_uses_the_same_theme_color_rule_as_spotify_code(
+    monkeypatch,
+) -> None:
     from beatprints_api.integrations.destinations.scannable import kuima_client
 
-    monkeypatch.setattr(kuima_client, "image", lambda link, icon, color, **options: Image.new("RGBA", (480, 480), color + (255,)))
+    monkeypatch.setattr(
+        kuima_client,
+        "image",
+        lambda link, icon, color, **options: Image.new(
+            "RGBA", (480, 480), color + (255,)
+        ),
+    )
     scannable = apple_music.adapter.scannable(
         "https://music.apple.com/us/album/example/123456789"
     )
@@ -308,24 +341,19 @@ def test_china_music_scannables_use_theme_colored_supplied_symbols(monkeypatch) 
     from beatprints_api.integrations.destinations.scannable import kuima_client
 
     calls = []
+
     def image(link, icon, color, **options):
         calls.append((link, icon.name, color, options))
         return Image.new("RGBA", (480, 480), color + (255,))
+
     monkeypatch.setattr(kuima_client, "image", image)
     color = rendering.beatprints_image.t.THEMES["Light"]
     for adapter in (qq_music.adapter, netease_music.adapter):
         image = adapter.scannable("https://example.com/track/1")("Light")
         assert image.getpixel((60, 60)) == color + (255,)
         assert image.getpixel((120, 60))[3] == 0
-    assert [call[1] for call in calls] == ["qq-music-symbol.png", "netease-music-symbol.png"]
+    assert [call[1] for call in calls] == [
+        "qq-music-symbol.png",
+        "netease-music-symbol.png",
+    ]
     assert calls[1][3] == {"version": "2", "mask": 24, "margin": 19}
-
-
-def test_cover_qr_color_is_colored_and_has_safe_white_contrast(tmp_path) -> None:
-    cover_path = tmp_path / "cover.png"
-    Image.new("RGB", (200, 200), (217, 164, 65)).save(cover_path)
-
-    color = rendering.cover_qr_color(cover_path)
-
-    assert color[0] > color[2]
-    assert rendering._contrast_with_white(color) >= 4.5

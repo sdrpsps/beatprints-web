@@ -24,8 +24,10 @@ from beatprints_api.integrations.labels import registry as label_registry
 from beatprints_api.integrations.labels.base import LabelResolver
 from beatprints_api.models.destinations import PlatformLinkMatchData
 from beatprints_api.exceptions import (
+    PlatformLinkNoMatchError,
     UnsupportedCatalogSourceError,
     UnsupportedDestinationError,
+    UpstreamError,
 )
 from beatprints_api.integrations.destinations.base import DestinationAdapter
 from beatprints_api.services import matching as matching_service
@@ -44,8 +46,8 @@ def album_metadata() -> AlbumMetadata:
 
 def test_enabled_destinations_are_registered_independently() -> None:
     assert destination_keys() == (
-        "spotify",
         "apple_music",
+        "spotify",
         "qq_music",
         "netease_music",
     )
@@ -93,10 +95,10 @@ def test_empty_track_label_uses_a_registered_resolver(monkeypatch) -> None:
 
 def test_source_catalogs_are_registered_independently() -> None:
     assert [adapter.key for adapter in catalog_adapters()] == [
+        "apple_music",
+        "spotify",
         "qq_music",
         "netease_music",
-        "spotify",
-        "apple_music",
     ]
     for adapter in catalog_adapters():
         assert adapter.search and adapter.track_metadata and adapter.album_metadata
@@ -154,6 +156,32 @@ def test_same_source_destination_resolves_its_canonical_link(
     assert result.match == expected
     assert result.candidates == [expected]
     assert seen
+
+
+@pytest.mark.parametrize("destination", [qq_music, netease_music])
+@pytest.mark.parametrize("item_type", ["track", "album"])
+def test_missing_same_platform_item_is_reported_as_no_match(
+    monkeypatch, destination, item_type
+) -> None:
+    monkeypatch.setattr(destination, "_get", lambda *_args, **_kwargs: {})
+    with pytest.raises(PlatformLinkNoMatchError):
+        destination.adapter.resolve_source(destination.adapter.key, "123", item_type)
+
+
+@pytest.mark.parametrize(
+    ("destination", "payload"),
+    [
+        (qq_music, {"data": {"unexpected": True}}),
+        (netease_music, {"album": {"unexpected": True}}),
+    ],
+)
+def test_incomplete_album_response_is_reported_as_upstream_error(
+    monkeypatch, destination, payload
+) -> None:
+    monkeypatch.setattr(destination, "_get", lambda *_args, **_kwargs: payload)
+    with pytest.raises(UpstreamError) as result:
+        destination.adapter.resolve_source(destination.adapter.key, "123", "album")
+    assert not isinstance(result.value, PlatformLinkNoMatchError)
 
 
 @pytest.mark.parametrize(
@@ -537,9 +565,7 @@ def test_cross_script_artist_search_prefers_original_over_same_name_cover(
         "duration_seconds": 195,
         "url": "https://example.com/original",
     }
-    monkeypatch.setattr(
-        matching_service, "_track_metadata", lambda _request: metadata
-    )
+    monkeypatch.setattr(matching_service, "_track_metadata", lambda _request: metadata)
     monkeypatch.setattr(
         matching_service,
         "_destination_adapter",
@@ -598,9 +624,7 @@ def test_candidate_search_ranks_artist_result_above_same_name_cover(
         "url": "https://example.com/original",
         "type": "track",
     }
-    monkeypatch.setattr(
-        matching_service, "_track_metadata", lambda _request: metadata
-    )
+    monkeypatch.setattr(matching_service, "_track_metadata", lambda _request: metadata)
     monkeypatch.setattr(
         matching_service,
         "_destination_adapter",
@@ -674,9 +698,7 @@ def test_album_candidates_include_catalog_title_suffix_without_auto_matching(
         "url": "https://open.spotify.com/album/35QdFULbzmzRWMeH7bHGQR",
         "type": "album",
     }
-    monkeypatch.setattr(
-        matching_service, "_album_metadata", lambda _request: metadata
-    )
+    monkeypatch.setattr(matching_service, "_album_metadata", lambda _request: metadata)
     monkeypatch.setattr(
         matching_service,
         "_destination_adapter",
@@ -703,9 +725,7 @@ def test_candidate_search_skips_empty_artist_queries(monkeypatch) -> None:
         label="",
     )
     queries: list[str] = []
-    monkeypatch.setattr(
-        matching_service, "_album_metadata", lambda _request: metadata
-    )
+    monkeypatch.setattr(matching_service, "_album_metadata", lambda _request: metadata)
     monkeypatch.setattr(
         matching_service,
         "_destination_adapter",
@@ -770,9 +790,7 @@ def test_exact_isrc_overrides_localized_display_text(monkeypatch) -> None:
         "url": "https://example.com/exact",
         "type": "track",
     }
-    monkeypatch.setattr(
-        matching_service, "_track_metadata", lambda _request: metadata
-    )
+    monkeypatch.setattr(matching_service, "_track_metadata", lambda _request: metadata)
     monkeypatch.setattr(
         matching_service, "_source_isrc", lambda *_args: "US-EXAMPLE-01"
     )
@@ -796,11 +814,17 @@ def test_exact_isrc_overrides_localized_display_text(monkeypatch) -> None:
     assert str(result.match.url) == candidate["url"]
 
 
-@pytest.mark.parametrize("candidate_title, expected", [("Track", "Fixture Records"), ("Different Track", "")])
+@pytest.mark.parametrize(
+    "candidate_title, expected", [("Track", "Fixture Records"), ("Different Track", "")]
+)
 def test_label_enrichment_is_independent_of_disabled_spotify_destination(
-    monkeypatch, candidate_title, expected,
+    monkeypatch,
+    candidate_title,
+    expected,
 ) -> None:
-    from beatprints_api.integrations.destinations import registry as destination_registry
+    from beatprints_api.integrations.destinations import (
+        registry as destination_registry,
+    )
     from beatprints_api.integrations.labels import spotify as spotify_label
 
     client = spotify_label.spotify_client
@@ -808,20 +832,35 @@ def test_label_enrichment_is_independent_of_disabled_spotify_destination(
     assert get_catalog_adapter("spotify").key == "spotify"
     monkeypatch.setattr(client, "client_id", "fixture")
     monkeypatch.setattr(client, "client_secret", "fixture")
-    monkeypatch.setattr(label_registry, "label_resolvers", lambda: (spotify_label.resolver,))
-    monkeypatch.setattr(client, "search", lambda *_args: [{
-        "id": "4uLU6hMCjMI75M1A2tKUQC",
-        "title": candidate_title,
-        "artists": ["Artist"],
-        "album": {"title": "Album"},
-        "link": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
-        "duration_seconds": 195,
-        "release_year": 2025,
-    }])
-    monkeypatch.setattr(client, "track_metadata", lambda _id: {"label": "Fixture Records"})
+    monkeypatch.setattr(
+        label_registry, "label_resolvers", lambda: (spotify_label.resolver,)
+    )
+    monkeypatch.setattr(
+        client,
+        "search",
+        lambda *_args: [
+            {
+                "id": "4uLU6hMCjMI75M1A2tKUQC",
+                "title": candidate_title,
+                "artists": ["Artist"],
+                "album": {"title": "Album"},
+                "link": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "duration_seconds": 195,
+                "release_year": 2025,
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        client, "track_metadata", lambda _id: {"label": "Fixture Records"}
+    )
     metadata = TrackMetadata(
-        title="Track", artists=["Artist"], album="Album", released="2025-01-01",
-        duration="03:15", cover="https://example.com/cover.jpg", label="",
+        title="Track",
+        artists=["Artist"],
+        album="Album",
+        released="2025-01-01",
+        duration="03:15",
+        cover="https://example.com/cover.jpg",
+        label="",
     )
     result = matching_service.catalog_service._enrich_missing_track_label(metadata)
     assert result.label == expected

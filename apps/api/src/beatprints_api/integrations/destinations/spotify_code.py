@@ -17,7 +17,9 @@ class SpotifyCodeClient:
     def __init__(self) -> None:
         self._http = httpx.Client(
             timeout=httpx.Timeout(10.0, connect=5.0),
-            limits=httpx.Limits(max_connections=10, max_keepalive_connections=5, keepalive_expiry=30.0),
+            limits=httpx.Limits(
+                max_connections=10, max_keepalive_connections=5, keepalive_expiry=30.0
+            ),
             headers={"User-Agent": "BeatPrints-API/0.1"},
         )
         atexit.register(self._http.close)

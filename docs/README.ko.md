@@ -8,9 +8,9 @@
 
 [BeatPrints Web](https://github.com/sdrpsps/beatprints-web)은 [TrueMyst / elysianmyst의 BeatPrints](https://github.com/TrueMyst/BeatPrints)를 기반으로 합니다. 원본 프로젝트가 포스터 조판과 렌더링을 담당하고, 이 프로젝트는 Web 제작 화면, HTTP API, 여러 음악 카탈로그 연동과 자체 호스팅 기능을 추가합니다.
 
-[English](README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md) · [한국어](README.ko.md)
+[English](../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md) · [한국어](README.ko.md)
 
-[빠른 시작](#빠른-시작) · [Docker 배포](#docker-배포) · [API 문서](apps/api/README.md) · [프론트엔드 가이드](apps/web/README.md)
+[빠른 시작](#빠른-시작) · [Docker 배포](#docker-배포) · [API 문서](../apps/api/README.md) · [프론트엔드 가이드](../apps/web/README.md)
 
 </div>
 
@@ -80,7 +80,7 @@ make dev
 
 Spotify 검색은 선택 사항입니다. 사용하려면 `.env`에 `SPOTIFY_CLIENT_ID`와 `SPOTIFY_CLIENT_SECRET`을 설정하세요. Spotify 인증 정보를 설정하지 않아도 QQ Music, NetEase Music, Apple Music 검색을 사용할 수 있습니다.
 
-WeChat 코드에는 QR 서비스가 필요합니다. Docker Compose는 이 서비스를 자동으로 시작합니다. 로컬 개발에서는 `WECHAT_QR_BASE_URL`을 설정하세요(예: `http://127.0.0.1:8080`). 설정하지 않으면 해당 옵션이 숨겨집니다. 일반 QR 코드에는 이 서비스가 필요 없으며 Spotify는 항상 Spotify Code를 사용합니다. 자세한 내용은 [API 문서](apps/api/README.md#本地启动)를 참고하세요.
+WeChat 코드에는 QR 서비스가 필요합니다. Docker Compose는 이 서비스를 자동으로 시작합니다. 로컬 개발에서는 `WECHAT_QR_BASE_URL`을 설정하세요(예: `http://127.0.0.1:8080`). 설정하지 않으면 해당 옵션이 숨겨집니다. 일반 QR 코드에는 이 서비스가 필요 없으며 Spotify는 항상 Spotify Code를 사용합니다. 자세한 내용은 [API 문서](../apps/api/README.md#本地启动)를 참고하세요.
 
 ### 주요 명령
 
@@ -140,7 +140,7 @@ MAX_CONCURRENT_JOBS=1
 
 ## 설정
 
-주요 환경 변수는 [`.env.example`](.env.example)에 설명되어 있습니다.
+주요 환경 변수는 [`.env.example`](../.env.example)에 설명되어 있습니다.
 
 | 변수 | 설명 | 기본값 |
 | --- | --- | --- |
@@ -174,9 +174,9 @@ MAX_CONCURRENT_JOBS=1
 
 추가 문서:
 
-- [프론트엔드 개발 가이드](apps/web/README.md)
-- [API 배포와 사용 예시](apps/api/README.md)
-- [프론트엔드 제품 흐름과 API 매핑](docs/frontend-product-brief.md)
+- [프론트엔드 개발 가이드](../apps/web/README.md)
+- [API 배포와 사용 예시](../apps/api/README.md)
+- [프론트엔드 제품 흐름과 API 매핑](frontend-product-brief.md)
 
 ## API 개요
 
@@ -202,9 +202,9 @@ POST /v1/posters/track
 POST /v1/posters/album
 ```
 
-지역을 지원하는 연동에서는 `GET /v1/capabilities`로 소스와 연결 대상의 지원 지역을 확인하고, 검색에서 선택한 소스 지역을 포스터 생성까지 유지합니다. 소스와 QR 연결 대상의 지역은 독립적이며 생략하면 `US`가 기본값입니다. 각 단계의 매개변수는 [지역 작업 흐름과 예시](apps/api/README.md#音乐平台)를 참고하세요.
+지역을 지원하는 연동에서는 `GET /v1/capabilities`로 소스와 연결 대상의 지원 지역을 확인하고, 검색에서 선택한 소스 지역을 포스터 생성까지 유지합니다. 소스와 QR 연결 대상의 지역은 독립적이며 생략하면 `US`가 기본값입니다. 각 단계의 매개변수는 [지역 작업 흐름과 예시](../apps/api/README.md#音乐平台)를 참고하세요.
 
-전체 요청 형식, 플랫폼 간 매칭, 오류 처리와 `curl` 예시는 [BeatPrints API 문서](apps/api/README.md) 또는 서비스 실행 후 `/docs`에서 확인할 수 있습니다.
+전체 요청 형식, 플랫폼 간 매칭, 오류 처리와 `curl` 예시는 [BeatPrints API 문서](../apps/api/README.md) 또는 서비스 실행 후 `/docs`에서 확인할 수 있습니다.
 
 ## 빌드와 릴리스
 
@@ -224,4 +224,4 @@ ghcr.io/sdrpsps/beatprints-web:latest
 
 이 프로젝트는 [TrueMyst / elysianmyst의 BeatPrints](https://github.com/TrueMyst/BeatPrints)를 기반으로 하며 WeChat 코드 생성에 [AnglerS888/kuima-generator](https://github.com/AnglerS888/kuima-generator)를 사용합니다.
 
-라이선스는 [CC BY-NC-SA 4.0](LICENSE)이며 비상업적 용도로만 사용할 수 있습니다. 사용, 배포 또는 파생 작품 제작 시 저작자를 표시하고 같은 라이선스로 공유하세요. 상업적으로 사용하려면 원작자의 허가가 필요합니다.
+라이선스는 [CC BY-NC-SA 4.0](../LICENSE)이며 비상업적 용도로만 사용할 수 있습니다. 사용, 배포 또는 파생 작품 제작 시 저작자를 표시하고 같은 라이선스로 공유하세요. 상업적으로 사용하려면 원작자의 허가가 필요합니다.
