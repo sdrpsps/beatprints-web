@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.5.0](https://github.com/sdrpsps/beatprints-web/compare/v1.4.1...v1.5.0) (2026-11-17)
+
+
+### Features
+
+* add regional music selection and localized experience ([#27](https://github.com/sdrpsps/beatprints-web/issues/27)) ([dfe6082](https://github.com/sdrpsps/beatprints-web/commit/dfe60823e9c455ab2de9e7d1105bce2aca52a63c))
+
+
+### Bug Fixes
+
+* **ci:** publish manifest after skipped PR check ([51e27e8](https://github.com/sdrpsps/beatprints-web/commit/51e27e87f0462bc2dd25d0fadf66d6c326363e0a))
+* publish release image manifest after PR check ([386f8dc](https://github.com/sdrpsps/beatprints-web/commit/386f8dc1504ac5dfe8843ddae59f571d078fdebc))
+
 ## [1.4.1](https://github.com/sdrpsps/beatprints-web/compare/v1.4.0...v1.4.1) (2026-11-12)
 
 
