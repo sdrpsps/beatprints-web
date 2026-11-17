@@ -1,12 +1,15 @@
 import type { TFunction } from "i18next"
 
-import { getDestination } from "@/features/poster/destinations/registry"
 import type { PosterPlatform } from "@/features/poster/types"
 
 import { ApiError } from "@/features/poster/api"
 
 export function friendlyError(error: unknown, fallback: string, t: TFunction) {
   if (!(error instanceof ApiError)) return { message: fallback }
+
+  if (error.status === 502 && error.message === "Apple Music search is unavailable for the selected region") {
+    return { message: t("poster.errors.appleRegionSearchUnavailable"), requestId: error.requestId }
+  }
 
   if (error.status === 422 && error.message.startsWith("cover_url")) {
     return { message: t("poster.errors.coverAddressError"), requestId: error.requestId }
@@ -27,7 +30,7 @@ export function friendlyError(error: unknown, fallback: string, t: TFunction) {
 }
 
 export function platformUrlError(
-  platform: PosterPlatform,
+  _platform: PosterPlatform,
   value: string,
   t: TFunction,
 ) {
@@ -42,14 +45,5 @@ export function platformUrlError(
     return t("poster.errors.urlErrorProtocol")
   }
 
-  const destination = getDestination(platform)
-  const host = url.hostname.toLowerCase()
-  if (
-    !destination ||
-    !destination.domains.some(
-      (domain) => host === domain || host.endsWith(`.${domain}`),
-    )
-  ) {
-    return t("poster.errors.urlErrorDomain")
-  }
+
 }

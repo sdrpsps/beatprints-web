@@ -2,14 +2,14 @@ import { useEffect, useId, useState } from "react"
 import { ChevronRightIcon, Disc3Icon, PlusIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
+import { ButtonGroup } from "@/components/ui/button-group"
 import { Button } from "@/components/ui/button"
 import { FieldLegend, FieldSet } from "@/components/ui/field"
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { fetchCapabilities } from "@/features/poster/api"
+import { RegionPicker } from "@/features/poster/components/region-picker"
 import { PlatformLinkFlow } from "@/features/poster/components/platform-link-flow"
 import { SectionHeading, studioSectionClass } from "@/features/poster/components/studio-shared"
-import { enabledDestinations, getDestination } from "@/features/poster/destinations/registry"
 import type { PosterDestination } from "@/features/poster/destinations/types"
 import { usePosterStore } from "@/features/poster/poster-store"
 import type { PosterPlatform, QrFormat } from "@/features/poster/types"
@@ -21,10 +21,13 @@ export function PlatformSection() {
   const qrPlatform = usePosterStore((s) => s.qrPlatform)
   const setQrPlatform = usePosterStore((s) => s.setQrPlatform)
   const clearPlatform = usePosterStore((s) => s.clearPlatform)
+  const destinations = usePosterStore((s) => s.destinations)
+  const regions = usePosterStore((s) => s.destinationRegions)
+  const setRegion = usePosterStore((s) => s.setDestinationRegion)
   const [choosing, setChoosing] = useState(false)
 
   if (!selected) return null
-  const destination = qrPlatform ? getDestination(qrPlatform) : null
+  const destination = destinations.find((item) => item.key === qrPlatform)
 
   return (
     <section className={studioSectionClass}>
@@ -41,7 +44,7 @@ export function PlatformSection() {
             <ItemDescription>{t("poster.listenEntryAddHelp")}</ItemDescription>
           </ItemContent>
           <ItemActions>
-            <Button type="button" variant="outline" size="sm" onClick={() => setChoosing(true)} aria-expanded={false} aria-controls="platform-picker">
+            <Button type="button" variant="outline" size="sm" onClick={() => setChoosing(true)} disabled={!destinations.some((d) => d.available)} aria-expanded={false} aria-controls="platform-picker">
               <PlusIcon data-icon="inline-start" aria-hidden="true" />{t("poster.listenEntryAdd")}
             </Button>
           </ItemActions>
@@ -60,11 +63,14 @@ export function PlatformSection() {
             {destination ? (
               <Item variant="outline" size="sm">
                 <ItemMedia><DestinationLogo destination={destination} /></ItemMedia>
-                <ItemContent><ItemTitle>{t(destination.labelKey)}</ItemTitle></ItemContent>
+                <ItemContent><ItemTitle>{t(destination.labelKey, { defaultValue: destination.label })}</ItemTitle></ItemContent>
                 <ItemActions>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setChoosing(!choosing)} aria-expanded={choosing} aria-controls="platform-picker">
-                    {choosing ? t("poster.listenCancel") : t("poster.listenChange")}
-                  </Button>
+                  <ButtonGroup aria-label={destination.label ?? destination.key}>
+                    {destination.supportsRegions ? <RegionPicker regionCodes={destination.regions ?? []} platform={destination.label ?? destination.key} value={regions[destination.key] ?? "US"} onChange={(value) => setRegion(destination.key, value, t)} /> : null}
+                    <Button type="button" variant={destination.supportsRegions ? "outline" : "ghost"} size="sm" onClick={() => setChoosing(!choosing)} aria-expanded={choosing} aria-controls="platform-picker">
+                      {choosing ? t("poster.listenCancel") : t("poster.listenChange")}
+                    </Button>
+                  </ButtonGroup>
                 </ItemActions>
               </Item>
             ) : null}
@@ -83,12 +89,15 @@ export function PlatformSection() {
                   variant="outline"
                   className="w-full"
                 >
-                  {enabledDestinations().map((option) => (
-                    <ToggleGroupItem key={option.key} value={option.key} className="h-11 w-full justify-start gap-2.5 px-3">
-                      <DestinationLogo destination={option} />
-                      <span className="flex-1 text-left">{t(option.labelKey)}</span>
-                      <ChevronRightIcon data-icon="inline-end" aria-hidden="true" />
-                    </ToggleGroupItem>
+                  {destinations.map((option) => (
+                    <ButtonGroup key={option.key} className="w-full" aria-label={option.label ?? option.key}>
+                      <ToggleGroupItem value={option.key} disabled={!option.available} className="h-11 min-w-0 flex-1 justify-start gap-2.5 px-3">
+                        <DestinationLogo destination={option} />
+                        <span className="flex-1 text-left">{t(option.labelKey, { defaultValue: option.label })}</span>
+                        <ChevronRightIcon data-icon="inline-end" aria-hidden="true" />
+                      </ToggleGroupItem>
+                      {option.supportsRegions ? <RegionPicker regionCodes={option.regions ?? []} platform={option.label ?? option.key} value={regions[option.key] ?? "US"} onChange={(value) => setRegion(option.key, value, t)} disabled={!option.available} className="h-11" /> : null}
+                    </ButtonGroup>
                   ))}
                 </ToggleGroup>
                 {!qrPlatform ? <Button type="button" variant="ghost" size="sm" onClick={() => setChoosing(false)}>{t("poster.listenCancel")}</Button> : null}
@@ -109,6 +118,7 @@ function DestinationLogo({ destination }: { destination: PosterDestination }) {
   const filterId = `destination-invert-${id}`
   const alphaFilterId = `destination-alpha-${id}`
   const clipId = `destination-clip-${id}`
+  if (!destination.logo) return <Disc3Icon aria-hidden="true" />
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" className="size-6 shrink-0 text-foreground">
       <defs>
@@ -134,15 +144,7 @@ function QrFormatSelector({ fixedCode }: { fixedCode: boolean }) {
   const { t } = useTranslation()
   const qrFormat = usePosterStore((s) => s.qrFormat)
   const setQrFormat = usePosterStore((s) => s.setQrFormat)
-  const [wechatAvailable, setWechatAvailable] = useState<boolean | null>(null)
-
-  useEffect(() => {
-    const controller = new AbortController()
-    fetchCapabilities(controller.signal)
-      .then((data) => setWechatAvailable(data.wechat_qr === true))
-      .catch(() => { if (!controller.signal.aborted) setWechatAvailable(false) })
-    return () => controller.abort()
-  }, [])
+  const wechatAvailable = usePosterStore((s) => s.capabilities?.wechat_qr ?? false)
 
   useEffect(() => {
     if (wechatAvailable === false && qrFormat === "wechat") setQrFormat("standard")

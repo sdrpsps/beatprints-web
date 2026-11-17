@@ -10,7 +10,7 @@ Find the exact track or album from real music catalogs, pick lyric lines and pla
 [BeatPrints by TrueMyst / elysianmyst](https://github.com/TrueMyst/BeatPrints):
 the upstream project provides the core poster typography and rendering engine, while this project adds a modern web creation interface, an HTTP API, multi-platform music catalog integrations, and self-hosting capabilities.
 
-[English](README.md) · [简体中文](README.zh-CN.md)
+[English](README.md) · [简体中文](docs/README.zh-CN.md) · [繁體中文](docs/README.zh-TW.md) · [日本語](docs/README.ja.md) · [한국어](docs/README.ko.md)
 
 [Quick Start](#quick-start) · [Docker Deployment](#docker-deployment) · [API Documentation](apps/api/README.md) · [Frontend Guide](apps/web/README.md)
 
@@ -27,14 +27,14 @@ BeatPrints Web extends the upstream generator by providing:
 
 - A responsive React web interface to complete the entire poster creation flow in your browser;
 - A FastAPI backend service for searching music catalogs, fetching lyrics, and rendering posters;
-- Multi-source catalog integrations (QQ Music, NetEase Cloud Music, Spotify) and QR destination resolution;
+- Multi-source catalog integrations (QQ Music, NetEase Cloud Music, Spotify, Apple Music) and QR destination resolution;
 - Production-ready Docker Compose configurations, unified multi-architecture container images, and automated release workflows.
 
 If you only need the CLI generator or want to explore the underlying poster typography engine, please visit [TrueMyst/BeatPrints](https://github.com/TrueMyst/BeatPrints). If you want to use BeatPrints in a web browser or deploy it as an HTTP service, you can use this project directly.
 
 ## What is BeatPrints Web
 
-BeatPrints Web is a self-hostable web application built on top of the original BeatPrints. Rather than generating fictitious content, it fetches authentic cover artwork and track metadata from QQ Music, NetEase Cloud Music, or Spotify, allowing you to select and confirm the exact release before invoking BeatPrints to render the final poster.
+BeatPrints Web is a self-hostable web application built on top of the original BeatPrints. Rather than generating fictitious content, it fetches authentic cover artwork and track metadata from QQ Music, NetEase Cloud Music, Spotify, or Apple Music, allowing you to select and confirm the exact release before invoking BeatPrints to render the final poster.
 
 The creation flow for a track poster is straightforward:
 
@@ -45,7 +45,7 @@ Search track → Select exact release → Optionally pick up to 4 lyric lines �
 Album posters follow the same creation flow, with additional options for track indexing and tracklist shuffling. Generated posters are streamed directly to the browser; the server stores no poster images.
 
 > [!IMPORTANT]
-> **Metadata source** and **Poster platform destination** are two independent concepts: `provider` determines where catalog metadata is fetched from (QQ Music, NetEase Cloud Music, or Spotify), while `qr_platform` determines whether the poster includes a scannable code/link for Spotify, Apple Music, QQ Music, or NetEase Cloud Music. If no platform is selected, the poster will not display any platform mark or QR code.
+> **Metadata source** and **Poster platform destination** are two independent concepts: `provider` determines where catalog metadata is fetched from (QQ Music, NetEase Cloud Music, Spotify, or Apple Music), while `qr_platform` determines whether the poster includes a scannable code/link for Spotify, Apple Music, QQ Music, or NetEase Cloud Music. If no platform is selected, the poster will not display any platform mark or QR code.
 
 ## Features
 
@@ -55,7 +55,7 @@ Album posters follow the same creation flow, with additional options for track i
 - **Conservative Cross-Platform Matching**: Prioritizes stable identifiers (e.g., ISRC); falls back to ranked candidates or manual URL resolution when ambiguous—never silently chooses a weak match.
 - **Customizable Appearance**: Choose from curated themes (Light, Dark, Catppuccin, Gruvbox, Nord, RosePine, Everforest) and optional cover-extracted accent colors.
 - **Track & Album Modes**: Create posters for individual tracks or full albums, with album-specific options for track indexing and tracklist shuffling.
-- **Multilingual Interface**: Full i18n support for English, Simplified Chinese, and Traditional Chinese.
+- **Multilingual Interface**: Full i18n support for English, Simplified Chinese, Traditional Chinese, Japanese, and Korean.
 - **All-in-One Deployment**: A single unified container image serves both the React static frontend and the FastAPI backend.
 
 ## Quick Start
@@ -83,7 +83,7 @@ Once started, you can access:
 - API: <http://localhost:8000>
 - OpenAPI Docs: <http://localhost:8000/docs>
 
-Spotify search is optional. When needed, configure `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` in `.env`; without Spotify credentials, QQ Music and NetEase Cloud Music search remain fully functional.
+Spotify search is optional. When needed, configure `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` in `.env`; without Spotify credentials, QQ Music, NetEase Cloud Music, and Apple Music search remain available.
 
 WeChat sunflower codes require a QR service. Docker Compose starts it automatically; for local development, set `WECHAT_QR_BASE_URL` to the service address (for example, `http://127.0.0.1:8080`). The WeChat option is hidden when no address is configured. See the [API documentation](apps/api/README.md#本地启动) for deployment details. Standard QR codes do not require this service; Spotify always uses Spotify Code.
 
@@ -109,6 +109,15 @@ pnpm --filter @beatprints/web build
 ## Docker Deployment
 
 This project provides a single-container deployment where frontend static assets are bundled and served directly by FastAPI, exposing only port `8000`.
+
+The English homepage at `/` is the only search-indexed page. The interface detects
+browser language and also provides explicit `/en/`, `/zh-CN/`, `/zh-TW/`, `/ja/`, and `/ko/` URLs;
+a selected URL takes precedence over the browser preference. Those localized URLs are
+marked `noindex` and point to the English canonical URL. Canonical, sitemap, and sharing
+URLs use `https://beatprints.bytespark.app` even on other hosts. A separate deployment
+that should be indexed under its own domain must update `apps/web/index.html`,
+`apps/web/public/robots.txt`, `apps/web/public/sitemap.xml`, and the domain expectations
+in `apps/web/tests/seo-regressions.mjs` before building.
 
 ```bash
 cp .env.example .env
@@ -153,8 +162,6 @@ Key environment variables are documented in [`.env.example`](.env.example):
 | `API_KEY` | Optional Bearer Token for `/v1` endpoints | Blank |
 | `CORS_ORIGINS` | Allowed CORS origins, comma-separated | Blank |
 | `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | Enable Spotify search and metadata | Blank |
-| `SPOTIFY_MARKET` | Spotify market code | `US` |
-| `APPLE_MUSIC_STOREFRONT` | Apple Music storefront code | `US` |
 | `METADATA_CACHE_TTL_SECONDS` | Metadata cache expiration time in seconds | `600` |
 | `MAX_CONCURRENT_JOBS` | Maximum concurrent poster rendering jobs per worker | `1` |
 
@@ -202,10 +209,22 @@ Primary endpoints include:
 ```http
 GET  /v1/search
 GET  /v1/lyrics
-GET  /v1/platform-links/{platform}
+GET  /v1/capabilities
+GET  /v1/platform-links/{platform}/options
+GET  /v1/platform-links/{platform}/resolve
 POST /v1/posters/track
 POST /v1/posters/album
 ```
+
+For direct track poster requests, omitting both `lyrics` and `lyrics_range` selects the first four
+non-empty lines from the default lyrics source for a non-instrumental track; fewer than four
+available lines produce an upstream error. Explicit `lyrics` takes precedence, and `lyrics: ""`
+omits lyrics. An explicit `lyrics_range` must select exactly four lines.
+
+For region-aware integrations, discover supported source and destination regions through
+`GET /v1/capabilities` and carry the chosen source region from search through poster generation.
+The source and QR destination regions are independent and default to `US` when omitted. See the
+[region workflow and examples](apps/api/README.md#音乐平台) for the parameters used at each step.
 
 For complete request schemas, cross-platform matching logic, error handling, and `curl` examples, please refer to the [BeatPrints API Documentation](apps/api/README.md) or visit `/docs` after launching the server.
 

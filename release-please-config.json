@@ -4,6 +4,8 @@
     ".": {
       "release-type": "simple",
       "version-file": "VERSION",
+      "draft": true,
+      "force-tag-creation": true,
       "initial-version": "1.0.0",
       "include-component-in-tag": false,
       "include-v-in-tag": true,

@@ -3,7 +3,10 @@
 from BeatPrints import deez, errors as beatprints_errors, lyrics
 
 from beatprints_api.exceptions import LyricsNotFoundError, UpstreamError
-from beatprints_api.integrations.lyrics.base import LyricsSourceAdapter, LyricsSourceResult
+from beatprints_api.integrations.lyrics.base import (
+    LyricsSourceAdapter,
+    LyricsSourceResult,
+)
 from beatprints_api.integrations.lyrics.registry import register
 from beatprints_api.models.poster import TrackPosterRequest
 
@@ -17,7 +20,9 @@ def _fetch(metadata: deez.TrackMetadata):
     except Exception as exc:
         raise UpstreamError("Lyrics provider request failed") from exc
     lines = tuple(
-        line.strip() for line in (lyric_result.lyrics or "").splitlines() if line.strip()
+        line.strip()
+        for line in (lyric_result.lyrics or "").splitlines()
+        if line.strip()
     )
     return lyric_result, instrumental, lines
 

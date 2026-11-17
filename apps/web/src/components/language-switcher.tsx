@@ -9,6 +9,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { homeContent } from "@/i18n/home"
+import { languageStorageKey } from "@/i18n/detection"
 import {
   languageOptions,
   normalizeLanguage,
@@ -24,7 +26,16 @@ export function LanguageSwitcher() {
       items={languageOptions}
       value={language}
       onValueChange={(value) => {
-        if (value) void i18n.changeLanguage(value as SupportedLanguage)
+        if (value) {
+          const next = value as SupportedLanguage
+          try {
+            window.localStorage.setItem(languageStorageKey, next)
+          } catch {
+            // The selected URL still preserves the choice when storage is unavailable.
+          }
+          window.history.pushState(null, "", `${homeContent[next].path}${window.location.search}${window.location.hash}`)
+          void i18n.changeLanguage(next)
+        }
       }}
     >
       <SelectTrigger

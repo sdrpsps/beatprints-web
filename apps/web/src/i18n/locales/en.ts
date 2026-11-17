@@ -30,6 +30,10 @@ export const en = {
     footerUpstreamGenerator: "Upstream Generator",
   },
   poster: {
+    capabilitiesLoading: "Loading music services…",
+    capabilitiesError: "Could not load compatible music services. Check the API version or connection.",
+    capabilitiesRetry: "Try again",
+    noCatalogs: "No music search sources are available.",
     historySaveFailed: "Poster created, but it could not be saved to history.",
     brand: "BeatPrints Web",
     tagline: "Turn your favorite music into a poster",
@@ -44,7 +48,7 @@ export const en = {
       "Enter track, artist, or album to find the exact recording.",
     searchAlbumDescription:
       "Enter album title or artist to verify the release.",
-    searchTrackPlaceholder: "e.g., Best Things in Life The Dreamliners",
+    searchTrackPlaceholder: "e.g., 晴天 周杰倫",
     searchAlbumPlaceholder: "e.g., Summer Breeze Piper",
     search: "Search",
     searching: "Searching",
@@ -52,7 +56,6 @@ export const en = {
     allSources: "All sources",
     integrationNames: {
       spotify: "Spotify",
-      deezer: "Deezer",
       appleMusic: "Apple Music",
       qqMusic: "QQ Music",
       neteaseMusic: "NetEase Music",
@@ -107,6 +110,10 @@ export const en = {
     listenCancel: "Cancel",
     listenChange: "Change",
     listenCodeType: "Choose a code type",
+    regionChoose: "Choose a region",
+    regionSearch: "Search regions or codes",
+    regionFor: "{{platform}} region",
+    regionEmpty: "No regions found",
     qrPlatformLabel: "QR Platform",
     qrFormatLabel: "Code type",
     qrFormatStandard: "Standard QR",
@@ -240,6 +247,7 @@ export const en = {
       urlErrorProtocol: "Link must start with http:// or https://.",
       urlErrorDomain:
         "This link does not appear to belong to the selected platform.",
+      appleRegionSearchUnavailable: "Apple Music search is unavailable in this region. Try selecting a different region.",
       searchErrorDefault: "Search failed. Please try again later.",
       lyricsErrorDefault:
         "Could not fetch lyrics. Please enter 4 lines manually.",

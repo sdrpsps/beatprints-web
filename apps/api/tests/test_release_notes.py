@@ -22,7 +22,9 @@ def test_release_notes_are_cached_and_stale_data_survives_outage(monkeypatch):
         calls.append(url)
         if len(calls) > 1:
             raise httpx.ConnectError("unavailable")
-        return httpx.Response(200, json={"body": "## Release notes"}, request=httpx.Request("GET", url))
+        return httpx.Response(
+            200, json={"body": "## Release notes"}, request=httpx.Request("GET", url)
+        )
 
     monkeypatch.setattr(release_notes.httpx, "get", get)
     client = TestClient(app)
@@ -32,7 +34,10 @@ def test_release_notes_are_cached_and_stale_data_survives_outage(monkeypatch):
         assert response.json()["data"]["body"] == "## Release notes"
     assert len(calls) == 1
     now[0] += 3601
-    assert client.get("/v1/release-notes?version=1.3.2").json()["data"]["body"] == "## Release notes"
+    assert (
+        client.get("/v1/release-notes?version=1.3.2").json()["data"]["body"]
+        == "## Release notes"
+    )
     assert len(calls) == 2
 
 

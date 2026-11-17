@@ -2,37 +2,11 @@
 
 from datetime import UTC, datetime
 
-import httpx
-
 from BeatPrints import deez
 from beatprints_api.exceptions import UpstreamError
 from beatprints_api.integrations.catalog.base import CatalogAdapter
 from beatprints_api.integrations.catalog.registry import register
-
-SEARCH_URL = "https://music.163.com/api/search/get"
-TRACK_URL = "https://music.163.com/api/song/detail/"
-ALBUM_URL = "https://music.163.com/api/v1/album"
-
-
-def _get(url: str, **params: object) -> dict:
-    try:
-        response = httpx.get(
-            url,
-            params=params,
-            headers={
-                "Referer": "https://music.163.com",
-                "User-Agent": "BeatPrints-API/1.1",
-            },
-            timeout=15.0,
-            follow_redirects=True,
-        )
-        response.raise_for_status()
-        payload = response.json()
-    except (httpx.HTTPError, ValueError) as exc:
-        raise UpstreamError(f"NetEase Music catalog request failed: {exc}") from exc
-    if not isinstance(payload, dict):
-        raise UpstreamError("NetEase Music catalog returned an invalid response")
-    return payload
+from beatprints_api.integrations.clients.netease_music import netease_music_client
 
 
 def _artists(values: object) -> list[str]:
@@ -130,13 +104,7 @@ def _album_result(row: dict) -> dict | None:
 
 
 def search(query: str, item_type: str, limit: int) -> list[dict]:
-    payload = _get(
-        SEARCH_URL,
-        type=1 if item_type == "track" else 10,
-        s=query,
-        limit=limit,
-        offset=0,
-    )
+    payload = netease_music_client.search(query, item_type, limit)
     result = payload.get("result") or {}
     if not isinstance(result, dict):
         return []
@@ -146,7 +114,7 @@ def search(query: str, item_type: str, limit: int) -> list[dict]:
             str(row["id"]) for row in rows if isinstance(row, dict) and row.get("id")
         ]
         if ids:
-            details = _get(TRACK_URL, ids=f"[{','.join(ids)}]").get("songs") or []
+            details = netease_music_client.tracks(ids).get("songs") or []
             detail_by_id = {
                 str(row["id"]): row
                 for row in details
@@ -171,7 +139,7 @@ def search(query: str, item_type: str, limit: int) -> list[dict]:
 
 
 def track_metadata(catalog_id: int | str) -> deez.TrackMetadata:
-    rows = _get(TRACK_URL, ids=f"[{catalog_id}]").get("songs") or []
+    rows = netease_music_client.tracks([catalog_id]).get("songs") or []
     row = rows[0] if isinstance(rows, list) and rows else None
     if not isinstance(row, dict):
         raise UpstreamError("NetEase Music track was not found")
@@ -192,7 +160,7 @@ def track_metadata(catalog_id: int | str) -> deez.TrackMetadata:
 
 
 def album_metadata(catalog_id: int | str) -> deez.AlbumMetadata:
-    data = _get(f"{ALBUM_URL}/{catalog_id}")
+    data = netease_music_client.album(catalog_id)
     album = data.get("album") or {}
     if not isinstance(album, dict):
         raise UpstreamError("NetEase Music album was not found")

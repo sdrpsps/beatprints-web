@@ -9,15 +9,31 @@ import sys
 
 START = "<!-- release-summary:start -->"
 END = "<!-- release-summary:end -->"
-LANGUAGES = {"zh-CN": "简体中文", "zh-TW": "繁體中文", "en": "English"}
+LANGUAGES = {
+    "zh-CN": "简体中文",
+    "zh-TW": "繁體中文",
+    "en": "English",
+    "ja": "日本語",
+    "ko": "한국어",
+}
+LEGACY_LANGUAGES = ("zh-CN", "zh-TW", "en")
 HEADING = re.compile(r"^##\s+What's New\s*#*\s*$", re.MULTILINE)
 NEXT_HEADING = re.compile(r"^#{1,2}\s+", re.MULTILINE)
-LANG_HEADING = re.compile(r"^###\s+(简体中文|繁體中文|English)\s*#*\s*$", re.MULTILINE)
+LANG_HEADING = re.compile(
+    r"^###\s+(" + "|".join(map(re.escape, LANGUAGES.values())) + r")\s*#*\s*$",
+    re.MULTILINE,
+)
 NONE = {lang: "None" for lang in LANGUAGES}
-EMPTY_RELEASE = {"zh-CN": "无用户可见更新。", "zh-TW": "無使用者可見更新。", "en": "No user-visible changes."}
+EMPTY_RELEASE = {
+    "zh-CN": "无用户可见更新。",
+    "zh-TW": "無使用者可見更新。",
+    "en": "No user-visible changes.",
+    "ja": "ユーザー向けの変更はありません。",
+    "ko": "사용자에게 표시되는 변경 사항이 없습니다.",
+}
 
 
-def extract_summary(body):
+def extract_summary(body, *, allow_legacy=False):
     """Parse a PR's complete localized notes; reject missing or ambiguous sections."""
     match = HEADING.search(body or "")
     if not match:
@@ -27,22 +43,31 @@ def extract_summary(body):
     section = remainder[:next_heading.start()] if next_heading else remainder
     section = re.sub(r"<!--.*?-->", "", section, flags=re.DOTALL)
     headings = list(LANG_HEADING.finditer(section))
-    if len(headings) != 3 or {h.group(1) for h in headings} != set(LANGUAGES.values()):
-        raise ValueError("Expected exactly one section for 简体中文, 繁體中文 and English")
+    labels = [h.group(1) for h in headings]
+    legacy_labels = {LANGUAGES[lang] for lang in LEGACY_LANGUAGES}
+    if len(labels) == len(LANGUAGES) and set(labels) == set(LANGUAGES.values()):
+        included = tuple(LANGUAGES)
+    elif allow_legacy and len(labels) == len(LEGACY_LANGUAGES) and set(labels) == legacy_labels:
+        included = LEGACY_LANGUAGES
+    else:
+        raise ValueError("Expected exactly one section for 简体中文, 繁體中文, English, 日本語 and 한국어")
     if section[:headings[0].start()].strip():
-        raise ValueError("Put update notes under the three language headings")
+        raise ValueError("Put update notes under the language headings")
     values = {}
     for index, heading in enumerate(headings):
         end = headings[index + 1].start() if index + 1 < len(headings) else len(section)
         values[heading.group(1)] = section[heading.end():end].strip()
-    summaries = {lang: values[label] for lang, label in LANGUAGES.items()}
+    summaries = {lang: values[LANGUAGES[lang]] for lang in included}
     for lang, value in summaries.items():
         if value != NONE[lang] and (not value or any(not line.strip().startswith("- ") for line in value.splitlines() if line.strip())):
             raise ValueError(f"{LANGUAGES[lang]} needs Markdown bullets or '{NONE[lang]}'")
-    empty = [summaries[lang] == NONE[lang] for lang in LANGUAGES]
+    empty = [summaries[lang] == NONE[lang] for lang in included]
     if any(empty) and not all(empty):
-        raise ValueError("Use the no-visible-update marker in all three languages")
-    return {lang: "" if all(empty) else value for lang, value in summaries.items()}
+        raise ValueError("Use the no-visible-update marker in all language sections")
+    if all(empty):
+        return {lang: "" for lang in LANGUAGES}
+    # Historical three-language PRs predate Japanese and Korean notes.
+    return {lang: summaries.get(lang, summaries["en"]) for lang in LANGUAGES}
 
 
 def update_body(body, summaries):
@@ -78,7 +103,7 @@ def collect_summaries(repo, default_branch, previous, revision):
                 continue
             seen.add(number)
             try:
-                summary = extract_summary(pr.get("body"))
+                summary = extract_summary(pr.get("body"), allow_legacy=True)
             except ValueError as exc:
                 print(f"Skipping PR #{number}: {exc}", file=sys.stderr)
                 continue

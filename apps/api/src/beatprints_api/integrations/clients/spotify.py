@@ -5,10 +5,12 @@ import re
 import threading
 import time
 from typing import Literal
+from urllib.parse import quote
 
 import httpx
 
 from beatprints_api.config import settings
+from beatprints_api.integrations.region import current_region
 from beatprints_api.exceptions import IntegrationNotConfiguredError, UpstreamError
 
 
@@ -23,20 +25,22 @@ class SpotifyNotConfiguredError(SpotifyError, IntegrationNotConfiguredError):
 class SpotifyClient:
     TOKEN_URL = "https://accounts.spotify.com/api/token"
     API_URL = "https://api.spotify.com/v1"
+    SCANNABLES_URL = "https://scannables.scdn.co/uri/plain"
+    MAX_CODE_IMAGE_BYTES = 2 * 1024 * 1024
 
     def __init__(
         self,
         client_id: str | None,
         client_secret: str | None,
-        market: str = "US",
     ) -> None:
         self.client_id = client_id
         self.client_secret = client_secret
-        self.market = market
         self._token: str | None = None
         self._token_expires_at = 0.0
         self._token_lock = threading.Lock()
+        self._code_lock = threading.Lock()
         self._http: httpx.Client | None = None
+        self._code_http: httpx.Client | None = None
 
     @property
     def _client(self) -> httpx.Client:
@@ -56,6 +60,39 @@ class SpotifyClient:
         if self._http is not None:
             self._http.close()
             self._http = None
+        if self._code_http is not None:
+            self._code_http.close()
+            self._code_http = None
+
+    @property
+    def _code_client(self) -> httpx.Client:
+        with self._code_lock:
+            if self._code_http is None:
+                self._code_http = httpx.Client(
+                    timeout=httpx.Timeout(10.0, connect=5.0),
+                    limits=httpx.Limits(
+                        max_connections=10,
+                        max_keepalive_connections=5,
+                        keepalive_expiry=30.0,
+                    ),
+                    headers={"User-Agent": "BeatPrints-API/0.1"},
+                )
+            return self._code_http
+
+    def code_png(self, uri: str, width: int) -> bytes:
+        """Fetch scan-ready Spotify Code artwork without Web API authentication."""
+        url = f"{self.SCANNABLES_URL}/png/ffffff/black/{width}/{quote(uri, safe=':')}"
+        try:
+            response = self._code_client.get(url)
+            response.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise SpotifyError(f"Could not generate Spotify Code: {exc}") from exc
+        content_type = response.headers.get("content-type", "").split(";", 1)[0]
+        if content_type != "image/png":
+            raise SpotifyError("Spotify Code service returned an unexpected image type")
+        if len(response.content) > self.MAX_CODE_IMAGE_BYTES:
+            raise SpotifyError("Spotify Code image exceeds the 2 MB limit")
+        return response.content
 
     @property
     def configured(self) -> bool:
@@ -81,7 +118,9 @@ class SpotifyClient:
                 )
                 response.raise_for_status()
             except httpx.HTTPError as exc:
-                raise SpotifyError(f"Could not authenticate with Spotify: {exc}") from exc
+                raise SpotifyError(
+                    f"Could not authenticate with Spotify: {exc}"
+                ) from exc
 
             payload = response.json()
             self._token = payload["access_token"]
@@ -103,12 +142,16 @@ class SpotifyClient:
                 "q": query,
                 "type": search_type,
                 "limit": min(limit, 10),
-                "market": self.market,
+                "market": current_region(),
             },
         )
         key = "tracks" if search_type == "track" else "albums"
         return [
-            self._format_track(item) if search_type == "track" else self._format_album(item)
+            (
+                self._format_track(item)
+                if search_type == "track"
+                else self._format_album(item)
+            )
             for item in payload[key]["items"]
         ]
 
@@ -120,13 +163,21 @@ class SpotifyClient:
             if not url or not title:
                 continue
             album = result.get("album") or {}
-            candidates.append({
-                "url": url, "title": title, "artists": result.get("artists") or [], "type": item_type,
-                "album": album.get("title") if item_type == "track" else None,
-                "release_year": result.get("release_year"), "duration_seconds": result.get("duration_seconds"),
-                "track_count": result.get("track_count"), "cover_url": result.get("cover_url"),
-                "isrc": result.get("isrc"), "platform_id": result.get("id"),
-            })
+            candidates.append(
+                {
+                    "url": url,
+                    "title": title,
+                    "artists": result.get("artists") or [],
+                    "type": item_type,
+                    "album": album.get("title") if item_type == "track" else None,
+                    "release_year": result.get("release_year"),
+                    "duration_seconds": result.get("duration_seconds"),
+                    "track_count": result.get("track_count"),
+                    "cover_url": result.get("cover_url"),
+                    "isrc": result.get("isrc"),
+                    "platform_id": result.get("id"),
+                }
+            )
         return candidates
 
     def _get(self, path: str, params: dict | None = None) -> dict:
@@ -149,8 +200,10 @@ class SpotifyClient:
         return response.json()
 
     def track_metadata(self, track_id: str) -> dict:
-        track = self._get(f"/tracks/{track_id}", {"market": self.market})
-        album = self._get(f"/albums/{track['album']['id']}", {"market": self.market})
+        track = self._get(f"/tracks/{track_id}", {"market": current_region()})
+        album = self._get(
+            f"/albums/{track['album']['id']}", {"market": current_region()}
+        )
         seconds = int(track["duration_ms"]) // 1000
         minutes, remaining_seconds = divmod(seconds, 60)
         return {
@@ -166,7 +219,7 @@ class SpotifyClient:
         }
 
     def album_metadata(self, album_id: str) -> dict:
-        album = self._get(f"/albums/{album_id}", {"market": self.market})
+        album = self._get(f"/albums/{album_id}", {"market": current_region()})
         tracks_page = album["tracks"]
         tracks = [item["name"] for item in tracks_page["items"]]
         while tracks_page.get("next"):
@@ -232,7 +285,11 @@ class SpotifyClient:
             "cover_url": cls._cover_url(album),
             "link": item["external_urls"]["spotify"],
             "release_date": release_date,
-            "release_year": int(release_date[:4]) if release_date and len(release_date) >= 4 else None,
+            "release_year": (
+                int(release_date[:4])
+                if release_date and len(release_date) >= 4
+                else None
+            ),
             "release_date_precision": album.get("release_date_precision"),
             "album": {"id": album["id"], "title": album["name"]},
             "duration_seconds": seconds,
@@ -253,7 +310,11 @@ class SpotifyClient:
             "cover_url": cls._cover_url(item),
             "link": item["external_urls"]["spotify"],
             "release_date": release_date,
-            "release_year": int(release_date[:4]) if release_date and len(release_date) >= 4 else None,
+            "release_year": (
+                int(release_date[:4])
+                if release_date and len(release_date) >= 4
+                else None
+            ),
             "release_date_precision": item.get("release_date_precision"),
             "track_count": item.get("total_tracks"),
         }
@@ -262,6 +323,5 @@ class SpotifyClient:
 spotify_client = SpotifyClient(
     settings.spotify_client_id,
     settings.spotify_client_secret,
-    settings.spotify_market,
 )
 atexit.register(spotify_client.close)

@@ -4,25 +4,17 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
-import httpx
-
+from beatprints_api.integrations.clients.qq_music import qq_music_client
 from beatprints_api.integrations.destinations.base import DestinationAdapter
 from beatprints_api.integrations.destinations.registry import register
-from beatprints_api.integrations.destinations.scannable import icon_qr_scannable, standard_icon_qr_scannable
+from beatprints_api.integrations.destinations.scannable import (
+    icon_qr_scannable,
+    standard_icon_qr_scannable,
+)
 from beatprints_api.exceptions import PlatformLinkNoMatchError, UpstreamError
 from beatprints_api.models.destinations import PlatformLinkMatchData
 
 ASSET_PATH = Path(__file__).resolve().parents[2] / "assets" / "qq-music-symbol.png"
-
-
-def _get(url: str, **params: object) -> dict:
-    try:
-        response = httpx.get(url, params=params, timeout=15.0)
-        response.raise_for_status()
-        value = response.json()
-    except (httpx.HTTPError, ValueError) as exc:
-        raise UpstreamError(f"QQ Music request failed: {exc}") from exc
-    return value if isinstance(value, dict) else {}
 
 
 def _artists(values: list[dict] | None) -> list[str]:
@@ -53,14 +45,7 @@ def _secure_url(value: object) -> str | None:
 
 
 def search(query: str, item_type: str) -> list[dict]:
-    payload = _get(
-        "https://c.y.qq.com/soso/fcgi-bin/client_search_cp",
-        format="json",
-        p=1,
-        n=10,
-        w=query,
-        t=0 if item_type == "track" else 8,
-    )
+    payload = qq_music_client.search(query, item_type, 10)
     data = payload.get("data") or {}
     rows = (
         (data.get("song") or {}).get("list", [])
@@ -119,14 +104,7 @@ def resolve(url: str) -> PlatformLinkMatchData:
         )
     item_type, item_id = parsed
     if item_type == "track":
-        data = (
-            _get(
-                "https://c.y.qq.com/v8/fcg-bin/fcg_play_single_song.fcg",
-                songmid=item_id,
-                format="json",
-            ).get("data")
-            or []
-        )
+        data = qq_music_client.track(item_id).get("data") or []
         if not data:
             raise PlatformLinkNoMatchError("QQ Music track was not found")
         row = data[0]
@@ -141,14 +119,11 @@ def resolve(url: str) -> PlatformLinkMatchData:
             url=f"https://y.qq.com/n/ryqq/songDetail/{item_id}",
             type="track",
         )
-    row = (
-        _get(
-            "https://c.y.qq.com/v8/fcg-bin/fcg_v8_album_info_cp.fcg",
-            albummid=item_id,
-            format="json",
-        ).get("data")
-        or {}
-    )
+    row = qq_music_client.album(item_id).get("data") or {}
+    if not row:
+        raise PlatformLinkNoMatchError("QQ Music album was not found")
+    if not isinstance(row, dict) or not row.get("name"):
+        raise UpstreamError("QQ Music album response was incomplete")
     singer_name = str(row.get("singername") or "").strip()
     return PlatformLinkMatchData(
         title=row.get("name"),

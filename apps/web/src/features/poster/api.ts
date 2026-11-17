@@ -52,8 +52,8 @@ async function readError(response: Response) {
   }
 }
 
-async function getJson<T>(path: string, signal?: AbortSignal) {
-  const response = await fetch(endpoint(path), { signal })
+async function getJson<T>(path: string, signal?: AbortSignal, cache?: RequestCache) {
+  const response = await fetch(endpoint(path), { signal, cache })
   if (!response.ok) {
     throw await readError(response)
   }
@@ -61,8 +61,51 @@ async function getJson<T>(path: string, signal?: AbortSignal) {
   return body.data
 }
 
+export type IntegrationCapability = {
+  key: string
+  label: string
+  available: boolean
+  reason: string | null
+  default: boolean
+  fixed_code: boolean
+  supports_regions?: boolean
+  regions?: string[]
+  reuses_source_links: string[]
+}
+export type Capabilities = {
+  wechat_qr: boolean
+  catalogs: IntegrationCapability[]
+  lyrics: IntegrationCapability[]
+  destinations: IntegrationCapability[]
+}
+
+export function parseCapabilities(value: unknown): Capabilities {
+  if (!value || typeof value !== "object") throw new Error("Invalid capabilities")
+  const data = value as Record<string, unknown>
+  const validItems = (items: unknown): items is IntegrationCapability[] => {
+    if (!Array.isArray(items)) return false
+    const keys = new Set<string>()
+    return items.every((item: unknown) => {
+      if (!item || typeof item !== "object") return false
+      const entry = item as Record<string, unknown>
+      if (typeof entry.key !== "string" || !entry.key || keys.has(entry.key) ||
+          typeof entry.label !== "string" || !entry.label || typeof entry.available !== "boolean" ||
+          typeof entry.default !== "boolean" || typeof entry.fixed_code !== "boolean" ||
+          (entry.supports_regions !== undefined && typeof entry.supports_regions !== "boolean") ||
+          (entry.supports_regions === true && (!Array.isArray(entry.regions) || entry.regions.length === 0 || !entry.regions.every((code) => typeof code === "string" && /^[A-Z]{2}$/.test(code)))) ||
+          !(entry.reason === null || typeof entry.reason === "string") ||
+          !Array.isArray(entry.reuses_source_links) || !entry.reuses_source_links.every((key) => typeof key === "string")) return false
+      keys.add(entry.key)
+      return true
+    })
+  }
+  if (typeof data.wechat_qr !== "boolean" || !validItems(data.catalogs) ||
+      !validItems(data.lyrics) || !validItems(data.destinations)) throw new Error("Incompatible capabilities")
+  return data as Capabilities
+}
+
 export async function fetchCapabilities(signal?: AbortSignal) {
-  return getJson<{ wechat_qr: boolean }>("/capabilities", signal)
+  return parseCapabilities(await getJson<unknown>("/v1/capabilities", signal, "no-store"))
 }
 
 export async function fetchReleaseNotes(version: string, signal?: AbortSignal) {
@@ -74,6 +117,7 @@ export async function searchCatalog(
   kind: PosterKind,
   provider: SearchProvider,
   signal?: AbortSignal,
+  region?: string,
 ) {
   const params = new URLSearchParams({
     query,
@@ -81,6 +125,7 @@ export async function searchCatalog(
     provider,
     limit: "8",
   })
+  if (region) params.set("region", region)
   return getJson<SearchResult[]>(`/v1/search?${params}`, signal)
 }
 
@@ -89,12 +134,14 @@ export async function fetchLyrics(
   catalogId: number | string,
   source: string,
   signal?: AbortSignal,
+  region?: string,
 ) {
   const params = new URLSearchParams({
     provider,
     catalog_id: String(catalogId),
     source,
   })
+  if (region) params.set("region", region)
   return getJson<LyricsPreview>(`/v1/lyrics?${params}`, signal)
 }
 
@@ -108,6 +155,8 @@ export async function fetchPlatformMatchOptions(
   catalogId: number | string,
   kind: PosterKind,
   signal?: AbortSignal,
+  sourceRegion?: string,
+  destinationRegion?: string,
 ) {
   const params = new URLSearchParams({
     provider,
@@ -115,6 +164,8 @@ export async function fetchPlatformMatchOptions(
     type: kind,
     limit: "8",
   })
+  if (sourceRegion) params.set("source_region", sourceRegion)
+  if (destinationRegion) params.set("destination_region", destinationRegion)
   return getJson<PlatformMatchOptions>(
     `/v1/platform-links/${platform}/options?${params}`,
     signal,
@@ -125,8 +176,10 @@ export async function resolvePlatformUrl(
   platform: PosterPlatform,
   url: string,
   signal?: AbortSignal,
+  region?: string,
 ) {
   const params = new URLSearchParams({ url })
+  if (region) params.set("region", region)
   return getJson<PlatformLinkMatch>(
     `/v1/platform-links/${platform}/resolve?${params}`,
     signal,

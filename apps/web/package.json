@@ -8,12 +8,15 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "node tests/poster-regressions.mjs"
+    "test": "node tests/poster-regressions.mjs",
+    "test:seo": "node tests/seo-regressions.mjs",
+    "test:i18n": "node tests/language-regressions.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
     "@fontsource-variable/geist": "^5.3.0",
     "@tailwindcss/vite": "^4.3.3",
+    "@tanstack/react-virtual": "^3.14.26",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "i18next": "^26.3.6",

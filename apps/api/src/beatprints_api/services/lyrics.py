@@ -46,7 +46,9 @@ def select(metadata: deez.TrackMetadata, request: TrackPosterRequest) -> str:
     lines = result.lines
     if request.lyrics_range is not None:
         start, end = (int(value) for value in request.lyrics_range.split("-"))
-        lines = lines[start - 1:end]
+        lines = lines[start - 1 : end]
+    else:
+        lines = lines[:4]
     if len(lines) != 4:
         raise UpstreamError("Fewer than four non-empty lyric lines were available")
     return "\n".join(lines)

@@ -1,3 +1,5 @@
+from beatprints_api.integrations.regions.spotify import REGIONS
+
 """Spotify destination adapter."""
 
 import io
@@ -5,6 +7,7 @@ import re
 from pathlib import Path
 from urllib.parse import urlparse
 
+import httpx
 from PIL import Image
 
 from BeatPrints import image as beatprints_image
@@ -12,8 +15,7 @@ from beatprints_api.integrations.destinations.base import DestinationAdapter
 from beatprints_api.integrations.destinations.registry import register
 from beatprints_api.exceptions import PlatformLinkNoMatchError, UpstreamError
 from beatprints_api.models.destinations import PlatformLinkMatchData
-from beatprints_api.integrations.spotify_client import spotify_client
-from beatprints_api.integrations.destinations.spotify_code import spotify_code_client
+from beatprints_api.integrations.clients.spotify import SpotifyError, spotify_client
 
 CODE_SCALE = 1.06
 CODE_WIDTH = 560
@@ -31,7 +33,7 @@ def _duration_seconds(value: str) -> int | None:
     try:
         minutes, seconds = value.split(":", maxsplit=1)
         return int(minutes) * 60 + int(seconds)
-    except (AttributeError, ValueError):
+    except AttributeError, ValueError:
         return None
 
 
@@ -46,7 +48,9 @@ def _uri(link: str) -> str | None:
         return None
     parts = [part for part in parsed.path.split("/") if part]
     for index, part in enumerate(parts[:-1]):
-        if part in {"track", "album"} and re.fullmatch(r"[A-Za-z0-9]{22}", parts[index + 1]):
+        if part in {"track", "album"} and re.fullmatch(
+            r"[A-Za-z0-9]{22}", parts[index + 1]
+        ):
             return f"spotify:{part}:{parts[index + 1]}"
     return None
 
@@ -54,32 +58,58 @@ def _uri(link: str) -> str | None:
 def resolve(url: str) -> PlatformLinkMatchData:
     uri = _uri(url)
     if uri is None:
-        raise PlatformLinkNoMatchError("URL is not a supported Spotify track or album link")
-    _prefix, item_type, catalog_id = uri.split(":", maxsplit=2)
-    if item_type == "track":
-        value = spotify_client.track_metadata(catalog_id)
-        return PlatformLinkMatchData(
-            url=value["link"], title=value["title"], artists=value["artists"], album=value["album"],
-            release_year=_release_year(value["released"]), duration_seconds=_duration_seconds(value["duration"]),
-            cover_url=value["cover"], type="track",
+        raise PlatformLinkNoMatchError(
+            "URL is not a supported Spotify track or album link"
         )
-    value = spotify_client.album_metadata(catalog_id)
+    _prefix, item_type, catalog_id = uri.split(":", maxsplit=2)
+    try:
+        if item_type == "track":
+            value = spotify_client.track_metadata(catalog_id)
+            return PlatformLinkMatchData(
+                url=value["link"],
+                title=value["title"],
+                artists=value["artists"],
+                album=value["album"],
+                release_year=_release_year(value["released"]),
+                duration_seconds=_duration_seconds(value["duration"]),
+                cover_url=value["cover"],
+                type="track",
+            )
+        value = spotify_client.album_metadata(catalog_id)
+    except SpotifyError as exc:
+        cause = exc.__cause__
+        if (
+            isinstance(cause, httpx.HTTPStatusError)
+            and cause.response.status_code == 404
+        ):
+            raise PlatformLinkNoMatchError(
+                "Spotify catalog item was not found"
+            ) from exc
+        raise
     return PlatformLinkMatchData(
-        url=value["link"], title=value["title"], artists=value["artists"], release_year=_release_year(value["released"]),
-        track_count=len(value["tracks"]), cover_url=value["cover"], type="album",
+        url=value["link"],
+        title=value["title"],
+        artists=value["artists"],
+        release_year=_release_year(value["released"]),
+        track_count=len(value["tracks"]),
+        cover_url=value["cover"],
+        type="album",
     )
 
 
-
-def _resolve_source(provider: str, catalog_id: int | str, item_type: str) -> PlatformLinkMatchData | None:
-    return resolve(f"spotify:{item_type}:{catalog_id}") if provider == "spotify" else None
+def _resolve_source(
+    provider: str, catalog_id: int | str, item_type: str
+) -> PlatformLinkMatchData | None:
+    return (
+        resolve(f"spotify:{item_type}:{catalog_id}") if provider == "spotify" else None
+    )
 
 
 def scannable(link: str):
     uri = _uri(link)
     if uri is None:
         return None
-    content = spotify_code_client.png(uri, CODE_WIDTH)
+    content = spotify_client.code_png(uri, CODE_WIDTH)
     try:
         with Image.open(io.BytesIO(content)) as source:
             code = source.convert("L")
@@ -101,10 +131,28 @@ def scannable(link: str):
             target_height = CODE_HEIGHT
             target_width = round(colored.width * target_height / colored.height)
         fitted = colored.resize((target_width, target_height), Image.Resampling.LANCZOS)
-        canvas.alpha_composite(fitted, ((CODE_WIDTH - fitted.width) // 2, (CODE_HEIGHT - fitted.height) // 2))
+        canvas.alpha_composite(
+            fitted,
+            ((CODE_WIDTH - fitted.width) // 2, (CODE_HEIGHT - fitted.height) // 2),
+        )
         return canvas
 
     return render
 
 
-adapter = register(DestinationAdapter(key="spotify", label="Spotify", search=spotify_client.search_candidates, resolve=resolve, scannable=scannable, supports_isrc=True, resolve_source=_resolve_source, reuses_source_link=lambda provider: provider == "spotify"))
+adapter = register(
+    DestinationAdapter(
+        key="spotify",
+        label="Spotify",
+        supports_regions=True,
+        regions=REGIONS,
+        configured=lambda: spotify_client.configured,
+        fixed_code=True,
+        search=spotify_client.search_candidates,
+        resolve=resolve,
+        scannable=scannable,
+        supports_isrc=True,
+        resolve_source=_resolve_source,
+        reuses_source_link=lambda provider: provider == "spotify",
+    )
+)

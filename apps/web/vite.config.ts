@@ -1,8 +1,12 @@
 import { execFileSync } from "node:child_process"
-import { readFileSync } from "node:fs"
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import tailwindcss from "@tailwindcss/vite"
 import react from "@vitejs/plugin-react"
+import { createElement } from "react"
+import { renderToStaticMarkup } from "react-dom/server"
+import { HomeGuide, HomeHero } from "./src/components/home-content.tsx"
+import { homeContent, type HomeLanguage } from "./src/i18n/home.ts"
 import { defineConfig } from "vite"
 
 const apiProxyTarget =
@@ -53,12 +57,57 @@ function resolveBuildInfo() {
 
 const buildInfo = resolveBuildInfo()
 
+function escapeAttribute(value: string) {
+  return value.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;")
+}
+
+function prerenderHomepages() {
+  return {
+    name: "prerender-homepages",
+    apply: "build" as const,
+    closeBundle() {
+      const output = path.resolve(__dirname, "dist")
+      const template = readFileSync(path.join(output, "index.html"), "utf8")
+      const pages: { language: HomeLanguage; outputPath: string; indexable: boolean }[] = [
+        { language: "en", outputPath: "", indexable: true },
+        ...Object.keys(homeContent).map((language) => ({
+          language: language as HomeLanguage,
+          outputPath: language,
+          indexable: false,
+        })),
+      ]
+      for (const { language, outputPath, indexable } of pages) {
+        const content = homeContent[language]
+        const markup = renderToStaticMarkup(createElement(
+          "main",
+          null,
+          createElement(HomeHero, { content }),
+          createElement(HomeGuide, { content }),
+        ))
+        let html = template.replace('<html lang="en">', `<html lang="${language}">`)
+        if (!indexable) {
+          html = html.replace(
+            /(<meta name="robots" content=")[^"]*(" \/>)/,
+            "$1noindex, follow$2",
+          )
+        }
+        html = html.replace(/<div id="root">[\s\S]*?<\/div>\s*<noscript>/, `<div id="root">${markup}</div>
+    <noscript>`)
+          .replace(/<noscript>[\s\S]*?<\/noscript>/, `<noscript>${escapeAttribute(content.noScript)}</noscript>`)
+        const target = path.join(output, outputPath)
+        mkdirSync(target, { recursive: true })
+        writeFileSync(path.join(target, "index.html"), html)
+      }
+    },
+  }
+}
+
 export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(buildInfo.version),
     __GIT_SHA__: JSON.stringify(buildInfo.gitSha),
   },
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), prerenderHomepages()],
   build: {
     chunkSizeWarningLimit: 600,
     rollupOptions: {

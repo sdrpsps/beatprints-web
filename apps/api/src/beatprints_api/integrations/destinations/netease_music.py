@@ -3,25 +3,17 @@
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-import httpx
-
+from beatprints_api.integrations.clients.netease_music import netease_music_client
 from beatprints_api.integrations.destinations.base import DestinationAdapter
 from beatprints_api.integrations.destinations.registry import register
-from beatprints_api.integrations.destinations.scannable import icon_qr_scannable, standard_icon_qr_scannable
+from beatprints_api.integrations.destinations.scannable import (
+    icon_qr_scannable,
+    standard_icon_qr_scannable,
+)
 from beatprints_api.exceptions import PlatformLinkNoMatchError, UpstreamError
 from beatprints_api.models.destinations import PlatformLinkMatchData
 
 ASSET_PATH = Path(__file__).resolve().parents[2] / "assets" / "netease-music-symbol.png"
-
-
-def _get(url: str, **params: object) -> dict:
-    try:
-        response = httpx.get(url, params=params, timeout=15.0)
-        response.raise_for_status()
-        value = response.json()
-    except (httpx.HTTPError, ValueError) as exc:
-        raise UpstreamError(f"NetEase Music request failed: {exc}") from exc
-    return value if isinstance(value, dict) else {}
 
 
 def _artists(values: list[dict] | None) -> list[str]:
@@ -41,13 +33,7 @@ def _year(value: object) -> int | None:
 
 
 def search(query: str, item_type: str) -> list[dict]:
-    payload = _get(
-        "https://music.163.com/api/search/get",
-        type=1 if item_type == "track" else 10,
-        s=query,
-        limit=10,
-        offset=0,
-    )
+    payload = netease_music_client.search(query, item_type, 10)
     result = payload.get("result") or {}
     if not isinstance(result, dict):
         return []
@@ -107,12 +93,7 @@ def resolve(url: str) -> PlatformLinkMatchData:
         )
     item_type, item_id = parsed
     if item_type == "track":
-        rows = (
-            _get("https://music.163.com/api/song/detail/", ids=f"[{item_id}]").get(
-                "songs"
-            )
-            or []
-        )
+        rows = netease_music_client.tracks([item_id]).get("songs") or []
         if not rows:
             raise PlatformLinkNoMatchError("NetEase Music track was not found")
         row = rows[0]
@@ -126,8 +107,12 @@ def resolve(url: str) -> PlatformLinkMatchData:
             url=f"https://music.163.com/#/song?id={item_id}",
             type="track",
         )
-    data = _get(f"https://music.163.com/api/v1/album/{item_id}")
+    data = netease_music_client.album(item_id)
     album = data.get("album") or {}
+    if not album:
+        raise PlatformLinkNoMatchError("NetEase Music album was not found")
+    if not isinstance(album, dict) or not album.get("name"):
+        raise UpstreamError("NetEase Music album response was incomplete")
     return PlatformLinkMatchData(
         title=album.get("name"),
         artists=_artists(album.get("artists")),
@@ -154,7 +139,9 @@ adapter = register(
         label="网易云音乐",
         search=search,
         resolve=resolve,
-        scannable=lambda link: icon_qr_scannable(link, ASSET_PATH, version="2", mask=24, margin=19),
+        scannable=lambda link: icon_qr_scannable(
+            link, ASSET_PATH, version="2", mask=24, margin=19
+        ),
         standard_scannable=lambda link: standard_icon_qr_scannable(link, ASSET_PATH),
         resolve_source=_resolve_source,
         reuses_source_link=lambda provider: provider == "netease_music",

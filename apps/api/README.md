@@ -61,8 +61,9 @@ src/beatprints_api/
 ```
 
 每个路由直接导入负责该操作的 service，不经过总门面。catalog、lyrics、destination
-和 label 的 registry 文件分别是其启用清单；目的地不得导入或注册 catalog adapter，
-共享的 Spotify HTTP client 位于 `integrations/spotify_client.py`，不包含注册逻辑。
+和 label 的 registry 文件分别是其启用清单；目的地不得导入或注册 catalog adapter。
+共享的 Spotify 和 Apple Music 客户端分别位于 `integrations/spotify_client.py` 和
+`integrations/apple_music_client.py`，不包含注册逻辑。
 
 除成功返回 PNG 的两个海报接口外，所有 JSON 成功及错误响应都采用统一结构：
 
@@ -144,8 +145,11 @@ docker compose logs -f beatprints-api
 ## 1. 用已选歌曲生成
 
 服务会用 `provider` 指定的平台获取元数据和封面。歌词来源由独立适配器提供；客户端
-将所选歌词来源 key 传给歌词预览。没有指定 `lyrics_range`
-时，兼容接口仍通过默认来源选择前四行非空歌词。
+将所选歌词来源 key 传给歌词预览。既未提供 `lyrics` 也未提供 `lyrics_range`
+时，兼容接口通过默认来源选择前四行非空歌词；非纯音乐少于四行时返回上游错误。
+
+`GET /v1/capabilities` 按注册顺序返回已启用的来源和二维码目的地。当前两者均依次为
+Apple Music、Spotify、QQ 音乐、网易云音乐；客户端应使用接口返回的列表和可用状态。
 
 前端歌词选择器可以先读取所选歌曲的规范化歌词：
 
@@ -269,10 +273,11 @@ Link。推荐优先传平台分享功能生成的 HTTPS/Universal Link：扫码�
 启用的目标键。启用列表集中在 `beatprints_api/integrations/destinations/registry.py`：
 
 ```bash
-curl "http://localhost:8000/v1/platform-links/apple_music/options?provider=qq_music&catalog_id=001example&type=track"
+curl "http://localhost:8000/v1/platform-links/apple_music/options?provider=apple_music&catalog_id=1790520817&type=track&source_region=US&destination_region=JP"
 ```
 
-该接口始终先读取未经改变的 `provider + catalog_id`，再使用所有目标平台共享的匹配规则。
+该接口始终使用未经改变的 `provider + catalog_id`。同平台的来源 ID 在目标地区无法直接解析时，
+服务读取来源地区的资料，并继续在目标地区搜索；实际的上游服务故障仍返回错误。
 平台适配器只负责检索、链接解析和 Spotify ISRC 等额外能力；统一引擎负责标题版本、艺人、
 发行信息、时长、曲目数和歧义判断。响应同时包含可选的 `match` 和同次检索得到的 `candidates`，
 不会把近似同名作品静默确认。调用方将成功结果的 `url` 写入对应 `platform_links.<platform>` 后生成海报。未指定
@@ -286,7 +291,8 @@ curl --get "http://localhost:8000/v1/platform-links/spotify/resolve" \
 ```
 
 `/options` 提供自动确认与可由用户确认的排序候选；`/resolve` 读取所选公开链接的当前资料，用于刷新目标
-平台确认卡片。两者均支持四个平台，且不会改写海报使用的 QQ 音乐、网易云音乐或 Spotify 来源资料、歌词或封面。
+平台确认卡片。两者均支持四个平台，且不会改写海报使用的 QQ 音乐、网易云音乐、Spotify 或 Apple Music 来源资料、歌词或封面。
+标题语言不同、但发行年份和曲目数一致的专辑可能作为人工候选显示，不会仅凭这些信息自动确认。
 
 选择 Spotify 且链接是标准的 Spotify 歌曲或专辑链接时，海报左下角会使用 Spotify
 提供的原生 Spotify Code PNG（可由 Spotify App 的“搜索 → 扫描”识别），而不是普通
@@ -296,7 +302,7 @@ Spotify Code 由 Spotify 的 scannable 图服务生成，不需要额外的开�
 
 Apple Music、QQ 音乐和网易云音乐继续使用普通二维码。所有平台标记和二维码均使用同一套
 海报主题色规则；平台之间只允许标记与编码格式不同，不能为 Apple Music 或其他平台另走封面
-取色路径。二维码背景和 quiet zone 始终保持白色，以提高相机识别稳定性。
+取色路径。二维码背景随海报主题显示。
 
 Apple Music 会使用 Apple Music Symbol 加二维码的紧凑组合，并与 Spotify Code 一样采用海报主题色，
 以保持相同的视觉位置、比例和配色逻辑。它不是 App Clip Code；扫码仍会打开调用方提供的
@@ -317,8 +323,6 @@ cp .env.example .env
 ```dotenv
 SPOTIFY_CLIENT_ID=your-client-id
 SPOTIFY_CLIENT_SECRET=your-client-secret
-SPOTIFY_MARKET=US
-APPLE_MUSIC_STOREFRONT=US
 ```
 
 重新执行 `make dev:api`，或用 `docker compose up -d --build` 重建服务。
@@ -326,14 +330,28 @@ APPLE_MUSIC_STOREFRONT=US
 随后可使用：
 
 ```text
+GET /v1/search?query=Summer%20Breeze&type=track&provider=apple_music&limit=5
 GET /v1/search?query=Summer%20Breeze&type=track&provider=spotify&limit=5
 GET /v1/search?query=Summer%20Breeze&type=track&provider=all&limit=5
 ```
 
 `provider=all` 中的 `limit` 对每个来源分别生效；Spotify 单次最多返回 10 条。未配置
-Spotify 时，`all` 仍会返回 QQ 音乐和网易云音乐结果；明确指定 `provider=spotify` 则返回 HTTP 503。
+Spotify 时，`all` 仍会返回 QQ 音乐、网易云音乐和 Apple Music 结果；明确指定 `provider=spotify` 则返回 HTTP 503。
 
-生成接口统一使用 `provider + catalog_id`。QQ 音乐、网易云音乐和 Spotify 是同等级 provider；
+Apple Music 搜索、按 ID 读取歌曲和专辑、专辑曲目及目的地匹配均使用 Apple Music 网页目录接口，
+无需 Apple Music 账号、订阅或 Spotify 凭据。服务自动获取并刷新网页使用的公开应用令牌；
+它不是用户登录令牌。网页接口是非公开实现，Apple 调整后相关请求可能暂时失败。
+可用 ISRC 时，Apple Music 目的地优先按录音标识查询；仍须区分具体版本。
+搜索和歌词接口可通过 `region` 指定地区；平台匹配使用 `source_region` 和 `destination_region`，
+链接解析使用 `region`。生成请求可提供 `source_region` 和 `destination_region`。
+这些地区使用大写 ISO 3166-1 两字母代码；未指定时使用默认地区 `US`。
+`GET /v1/capabilities` 返回各启用集成的 `regions`，列表根据 Apple 和 Spotify 的官方服务地区页面维护，
+更新日期和来源记录在各自的地区模块中。
+
+Apple Music 歌曲和专辑海报优先使用所选专辑的厂牌；厂牌缺失时尝试使用录音版权持有人。
+版权持有人不一定就是发行厂牌，信息缺失或查询失败时仍可生成海报。
+
+生成接口统一使用 `provider + catalog_id`。QQ 音乐、网易云音乐、Spotify 和 Apple Music 是同等级 provider；
 以后新增目录平台时，也不需要改变请求结构。
 
 Spotify 海报分支会保持封面原有构图和色彩。只有明确提供 `qr_platform` 时才会显示指定平台的彩色二维码。Spotify 完整专辑响应

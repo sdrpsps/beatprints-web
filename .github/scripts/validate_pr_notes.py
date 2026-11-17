@@ -41,7 +41,7 @@ def main():
     except ValueError as exc:
         print(f"Invalid PR update notes: {exc}", file=sys.stderr)
         return 1
-    print("PR update notes are valid in all three languages.")
+    print("PR update notes are valid in all five languages.")
     return 0
 
 

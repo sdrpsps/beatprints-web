@@ -15,6 +15,7 @@ export type PosterHistorySnapshot = {
   instrumental?: boolean
   instrumentalText?: string
   qrPlatform?: PosterPlatform
+  destinationRegion?: string
   qrFormat?: QrFormat
   platformUrl?: string
   indexing?: boolean

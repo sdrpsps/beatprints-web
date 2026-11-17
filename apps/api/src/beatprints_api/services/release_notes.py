@@ -23,7 +23,10 @@ def get_release_notes(version: str) -> str:
         try:
             response = httpx.get(
                 f"https://api.github.com/repos/sdrpsps/beatprints-web/releases/tags/v{version}",
-                headers={"Accept": "application/vnd.github+json", "User-Agent": "BeatPrints-Web"},
+                headers={
+                    "Accept": "application/vnd.github+json",
+                    "User-Agent": "BeatPrints-Web",
+                },
                 timeout=httpx.Timeout(5.0, connect=3.0),
                 follow_redirects=False,
             )
@@ -31,10 +34,12 @@ def get_release_notes(version: str) -> str:
             body = response.json().get("body")
             if not isinstance(body, str) or not body.strip():
                 raise ValueError("Release notes are empty")
-        except (httpx.HTTPError, ValueError, AttributeError):
+        except httpx.HTTPError, ValueError, AttributeError:
             if cached:
                 return cached[1]
-            raise UpstreamServiceError("Release notes are unavailable", unavailable=True) from None
+            raise UpstreamServiceError(
+                "Release notes are unavailable", unavailable=True
+            ) from None
         _cache[version] = (monotonic(), body)
         _cache.move_to_end(version)
         while len(_cache) > _CACHE_LIMIT:

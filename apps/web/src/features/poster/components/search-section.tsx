@@ -2,6 +2,7 @@ import type { FormEvent } from "react"
 import { AlertCircleIcon, SearchIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
+import { ButtonGroup } from "@/components/ui/button-group"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
   Field,
@@ -25,7 +26,7 @@ import {
   SectionHeading,
   studioSectionClass,
 } from "@/features/poster/components/studio-shared"
-import { enabledCatalogSources } from "@/features/poster/catalogs/registry"
+import { RegionPicker } from "@/features/poster/components/region-picker"
 import { usePosterStore } from "@/features/poster/poster-store"
 import type { CatalogProvider } from "@/features/poster/types"
 import { cn } from "@/lib/utils"
@@ -114,6 +115,9 @@ function SourceFilter() {
   const { t } = useTranslation()
   const provider = usePosterStore((s) => s.provider)
   const setProvider = usePosterStore((s) => s.setProvider)
+  const sources = usePosterStore((s) => s.catalogSources)
+  const regions = usePosterStore((s) => s.sourceRegions)
+  const setRegion = usePosterStore((s) => s.setSourceRegion)
 
   return (
     <Field orientation="horizontal" className="justify-end">
@@ -126,12 +130,16 @@ function SourceFilter() {
         }}
         variant="outline"
         size="sm"
+        className="flex-wrap"
         aria-label={t("poster.source")}
       >
-        {enabledCatalogSources().map((item) => (
-          <ToggleGroupItem key={item.key} value={item.key}>
-            {t(item.labelKey)}
-          </ToggleGroupItem>
+        {sources.map((item) => (
+          <ButtonGroup key={item.key} aria-label={t(item.labelKey, { defaultValue: item.label })}>
+            <ToggleGroupItem value={item.key} disabled={!item.available}>
+              {t(item.labelKey, { defaultValue: item.label })}
+            </ToggleGroupItem>
+            {item.supportsRegions ? <RegionPicker regionCodes={item.regions ?? []} platform={item.label ?? item.key} value={regions[item.key] ?? "US"} onChange={(value) => setRegion(item.key, value, t)} disabled={!item.available} /> : null}
+          </ButtonGroup>
         ))}
       </ToggleGroup>
     </Field>

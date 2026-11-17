@@ -288,7 +288,7 @@ export function PosterHistorySheet() {
                 }
               >
                 <XIcon className="size-4" />
-                <span className="sr-only">Close</span>
+                <span className="sr-only">{t("app.releaseDismiss")}</span>
               </SheetClose>
             </div>
           </div>

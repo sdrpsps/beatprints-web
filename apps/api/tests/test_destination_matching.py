@@ -6,7 +6,10 @@ import pytest
 from BeatPrints.deez import AlbumMetadata, TrackMetadata
 from beatprints_api.integrations.catalog import netease_music as netease_catalog
 from beatprints_api.integrations.catalog import qq_music as qq_catalog
+from beatprints_api.integrations.clients import qq_music as qq_client_module
+from beatprints_api.integrations.clients import netease_music as netease_client_module
 from beatprints_api.integrations.destinations import (
+    apple_music,
     netease_music,
     qq_music,
     spotify as spotify_destination,
@@ -23,8 +26,10 @@ from beatprints_api.integrations.labels import registry as label_registry
 from beatprints_api.integrations.labels.base import LabelResolver
 from beatprints_api.models.destinations import PlatformLinkMatchData
 from beatprints_api.exceptions import (
+    PlatformLinkNoMatchError,
     UnsupportedCatalogSourceError,
     UnsupportedDestinationError,
+    UpstreamError,
 )
 from beatprints_api.integrations.destinations.base import DestinationAdapter
 from beatprints_api.services import matching as matching_service
@@ -43,8 +48,8 @@ def album_metadata() -> AlbumMetadata:
 
 def test_enabled_destinations_are_registered_independently() -> None:
     assert destination_keys() == (
-        "spotify",
         "apple_music",
+        "spotify",
         "qq_music",
         "netease_music",
     )
@@ -92,9 +97,10 @@ def test_empty_track_label_uses_a_registered_resolver(monkeypatch) -> None:
 
 def test_source_catalogs_are_registered_independently() -> None:
     assert [adapter.key for adapter in catalog_adapters()] == [
+        "apple_music",
+        "spotify",
         "qq_music",
         "netease_music",
-        "spotify",
     ]
     for adapter in catalog_adapters():
         assert adapter.search and adapter.track_metadata and adapter.album_metadata
@@ -108,6 +114,7 @@ def test_source_catalogs_are_registered_independently() -> None:
     ("adapter", "provider"),
     [
         (spotify_destination.adapter, "spotify"),
+        (apple_music.adapter, "apple_music"),
         (qq_music.adapter, "qq_music"),
         (netease_music.adapter, "netease_music"),
     ],
@@ -124,6 +131,7 @@ def test_destination_plugins_reuse_only_their_own_catalog_links(
     [
         (qq_music, "qq_music"),
         (netease_music, "netease_music"),
+        (apple_music, "apple_music"),
     ],
 )
 def test_same_source_destination_resolves_its_canonical_link(
@@ -152,11 +160,45 @@ def test_same_source_destination_resolves_its_canonical_link(
     assert seen
 
 
+@pytest.mark.parametrize("destination", [qq_music, netease_music])
+@pytest.mark.parametrize("item_type", ["track", "album"])
+def test_missing_same_platform_item_is_reported_as_no_match(
+    monkeypatch, destination, item_type
+) -> None:
+    monkeypatch.setattr(
+        getattr(destination, f"{destination.adapter.key}_client"),
+        "_get",
+        lambda *_args, **_kwargs: {},
+    )
+    with pytest.raises(PlatformLinkNoMatchError):
+        destination.adapter.resolve_source(destination.adapter.key, "123", item_type)
+
+
+@pytest.mark.parametrize(
+    ("destination", "payload"),
+    [
+        (qq_music, {"data": {"unexpected": True}}),
+        (netease_music, {"album": {"unexpected": True}}),
+    ],
+)
+def test_incomplete_album_response_is_reported_as_upstream_error(
+    monkeypatch, destination, payload
+) -> None:
+    monkeypatch.setattr(
+        getattr(destination, f"{destination.adapter.key}_client"),
+        "_get",
+        lambda *_args, **_kwargs: payload,
+    )
+    with pytest.raises(UpstreamError) as result:
+        destination.adapter.resolve_source(destination.adapter.key, "123", "album")
+    assert not isinstance(result.value, PlatformLinkNoMatchError)
+
+
 @pytest.mark.parametrize(
     ("adapter", "expected_url"),
     [
-        (qq_catalog, qq_catalog.SEARCH_URL),
-        (netease_catalog, netease_catalog.SEARCH_URL),
+        (qq_catalog, qq_client_module.SEARCH_URL),
+        (netease_catalog, netease_client_module.SEARCH_URL),
     ],
 )
 def test_catalog_sources_normalize_track_search_results(
@@ -184,7 +226,7 @@ def test_catalog_sources_normalize_track_search_results(
                     }
                 }
             }
-        if url == netease_catalog.TRACK_URL:
+        if url == netease_client_module.TRACK_URL:
             return {
                 "songs": [
                     {
@@ -220,13 +262,13 @@ def test_catalog_sources_normalize_track_search_results(
             }
         }
 
-    monkeypatch.setattr(adapter, "_get", get)
+    monkeypatch.setattr(getattr(adapter, f"{adapter.adapter.key}_client"), "_get", get)
 
     result = adapter.search("track", "track", 5)
 
     assert seen[0] == expected_url
     if adapter is netease_catalog:
-        assert seen[1] == netease_catalog.TRACK_URL
+        assert seen[1] == netease_client_module.TRACK_URL
     assert result[0]["provider"] == adapter.adapter.key
     assert result[0]["duration"] == "03:15"
     assert result[0]["album"]["title"].endswith("Album")
@@ -234,7 +276,7 @@ def test_catalog_sources_normalize_track_search_results(
 
 def test_qq_catalog_normalizes_current_track_metadata(monkeypatch) -> None:
     def get(url: str, **_params: object) -> dict:
-        if url == qq_catalog.ALBUM_URL:
+        if url == qq_client_module.ALBUM_URL:
             return {"data": {"company": "QQ Records"}}
         return {
             "data": [
@@ -250,7 +292,7 @@ def test_qq_catalog_normalizes_current_track_metadata(monkeypatch) -> None:
         }
 
     monkeypatch.setattr(
-        qq_catalog,
+        qq_catalog.qq_music_client,
         "_get",
         get,
     )
@@ -265,7 +307,7 @@ def test_qq_catalog_normalizes_current_track_metadata(monkeypatch) -> None:
 
 def test_qq_catalog_reads_current_album_track_names(monkeypatch) -> None:
     monkeypatch.setattr(
-        qq_catalog,
+        qq_catalog.qq_music_client,
         "_get",
         lambda _url, **_params: {
             "data": {
@@ -288,7 +330,7 @@ def test_qq_catalog_reads_current_album_track_names(monkeypatch) -> None:
 
 def test_netease_catalog_reads_track_label_from_its_album(monkeypatch) -> None:
     monkeypatch.setattr(
-        netease_catalog,
+        netease_catalog.netease_music_client,
         "_get",
         lambda _url, **_params: {
             "songs": [
@@ -353,7 +395,7 @@ def test_qq_link_parser_rejects_lookalike_host() -> None:
 
 def test_netease_search_treats_malformed_result_as_empty(monkeypatch) -> None:
     monkeypatch.setattr(
-        netease_music,
+        netease_music.netease_music_client,
         "_get",
         lambda _url, **_params: {"result": "upstream returned no result object"},
     )
@@ -368,7 +410,7 @@ def test_netease_search_uses_plain_catalog_endpoint(monkeypatch) -> None:
         seen["url"] = url
         return {"result": {"songs": []}}
 
-    monkeypatch.setattr(netease_music, "_get", get)
+    monkeypatch.setattr(netease_music.netease_music_client, "_get", get)
 
     assert netease_music.search("KUN", "track") == []
     assert seen["url"] == "https://music.163.com/api/search/get"
@@ -376,7 +418,7 @@ def test_netease_search_uses_plain_catalog_endpoint(monkeypatch) -> None:
 
 def test_qq_album_resolve_returns_current_artist_and_total(monkeypatch) -> None:
     monkeypatch.setattr(
-        qq_music,
+        qq_music.qq_music_client,
         "_get",
         lambda _url, **_params: {
             "data": {
@@ -533,9 +575,7 @@ def test_cross_script_artist_search_prefers_original_over_same_name_cover(
         "duration_seconds": 195,
         "url": "https://example.com/original",
     }
-    monkeypatch.setattr(
-        matching_service, "_track_metadata", lambda _request: metadata
-    )
+    monkeypatch.setattr(matching_service, "_track_metadata", lambda _request: metadata)
     monkeypatch.setattr(
         matching_service,
         "_destination_adapter",
@@ -594,9 +634,7 @@ def test_candidate_search_ranks_artist_result_above_same_name_cover(
         "url": "https://example.com/original",
         "type": "track",
     }
-    monkeypatch.setattr(
-        matching_service, "_track_metadata", lambda _request: metadata
-    )
+    monkeypatch.setattr(matching_service, "_track_metadata", lambda _request: metadata)
     monkeypatch.setattr(
         matching_service,
         "_destination_adapter",
@@ -670,9 +708,7 @@ def test_album_candidates_include_catalog_title_suffix_without_auto_matching(
         "url": "https://open.spotify.com/album/35QdFULbzmzRWMeH7bHGQR",
         "type": "album",
     }
-    monkeypatch.setattr(
-        matching_service, "_album_metadata", lambda _request: metadata
-    )
+    monkeypatch.setattr(matching_service, "_album_metadata", lambda _request: metadata)
     monkeypatch.setattr(
         matching_service,
         "_destination_adapter",
@@ -689,6 +725,69 @@ def test_album_candidates_include_catalog_title_suffix_without_auto_matching(
     assert [str(match.url) for match in result.candidates] == [candidate["url"]]
 
 
+@pytest.mark.parametrize(
+    "platform", ["spotify", "apple_music", "qq_music", "netease_music"]
+)
+def test_localized_album_can_be_reviewed_without_automatic_confirmation(
+    monkeypatch, platform
+) -> None:
+    metadata = AlbumMetadata(
+        title="叶惠美",
+        artists=["周杰伦"],
+        released="2003-07-31",
+        tracks=[f"Track {index}" for index in range(11)],
+        cover="https://example.com/cover.jpg",
+        label="",
+    )
+    candidate = {
+        "title": "Yeh, Hwei-Mei",
+        "artists": ["Jay Chou"],
+        "release_year": 2003,
+        "track_count": 11,
+        "url": "https://example.com/album",
+        "type": "album",
+    }
+    monkeypatch.setattr(matching_service, "_album_metadata", lambda _request: metadata)
+    monkeypatch.setattr(
+        matching_service,
+        "_destination_adapter",
+        lambda _platform: DestinationAdapter(
+            search=lambda _query, _item_type: [candidate],
+            resolve=lambda _url: None,
+        ),
+    )
+
+    result = matching_service.platform_match_options(
+        "qq_music", "album-id", "album", platform
+    )
+
+    assert result.match is None
+    assert [str(item.url) for item in result.candidates] == [candidate["url"]]
+
+
+@pytest.mark.parametrize("change", [{"release_year": 2004}, {"track_count": 10}])
+def test_unrelated_localized_album_is_not_a_candidate(change) -> None:
+    metadata = AlbumMetadata(
+        title="叶惠美",
+        artists=["周杰伦"],
+        released="2003-07-31",
+        tracks=[f"Track {index}" for index in range(11)],
+        cover="https://example.com/cover.jpg",
+        label="",
+    )
+    candidate = {
+        "title": "Yeh, Hwei-Mei",
+        "artists": ["Jay Chou"],
+        "release_year": 2003,
+        "track_count": 11,
+        **change,
+    }
+    assert (
+        matching_service._candidate_score(metadata, candidate, "album", {"artist"})
+        is None
+    )
+
+
 def test_candidate_search_skips_empty_artist_queries(monkeypatch) -> None:
     metadata = AlbumMetadata(
         title="Groupies 吉他手",
@@ -699,9 +798,7 @@ def test_candidate_search_skips_empty_artist_queries(monkeypatch) -> None:
         label="",
     )
     queries: list[str] = []
-    monkeypatch.setattr(
-        matching_service, "_album_metadata", lambda _request: metadata
-    )
+    monkeypatch.setattr(matching_service, "_album_metadata", lambda _request: metadata)
     monkeypatch.setattr(
         matching_service,
         "_destination_adapter",
@@ -766,9 +863,7 @@ def test_exact_isrc_overrides_localized_display_text(monkeypatch) -> None:
         "url": "https://example.com/exact",
         "type": "track",
     }
-    monkeypatch.setattr(
-        matching_service, "_track_metadata", lambda _request: metadata
-    )
+    monkeypatch.setattr(matching_service, "_track_metadata", lambda _request: metadata)
     monkeypatch.setattr(
         matching_service, "_source_isrc", lambda *_args: "US-EXAMPLE-01"
     )
@@ -792,11 +887,17 @@ def test_exact_isrc_overrides_localized_display_text(monkeypatch) -> None:
     assert str(result.match.url) == candidate["url"]
 
 
-@pytest.mark.parametrize("candidate_title, expected", [("Track", "Fixture Records"), ("Different Track", "")])
+@pytest.mark.parametrize(
+    "candidate_title, expected", [("Track", "Fixture Records"), ("Different Track", "")]
+)
 def test_label_enrichment_is_independent_of_disabled_spotify_destination(
-    monkeypatch, candidate_title, expected,
+    monkeypatch,
+    candidate_title,
+    expected,
 ) -> None:
-    from beatprints_api.integrations.destinations import registry as destination_registry
+    from beatprints_api.integrations.destinations import (
+        registry as destination_registry,
+    )
     from beatprints_api.integrations.labels import spotify as spotify_label
 
     client = spotify_label.spotify_client
@@ -804,23 +905,181 @@ def test_label_enrichment_is_independent_of_disabled_spotify_destination(
     assert get_catalog_adapter("spotify").key == "spotify"
     monkeypatch.setattr(client, "client_id", "fixture")
     monkeypatch.setattr(client, "client_secret", "fixture")
-    monkeypatch.setattr(label_registry, "label_resolvers", lambda: (spotify_label.resolver,))
-    monkeypatch.setattr(client, "search", lambda *_args: [{
-        "id": "4uLU6hMCjMI75M1A2tKUQC",
-        "title": candidate_title,
-        "artists": ["Artist"],
-        "album": {"title": "Album"},
-        "link": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
-        "duration_seconds": 195,
-        "release_year": 2025,
-    }])
-    monkeypatch.setattr(client, "track_metadata", lambda _id: {"label": "Fixture Records"})
+    monkeypatch.setattr(
+        label_registry, "label_resolvers", lambda: (spotify_label.resolver,)
+    )
+    monkeypatch.setattr(
+        client,
+        "search",
+        lambda *_args: [
+            {
+                "id": "4uLU6hMCjMI75M1A2tKUQC",
+                "title": candidate_title,
+                "artists": ["Artist"],
+                "album": {"title": "Album"},
+                "link": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "duration_seconds": 195,
+                "release_year": 2025,
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        client, "track_metadata", lambda _id: {"label": "Fixture Records"}
+    )
     metadata = TrackMetadata(
-        title="Track", artists=["Artist"], album="Album", released="2025-01-01",
-        duration="03:15", cover="https://example.com/cover.jpg", label="",
+        title="Track",
+        artists=["Artist"],
+        album="Album",
+        released="2025-01-01",
+        duration="03:15",
+        cover="https://example.com/cover.jpg",
+        label="",
     )
     result = matching_service.catalog_service._enrich_missing_track_label(metadata)
     assert result.label == expected
     assert result.title == "Track"
     with pytest.raises(UnsupportedDestinationError):
         get_destination_adapter("spotify")
+
+
+@pytest.mark.parametrize(
+    "platform", ["spotify", "apple_music", "qq_music", "netease_music"]
+)
+@pytest.mark.parametrize("item_type", ["track", "album"])
+@pytest.mark.parametrize(
+    ("source_title", "candidate_title"),
+    [
+        ("Example Song", "Example Song (DJ Remix)"),
+        ("Example Song (DJ Remix)", "Example Song"),
+        ("Example Song", "Example Song - DJ Remix"),
+        ("Example Song (DJ A Remix)", "Example Song (DJ B Remix)"),
+        ("Example Song (DJ A 混音)", "Example Song (DJ B 混音)"),
+    ],
+)
+def test_remix_conflicts_remain_manual_candidates(
+    platform, item_type, source_title, candidate_title
+) -> None:
+    from dataclasses import replace
+
+    common = dict(
+        title=source_title,
+        artists=["Example Artist"],
+        released="2020-01-01",
+        cover="https://example.com/cover.jpg",
+        label="",
+    )
+    if item_type == "track":
+        metadata = TrackMetadata(**common, album="Example Album", duration="03:15")
+    else:
+        metadata = AlbumMetadata(**common, tracks=["One", "Two"])
+    candidate = {
+        "title": candidate_title,
+        "artists": ["Example Artist"],
+        "album": "Example Album",
+        "duration_seconds": 195,
+        "release_year": 2020,
+        "track_count": 2,
+        "url": "https://example.com/candidate",
+        "type": item_type,
+    }
+    seen = []
+
+    def source(provider, catalog_id, kind):
+        seen.append((provider, catalog_id, kind))
+        return metadata
+
+    adapter = replace(
+        get_destination_adapter(platform),
+        search=lambda _query, _kind: [candidate],
+        resolve_source=None,
+        supports_isrc=False,
+    )
+    result = matching_service.platform_match_options(
+        "source-provider",
+        "exact-source-id",
+        item_type,
+        platform,
+        source_metadata_fn=source,
+        destination_adapter_fn=lambda _platform: adapter,
+    )
+
+    assert seen == [("source-provider", "exact-source-id", item_type)]
+    assert result.match is None
+    assert [str(item.url) for item in result.candidates] == [candidate["url"]]
+
+
+def test_remix_identity_and_isrc_confirmation() -> None:
+    metadata = TrackMetadata(
+        title="Example Song (DJ Remix)",
+        artists=["Example Artist"],
+        album="Example Album",
+        released="2020-01-01",
+        duration="03:15",
+        cover="https://example.com/cover.jpg",
+        label="",
+    )
+    candidate = {
+        "title": "Example Song - DJ Remix",
+        "artists": ["Example Artist"],
+        "album": "Example Album",
+        "duration_seconds": 195,
+        "release_year": 2020,
+        "url": "https://example.com/candidate",
+        "type": "track",
+    }
+    search = lambda _query, _kind: [candidate]
+    assert matching_service.match_metadata(metadata, "track", search).match is not None
+
+    candidate["title"] = "Example Song"
+    candidate["isrc"] = "US-EXAMPLE-01"
+    result = matching_service.match_metadata(metadata, "track", search, "US-EXAMPLE-01")
+    assert result.match is not None
+    assert str(result.match.url) == candidate["url"]
+
+
+def test_exact_isrc_outranks_title_match_and_remix_conflict() -> None:
+    metadata = TrackMetadata(
+        title="Example Song",
+        artists=["Example Artist"],
+        album="Example Album",
+        released="2020-01-01",
+        duration="03:15",
+        cover="https://example.com/cover.jpg",
+        label="",
+    )
+    original = {
+        "title": "Example Song",
+        "artists": ["Example Artist"],
+        "album": "Example Album",
+        "duration_seconds": 195,
+        "release_year": 2020,
+        "url": "https://example.com/original",
+        "type": "track",
+    }
+    remix = {
+        **original,
+        "title": "Example Song (DJ Remix)",
+        "url": "https://example.com/remix",
+        "isrc": "US-EXAMPLE-01",
+    }
+    search = lambda _query, _kind: [original, remix]
+
+    without_isrc = matching_service.match_metadata(metadata, "track", search)
+    assert str(without_isrc.match.url) == original["url"]
+    assert [str(item.url) for item in without_isrc.candidates] == [
+        original["url"],
+        remix["url"],
+    ]
+
+    with_isrc = matching_service.match_metadata(
+        metadata, "track", search, "US-EXAMPLE-01"
+    )
+    assert str(with_isrc.match.url) == remix["url"]
+    assert str(with_isrc.candidates[0].url) == remix["url"]
+
+
+def test_remix_marker_does_not_match_inside_words() -> None:
+    assert matching_service._catalog_title_parts("Remixology")[1] == frozenset()
+    assert matching_service._catalog_title_parts("Song（DJ REMIX）")[1] == frozenset(
+        {"remix"}
+    )

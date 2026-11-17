@@ -14,6 +14,7 @@ dependencies = [
     "deezer-python==7.3.0",
     "qrcode[pil]>=8.2,<9",
     "httpcore==1.0.9",
+    "opencc==1.4.2",
 ]
 
 [project.scripts]
@@ -21,6 +22,7 @@ beatprints-api = "beatprints_api.__main__:main"
 
 [dependency-groups]
 dev = [
+    "black==26.5.1",
     "pytest==8.4.1",
 ]
 

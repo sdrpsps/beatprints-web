@@ -8,7 +8,7 @@ from qrcode.constants import ERROR_CORRECT_H, ERROR_CORRECT_M
 
 from BeatPrints import image as beatprints_image
 from BeatPrints import write
-from beatprints_api.integrations.destinations.kuima import kuima_client
+from beatprints_api.integrations.clients.kuima import kuima_client
 
 
 def empty_scannable(_theme: str = "Light") -> Image.Image:
@@ -24,11 +24,12 @@ def qr_font(size: int) -> ImageFont.FreeTypeFont:
     return ImageFont.truetype(path, size)
 
 
-def fallback_scannable(label: str, link: str, color: tuple[int, int, int]):
+def fallback_scannable(label: str, link: str):
     """Render a readable generic QR for a destination without custom artwork."""
 
-    def render(_theme: str = "Light") -> Image.Image:
+    def render(theme: str = "Light") -> Image.Image:
         width, height = beatprints_image.s.SCANCODE
+        color = beatprints_image.t.THEMES[theme]
         canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
         draw = ImageDraw.Draw(canvas)
         qr = qrcode.QRCode(
@@ -39,7 +40,7 @@ def fallback_scannable(label: str, link: str, color: tuple[int, int, int]):
         )
         qr.add_data(link)
         qr.make(fit=True)
-        code = qr.make_image(fill_color=color, back_color="white").convert("RGBA")
+        code = qr.make_image(fill_color=color, back_color="transparent").convert("RGBA")
         qr_size = 112
         code = code.resize((qr_size, qr_size), Image.Resampling.NEAREST)
         canvas.alpha_composite(code, (0, (height - qr_size) // 2))
@@ -63,7 +64,9 @@ def platform_icon(path: Path, color: tuple[int, int, int], size: int) -> Image.I
             ink = ImageChops.invert(rgba.convert("L"))
             mask = ImageChops.multiply(alpha, ink)
     except OSError as exc:
-        raise RuntimeError(f"Platform symbol asset is unavailable: {path.name}") from exc
+        raise RuntimeError(
+            f"Platform symbol asset is unavailable: {path.name}"
+        ) from exc
     mask = mask.resize((size, size), Image.Resampling.LANCZOS)
     icon = Image.new("RGBA", (size, size), color + (0,))
     icon.putalpha(mask)
@@ -88,8 +91,14 @@ def transparent_qr(
     def in_finder(x: int, y: int) -> bool:
         return (
             (border <= x < border + 7 and border <= y < border + 7)
-            or (last_finder_start <= x < last_finder_start + 7 and border <= y < border + 7)
-            or (border <= x < border + 7 and last_finder_start <= y < last_finder_start + 7)
+            or (
+                last_finder_start <= x < last_finder_start + 7
+                and border <= y < border + 7
+            )
+            or (
+                border <= x < border + 7
+                and last_finder_start <= y < last_finder_start + 7
+            )
         )
 
     for y, row in enumerate(modules):
@@ -102,16 +111,27 @@ def transparent_qr(
                 if not in_finder(x, y):
                     inset = round(module_size * 0.12)
                     draw.ellipse(
-                        (left + inset, top + inset, right - inset - 1, bottom - inset - 1),
+                        (
+                            left + inset,
+                            top + inset,
+                            right - inset - 1,
+                            bottom - inset - 1,
+                        ),
                         fill=color + (255,),
                     )
     finder_radius = round(module_size * 0.3)
-    for x, y in ((border, border), (last_finder_start, border), (border, last_finder_start)):
+    for x, y in (
+        (border, border),
+        (last_finder_start, border),
+        (border, last_finder_start),
+    ):
         left = round(x * module_size)
         top = round(y * module_size)
         right = round((x + 7) * module_size) - 1
         bottom = round((y + 7) * module_size) - 1
-        draw.rounded_rectangle((left, top, right, bottom), radius=finder_radius, fill=color + (255,))
+        draw.rounded_rectangle(
+            (left, top, right, bottom), radius=finder_radius, fill=color + (255,)
+        )
         inner_left = round((x + 1) * module_size)
         inner_top = round((y + 1) * module_size)
         inner_right = round((x + 6) * module_size) - 1
@@ -147,10 +167,17 @@ def icon_qr_scannable(
         width, height = beatprints_image.s.SCANCODE
         color = beatprints_image.t.THEMES[theme]
         canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-        code = kuima_client.image(link, icon_path, color, version=version, mask=mask, margin=margin)
+        code = kuima_client.image(
+            link, icon_path, color, version=version, mask=mask, margin=margin
+        )
         code = code.resize((112, 112), Image.Resampling.LANCZOS)
         canvas.alpha_composite(code, (0, (height - 112) // 2))
-        canvas.info["square_code_box"] = (0, (height - 112) // 2, 112, (height - 112) // 2 + 112)
+        canvas.info["square_code_box"] = (
+            0,
+            (height - 112) // 2,
+            112,
+            (height - 112) // 2 + 112,
+        )
         return canvas
 
     return render
@@ -165,24 +192,37 @@ def standard_icon_qr_scannable(link: str, icon_path: Path):
         qr = qrcode.QRCode(error_correction=ERROR_CORRECT_H, box_size=12, border=0)
         qr.add_data(link)
         qr.make(fit=True)
-        ink = ImageChops.invert(qr.make_image(fill_color="black", back_color="white").convert("L"))
+        ink = ImageChops.invert(
+            qr.make_image(fill_color="black", back_color="white").convert("L")
+        )
         size = ink.width
         plate = round(size * 0.23)
         x = (size - plate) // 2
-        ImageDraw.Draw(ink).rounded_rectangle((x, x, x + plate, x + plate), radius=plate // 5, fill=0)
+        ImageDraw.Draw(ink).rounded_rectangle(
+            (x, x, x + plate, x + plate), radius=plate // 5, fill=0
+        )
         with Image.open(icon_path) as source:
             rgba = source.convert("RGBA")
-            alpha = ImageChops.multiply(ImageChops.invert(rgba.convert("L")), rgba.getchannel("A"))
+            alpha = ImageChops.multiply(
+                ImageChops.invert(rgba.convert("L")), rgba.getchannel("A")
+            )
             if not alpha.getbbox():
                 alpha = rgba.getchannel("A")
-            alpha = alpha.resize((round(plate * 0.8), round(plate * 0.8)), Image.Resampling.LANCZOS)
+            alpha = alpha.resize(
+                (round(plate * 0.8), round(plate * 0.8)), Image.Resampling.LANCZOS
+            )
             ink.paste(alpha, ((size - alpha.width) // 2, (size - alpha.height) // 2))
         code = Image.new("RGBA", (size, size), color + (0,))
         code.putalpha(ink)
         code = code.resize((112, 112), Image.Resampling.LANCZOS)
         canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
         canvas.alpha_composite(code, (0, (height - 112) // 2))
-        canvas.info["square_code_box"] = (0, (height - 112) // 2, 112, (height - 112) // 2 + 112)
+        canvas.info["square_code_box"] = (
+            0,
+            (height - 112) // 2,
+            112,
+            (height - 112) // 2 + 112,
+        )
         return canvas
 
     return render

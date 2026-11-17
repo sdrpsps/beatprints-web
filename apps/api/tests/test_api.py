@@ -13,7 +13,7 @@ from beatprints_api.exceptions import (
     UnsupportedLyricsSourceError,
     UpstreamError,
 )
-from beatprints_api.integrations.spotify_client import SpotifyNotConfiguredError
+from beatprints_api.integrations.clients.spotify import SpotifyNotConfiguredError
 from beatprints_api.main import app, create_app
 from beatprints_api.models import PlatformLinkMatchData, PlatformMatchOptionsData
 
@@ -86,13 +86,36 @@ def test_invalid_request_id_is_replaced() -> None:
 def test_web_app_is_served_without_shadowing_api(tmp_path: Path) -> None:
     (tmp_path / "index.html").write_text("<h1>BeatPrints</h1>")
     (tmp_path / "favicon.svg").write_text("<svg></svg>")
+    (tmp_path / "en").mkdir()
+    (tmp_path / "en" / "index.html").write_text("<h1>English</h1>")
+    (tmp_path / "zh-CN").mkdir()
+    (tmp_path / "zh-CN" / "index.html").write_text("<h1>简体中文</h1>")
+    (tmp_path / "zh-TW").mkdir()
+    (tmp_path / "zh-TW" / "index.html").write_text("<h1>繁體中文</h1>")
+    (tmp_path / "ja").mkdir()
+    (tmp_path / "ja" / "index.html").write_text("<h1>日本語</h1>")
+    (tmp_path / "ko").mkdir()
+    (tmp_path / "ko" / "index.html").write_text("<h1>한국어</h1>")
     web_client = TestClient(create_app(web_root=tmp_path))
 
     assert web_client.get("/").text == "<h1>BeatPrints</h1>"
-    assert web_client.get("/studio").text == "<h1>BeatPrints</h1>"
+    assert web_client.get("/en/").text == "<h1>English</h1>"
+    assert web_client.head("/en").status_code == 200
+    assert web_client.get("/zh-CN/").text == "<h1>简体中文</h1>"
+    assert web_client.get("/zh-TW/").text == "<h1>繁體中文</h1>"
+    assert web_client.get("/ja/").text == "<h1>日本語</h1>"
+    assert web_client.head("/ja").status_code == 200
+    assert web_client.get("/ko/").text == "<h1>한국어</h1>"
+    assert web_client.head("/ko").status_code == 200
+    for path in ("/studio", "/not-a-page", "/assets/missing.js", "/en/missing"):
+        assert web_client.get(path).status_code == 404
+        assert web_client.head(path).status_code == 404
     assert web_client.get("/favicon.svg").text == "<svg></svg>"
     assert web_client.head("/favicon.svg").status_code == 200
     assert web_client.get("/health").json()["data"]["status"] == "ok"
+    assert web_client.get("/v1/capabilities").headers["cache-control"] == "no-store"
+    assert web_client.get("/v1/nonexistent").status_code == 404
+    assert web_client.get("/v1/nonexistent").json()["message"] == "Not Found"
 
 
 def test_agent_document_is_discoverable_and_served_as_public_text(
@@ -201,6 +224,74 @@ def test_track_returns_png(monkeypatch) -> None:
     assert response.headers["x-process-time"]
 
 
+@pytest.mark.parametrize(("count", "status"), [(3, 502), (4, 200), (6, 200)])
+def test_track_default_lyrics_use_first_four_from_qq_music(
+    monkeypatch, count, status
+) -> None:
+    from BeatPrints.deez import TrackMetadata
+    from beatprints_api.integrations.clients.qq_music import qq_music_client
+    from beatprints_api.services import catalog as catalog_service
+    from beatprints_api.services import rendering
+
+    metadata = TrackMetadata(
+        title="Example Song",
+        artists=["Example Artist"],
+        album="Example Album",
+        released="2020-01-01",
+        duration="03:15",
+        cover="https://example.com/cover.jpg",
+        label="",
+    )
+    monkeypatch.setattr(catalog_service, "track_metadata", lambda _request: metadata)
+    monkeypatch.setattr(
+        qq_music_client,
+        "search",
+        lambda *_args: {
+            "data": {
+                "song": {
+                    "list": [
+                        {
+                            "songmid": "example",
+                            "songname": "Example Song",
+                            "singer": [{"name": "Example Artist"}],
+                            "albumname": "Example Album",
+                            "interval": 195,
+                        }
+                    ]
+                }
+            }
+        },
+    )
+    monkeypatch.setattr(
+        qq_music_client,
+        "lyrics",
+        lambda _id: {
+            "lyric": "\n".join(
+                f"[00:{index:02d}.00]Line {index}" for index in range(1, count + 1)
+            )
+        },
+    )
+    rendered = []
+
+    def render(_request, _metadata, selected_lyrics):
+        rendered.append(selected_lyrics)
+        return rendering.PosterResult(b"\x89PNG\r\n\x1a\n", "poster.png", {})
+
+    monkeypatch.setattr(rendering, "render_track", render)
+    response = client.post(
+        "/v1/posters/track",
+        json={"provider": "spotify", "catalog_id": "exact-track-id"},
+    )
+
+    assert response.status_code == status
+    if status == 200:
+        assert response.headers["content-type"] == "image/png"
+        assert rendered == ["Line 1\nLine 2\nLine 3\nLine 4"]
+    else:
+        assert "Fewer than four" in response.json()["message"]
+        assert rendered == []
+
+
 def test_track_endpoint_accepts_empty_lyrics(monkeypatch) -> None:
     captured: dict[str, str | None] = {}
 
@@ -292,9 +383,7 @@ def test_same_source_qr_platform_does_not_require_a_platform_link(
     monkeypatch.setattr(
         posters.poster_service,
         "generate_track",
-        lambda _request: posters.PosterResult(
-            b"\x89PNG\r\n\x1a\n", "poster.png", {}
-        ),
+        lambda _request: posters.PosterResult(b"\x89PNG\r\n\x1a\n", "poster.png", {}),
     )
 
     response = client.post(
@@ -553,9 +642,7 @@ def test_every_platform_exposes_ranked_candidates(
         )
         return PlatformMatchOptionsData(candidates=[candidate])
 
-    monkeypatch.setattr(
-        catalog.matching_service, "platform_match_options", candidates
-    )
+    monkeypatch.setattr(catalog.matching_service, "platform_match_options", candidates)
 
     response = client.get(
         f"/v1/platform-links/{platform}/options",
@@ -582,26 +669,31 @@ def test_every_platform_exposes_ranked_candidates(
     "platform",
     ["spotify", "apple_music", "qq_music", "netease_music"],
 )
+@pytest.mark.parametrize("item_type", ["track", "album"])
 def test_candidate_selection_resolves_current_platform_metadata(
     monkeypatch,
     platform: str,
+    item_type: str,
 ) -> None:
     seen: dict[str, str] = {}
 
     def resolve(candidate_platform: str, url: str) -> dict:
         seen.update(platform=candidate_platform, url=url)
-        return {
+        result = {
             "url": url,
             "title": "Current title",
             "artists": ["Current artist"],
-            "album": "Current album",
             "release_year": 2024,
-            "duration_seconds": 201,
-            "type": "track",
+            "type": item_type,
         }
+        if item_type == "track":
+            result.update(album="Current album", duration_seconds=201)
+        else:
+            result["track_count"] = 11
+        return result
 
     monkeypatch.setattr(catalog.matching_service, "resolve_platform_url", resolve)
-    url = f"https://example.com/{platform}/track/1"
+    url = f"https://example.com/{platform}/{item_type}/1"
 
     response = client.get(
         f"/v1/platform-links/{platform}/resolve",
@@ -610,15 +702,18 @@ def test_candidate_selection_resolves_current_platform_metadata(
 
     assert response.status_code == 200
     assert seen == {"platform": platform, "url": url}
-    assert response.json()["data"] == {
+    expected = {
         "url": url,
         "title": "Current title",
         "artists": ["Current artist"],
-        "album": "Current album",
         "release_year": 2024,
-        "duration_seconds": 201,
-        "type": "track",
+        "type": item_type,
     }
+    if item_type == "track":
+        expected.update(album="Current album", duration_seconds=201)
+    else:
+        expected["track_count"] = 11
+    assert response.json()["data"] == expected
 
 
 def test_track_allows_empty_instrumental_text() -> None:
@@ -793,8 +888,8 @@ def test_openapi_includes_descriptions_and_request_examples() -> None:
     }
     assert "未提供 `qr_platform` 时不显示" in track["description"]
     assert "未提供 `qr_platform` 时不显示" in album["description"]
-    assert "封面取色二维码" in track["responses"]["200"]["description"]
-    assert "封面取色二维码" in album["responses"]["200"]["description"]
+    assert "主题色二维码" in track["responses"]["200"]["description"]
+    assert "主题色二维码" in album["responses"]["200"]["description"]
     track_examples = track["requestBody"]["content"]["application/json"]["examples"]
     assert "qr_platform" not in track_examples["catalog_no_qr"]["value"]
     assert track_examples["spotify_qr_auto"]["value"]["qr_platform"] == "spotify"
@@ -812,6 +907,10 @@ def test_openapi_includes_descriptions_and_request_examples() -> None:
     assert qr_platform_schema["anyOf"][0]["type"] == "string"
     track_schema = schema["components"]["schemas"]["TrackPosterRequest"]
     album_schema = schema["components"]["schemas"]["AlbumPosterRequest"]
+    assert (
+        "默认选取前四行非空歌词"
+        in track_schema["properties"]["lyrics_range"]["description"]
+    )
     assert track_schema["example"]["catalog_id"] == "7lp5evZr7qEDwlv5PS8b6i"
     assert album_schema["example"]["catalog_id"] == "614LGcMwiEpyQ5SVg6S5Im"
     assert schema["components"]["schemas"]["TrackMetadataInput"]["properties"][
@@ -820,3 +919,177 @@ def test_openapi_includes_descriptions_and_request_examples() -> None:
     assert schema["components"]["schemas"]["TrackMetadataInput"]["properties"][
         "duration"
     ]["examples"] == ["03:23"]
+
+
+def test_capabilities_follow_registries_and_configuration(monkeypatch) -> None:
+    from beatprints_api.integrations.catalog import registry as catalogs
+    from beatprints_api.integrations.destinations import registry as destinations
+    from beatprints_api.integrations.lyrics import registry as lyrics
+
+    response = client.get("/v1/capabilities")
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert {item["key"] for item in data["catalogs"]} == set(catalogs._adapters)
+    assert {item["key"] for item in data["destinations"]} == set(destinations._adapters)
+    assert {item["key"] for item in data["lyrics"]} == set(lyrics._adapters)
+    expected_order = ["apple_music", "spotify", "qq_music", "netease_music"]
+    assert [item["key"] for item in data["catalogs"]] == expected_order
+    assert [item["key"] for item in data["destinations"]] == expected_order
+    for item in data["destinations"]:
+        adapter = destinations.get_destination_adapter(item["key"])
+        assert set(item["reuses_source_links"]) == {
+            source.key
+            for source in catalogs.catalog_adapters()
+            if adapter.reuses_source_link(source.key)
+        }
+
+    # A removed role must not remove the same key from another role.
+    monkeypatch.setattr(
+        catalogs,
+        "_adapters",
+        {k: v for k, v in catalogs._adapters.items() if k != "spotify"},
+    )
+    monkeypatch.setattr(
+        lyrics,
+        "_adapters",
+        {k: v for k, v in lyrics._adapters.items() if k != "lrclib"},
+    )
+    data = client.get("/v1/capabilities").json()["data"]
+    assert "spotify" not in {item["key"] for item in data["catalogs"]}
+    assert "spotify" in {item["key"] for item in data["destinations"]}
+    assert "lrclib" not in {item["key"] for item in data["lyrics"]}
+    assert [item["key"] for item in data["catalogs"]] == [
+        "apple_music",
+        "qq_music",
+        "netease_music",
+    ]
+
+
+def test_capabilities_reports_unconfigured_catalog(monkeypatch) -> None:
+    from dataclasses import replace
+    from beatprints_api.integrations.catalog import registry
+
+    original = registry._adapters["spotify"]
+    monkeypatch.setitem(
+        registry._adapters, "spotify", replace(original, configured=lambda: False)
+    )
+    catalogs = client.get("/v1/capabilities").json()["data"]["catalogs"]
+    spotify = next(item for item in catalogs if item["key"] == "spotify")
+    assert spotify["available"] is False
+    assert spotify["reason"] == "not_configured"
+
+
+@pytest.mark.parametrize("key", ["spotify", "apple_music", "qq_music", "netease_music"])
+@pytest.mark.parametrize("item_type", ["track", "album"])
+def test_disabled_destination_rejected_by_matching_and_resolution(
+    monkeypatch, key, item_type
+) -> None:
+    from beatprints_api.integrations.destinations import registry
+
+    monkeypatch.setattr(
+        registry, "_adapters", {k: v for k, v in registry._adapters.items() if k != key}
+    )
+    data = client.get("/v1/capabilities").json()["data"]
+    assert key not in {item["key"] for item in data["destinations"]}
+    assert (
+        client.get(
+            f"/v1/platform-links/{key}/options",
+            params={
+                "provider": "qq_music",
+                "catalog_id": "1",
+                "type": item_type,
+            },
+        ).status_code
+        == 404
+    )
+    assert (
+        client.get(
+            f"/v1/platform-links/{key}/resolve",
+            params={"url": "https://example.com/item"},
+        ).status_code
+        == 404
+    )
+
+
+@pytest.mark.parametrize("key", ["spotify", "apple_music", "qq_music", "netease_music"])
+@pytest.mark.parametrize("item_type", ["track", "album"])
+def test_disabled_catalog_cannot_use_direct_destination_match(
+    monkeypatch, key, item_type
+) -> None:
+    from beatprints_api.integrations.catalog import registry
+
+    monkeypatch.setattr(
+        registry, "_adapters", {k: v for k, v in registry._adapters.items() if k != key}
+    )
+    data = client.get("/v1/capabilities").json()["data"]
+    assert key not in {item["key"] for item in data["catalogs"]}
+    assert key in {item["key"] for item in data["destinations"]}
+    assert (
+        client.get(
+            "/v1/search",
+            params={"query": "example", "type": item_type, "provider": key},
+        ).status_code
+        == 404
+    )
+    assert (
+        client.get(
+            f"/v1/platform-links/{key}/options",
+            params={
+                "provider": key,
+                "catalog_id": "1",
+                "type": item_type,
+            },
+        ).status_code
+        == 404
+    )
+
+
+@pytest.mark.parametrize("key", ["qq_music", "netease", "lrclib"])
+def test_disabled_lyrics_rejected_before_fetching_metadata(monkeypatch, key) -> None:
+    from beatprints_api.integrations.lyrics import registry
+
+    monkeypatch.setattr(
+        registry, "_adapters", {k: v for k, v in registry._adapters.items() if k != key}
+    )
+    response = client.get(
+        "/v1/lyrics", params={"provider": "qq_music", "catalog_id": "1", "source": key}
+    )
+    assert response.status_code == 404
+
+
+def test_capabilities_is_only_exposed_under_v1() -> None:
+    assert client.get("/v1/capabilities").status_code == 200
+    assert not any(
+        getattr(route, "path", None) == "/capabilities" for route in app.routes
+    )
+    schema = client.get("/openapi.json").json()["paths"]
+    assert "/v1/capabilities" in schema
+    assert "/capabilities" not in schema
+
+
+@pytest.mark.parametrize("item_type", ["track", "album"])
+def test_cached_metadata_does_not_bypass_disabled_catalog(
+    monkeypatch, item_type
+) -> None:
+    from beatprints_api.integrations.catalog import registry
+    from beatprints_api.services import catalog as catalog_service
+    from beatprints_api.models.poster import TrackPosterRequest, AlbumPosterRequest
+    from beatprints_api.exceptions import UnsupportedCatalogSourceError
+
+    cache_fn = (
+        "_cached_track_metadata" if item_type == "track" else "_cached_album_metadata"
+    )
+    monkeypatch.setattr(catalog_service, cache_fn, lambda *_args: object())
+    monkeypatch.setattr(
+        registry,
+        "_adapters",
+        {k: v for k, v in registry._adapters.items() if k != "qq_music"},
+    )
+    request_type = TrackPosterRequest if item_type == "track" else AlbumPosterRequest
+    load = (
+        catalog_service.track_metadata
+        if item_type == "track"
+        else catalog_service.album_metadata
+    )
+    with pytest.raises(UnsupportedCatalogSourceError):
+        load(request_type(provider="qq_music", catalog_id="123"))

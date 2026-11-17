@@ -3,7 +3,7 @@
 from urllib.parse import urlparse
 
 from BeatPrints import deez
-from beatprints_api.integrations.spotify_client import spotify_client
+from beatprints_api.integrations.clients.spotify import spotify_client
 from beatprints_api.integrations.labels.base import LabelResolver
 from beatprints_api.integrations.labels.registry import register
 
@@ -21,7 +21,9 @@ def resolve_track(metadata: deez.TrackMetadata) -> str | None:
     from beatprints_api.services import matching
 
     options = matching.match_metadata(
-        metadata, "track", spotify_client.search_candidates,
+        metadata,
+        "track",
+        spotify_client.search_candidates,
     )
     if options.match is None:
         return None

@@ -10,9 +10,9 @@
 [TrueMyst / elysianmyst 创作的 BeatPrints](https://github.com/TrueMyst/BeatPrints) 构建：
 原项目负责音乐海报的核心排版与渲染，本项目为它补充了 Web 创作界面、HTTP API、音乐目录集成和自部署能力。
 
-[English](README.md) · [简体中文](README.zh-CN.md)
+[English](../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md) · [한국어](README.ko.md)
 
-[快速开始](#快速开始) · [Docker 部署](#docker-部署) · [API 文档](apps/api/README.md) · [前端开发](apps/web/README.md)
+[快速开始](#快速开始) · [Docker 部署](#docker-部署) · [API 文档](../apps/api/README.md) · [前端开发](../apps/web/README.md)
 
 </div>
 
@@ -28,7 +28,7 @@ BeatPrints Web 在原生成器之外补充了：
 
 - 可以在浏览器中完成整个创作流程的 React 界面；
 - 用于搜索音乐、读取歌词和生成海报的 FastAPI 服务；
-- QQ 音乐、网易云音乐、Spotify 与多个二维码目标平台的目录集成；
+- QQ 音乐、网易云音乐、Spotify、Apple Music 与多个二维码目标平台的目录集成；
 - Docker Compose、统一生产镜像和自动发布工具。
 
 如果你只需要原始生成器，或想了解海报排版能力本身，请访问
@@ -38,7 +38,7 @@ BeatPrints，或者把它作为 HTTP 服务部署，则可以直接使用本项�
 ## BeatPrints Web 是什么
 
 BeatPrints Web 是基于原始 BeatPrints 构建的可自部署 Web 创作应用。它不生成虚构的音乐内容，
-而是从 QQ 音乐、网易云音乐或 Spotify 获取真实的封面与曲目信息，让你确认准确版本后，再调用
+而是从 QQ 音乐、网易云音乐、Spotify 或 Apple Music 获取真实的封面与曲目信息，让你确认准确版本后，再调用
 BeatPrints 完成海报渲染。
 
 单曲海报的创作流程非常简单：
@@ -51,7 +51,7 @@ BeatPrints 完成海报渲染。
 服务端不会保存你的任何海报。
 
 > [!IMPORTANT]
-> **元数据来源**与**海报平台入口**是两个独立的概念：`provider` 决定从 QQ 音乐、网易云音乐或 Spotify
+> **元数据来源**与**海报平台入口**是两个独立的概念：`provider` 决定从 QQ 音乐、网易云音乐、Spotify 或 Apple Music
 > 获取元数据；`qr_platform` 决定海报是否附带 Spotify、Apple Music、QQ 音乐或
 > 网易云音乐的跳转入口。未选择平台入口时，海报不会显示任何平台标识或二维码。
 
@@ -63,7 +63,7 @@ BeatPrints 完成海报渲染。
 - **跨平台严谨匹配**：优先使用 ISRC 等稳定标识；无法确认时展示候选列表或支持手动输入链接，绝不静默关联错误版本。
 - **定制海报外观**：内置 Light、Dark、Catppuccin、Gruvbox、Nord、RosePine 与 Everforest 主题，支持封面强调色。
 - **单曲与专辑双模式**：专辑海报额外支持曲目编号与随机曲序。
-- **多语言界面**：支持简体中文、繁體中文与 English。
+- **多语言界面**：支持简体中文、繁體中文、English、日本語和 한국어。
 - **Web 与 API 一体部署**：单一生产镜像同时提供前端静态页面与 FastAPI 后端服务。
 
 ## 快速开始
@@ -92,11 +92,11 @@ make dev
 - OpenAPI 文档：<http://localhost:8000/docs>
 
 Spotify 搜索是可选能力。需要时，在 `.env` 中配置
-`SPOTIFY_CLIENT_ID` 和 `SPOTIFY_CLIENT_SECRET`；未配置时仍可使用 QQ 音乐或网易云音乐。
+`SPOTIFY_CLIENT_ID` 和 `SPOTIFY_CLIENT_SECRET`；未配置时仍可使用 QQ 音乐、网易云音乐或 Apple Music。
 
 微信葵花码需要二维码服务。Docker Compose 会自动启动该服务；本地开发时可通过
 `WECHAT_QR_BASE_URL` 指定服务地址（例如 `http://127.0.0.1:8080`）；未配置时隐藏微信葵花码选项。标准二维码不需要
-该服务，Spotify 始终使用 Spotify Code。部署和调用详情请参阅 [API 文档](apps/api/README.md#本地启动)。
+该服务，Spotify 始终使用 Spotify Code。部署和调用详情请参阅 [API 文档](../apps/api/README.md#本地启动)。
 
 ### 常用命令
 
@@ -120,6 +120,14 @@ pnpm --filter @beatprints/web build
 ## Docker 部署
 
 项目提供单容器部署方案：前端构建产物由 FastAPI 一并托管提供，对外只需暴露 `8000` 端口。
+
+英文首页 `/` 是唯一提交搜索收录的页面。界面会检测浏览器语言，也可以使用
+`/en/`、`/zh-CN/`、`/zh-TW/`、`/ja/` 和 `/ko/` 指定语言；明确的语言地址优先于浏览器设置。
+这些语言地址标记为 `noindex`，规范链接指向英文首页。规范链接、站点地图和分享地址
+固定使用 `https://beatprints.bytespark.app`，在其他域名访问时也不会改变。
+如果独立部署需要以自己的域名被搜索引擎收录，请在构建前同步修改 `apps/web/index.html`、
+`apps/web/public/robots.txt`、`apps/web/public/sitemap.xml` 和
+`apps/web/tests/seo-regressions.mjs` 中的域名。
 
 ```bash
 cp .env.example .env
@@ -159,7 +167,7 @@ MAX_CONCURRENT_JOBS=1
 
 ## 配置
 
-主要环境变量记录在 [`.env.example`](.env.example)：
+主要环境变量记录在 [`.env.example`](../.env.example)：
 
 | 变量 | 用途 | 默认值 |
 | --- | --- | --- |
@@ -167,8 +175,6 @@ MAX_CONCURRENT_JOBS=1
 | `API_KEY` | `/v1` 接口的可选 Bearer Token | 留空 |
 | `CORS_ORIGINS` | 允许访问 API 的前端来源，多个值用逗号分隔 | 留空 |
 | `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | 启用 Spotify 搜索与资料获取 | 留空 |
-| `SPOTIFY_MARKET` | Spotify 市场区域 | `US` |
-| `APPLE_MUSIC_STOREFRONT` | Apple Music Storefront 区域 | `US` |
 | `METADATA_CACHE_TTL_SECONDS` | 元数据缓存时间（秒） | `600` |
 | `MAX_CONCURRENT_JOBS` | 单进程同时生成海报的最大并发数 | `1` |
 
@@ -195,9 +201,9 @@ MAX_CONCURRENT_JOBS=1
 
 进一步阅读：
 
-- [前端开发指南](apps/web/README.md)
-- [API 部署与调用示例](apps/api/README.md)
-- [前端产品流程与 API 映射](docs/frontend-product-brief.md)
+- [前端开发指南](../apps/web/README.md)
+- [API 部署与调用示例](../apps/api/README.md)
+- [前端产品流程与 API 映射](frontend-product-brief.md)
 
 ## API 概览
 
@@ -216,13 +222,23 @@ MAX_CONCURRENT_JOBS=1
 ```http
 GET  /v1/search
 GET  /v1/lyrics
-GET  /v1/platform-links/{platform}
+GET  /v1/capabilities
+GET  /v1/platform-links/{platform}/options
+GET  /v1/platform-links/{platform}/resolve
 POST /v1/posters/track
 POST /v1/posters/album
 ```
 
+直接请求单曲海报时，如果既未提供 `lyrics` 也未提供 `lyrics_range`，非纯音乐会从默认歌词来源
+选取前四行非空歌词；可用歌词不足四行时返回上游错误。显式 `lyrics` 优先，`lyrics: ""` 表示不显示
+歌词；显式 `lyrics_range` 必须选出恰好四行。
+
+支持地区的集成通过 `GET /v1/capabilities` 返回来源和目标各自的地区列表。调用方应保留
+搜索时选择的来源地区，直至生成海报；来源地区和二维码目标地区独立选择，省略时默认为 `US`。
+各步骤的参数和示例见 [地区工作流](../apps/api/README.md#音乐平台)。
+
 完整的请求字段、跨平台匹配方式、错误结构与 `curl` 示例请参阅
-[BeatPrints API 文档](apps/api/README.md)，或在服务启动后打开 `/docs`。
+[BeatPrints API 文档](../apps/api/README.md)，或在服务启动后打开 `/docs`。
 
 ## 构建与发布
 
@@ -247,5 +263,5 @@ ghcr.io/sdrpsps/beatprints-web:latest
 微信葵花码生成功能使用 [AnglerS888/葵码生成器](https://github.com/AnglerS888/kuima-generator)，
 感谢其作者与贡献者。
 
-项目采用 [CC BY-NC-SA 4.0](LICENSE) 许可，仅供非商业使用。使用、分发或创建衍生作品时，
+项目采用 [CC BY-NC-SA 4.0](../LICENSE) 许可，仅供非商业使用。使用、分发或创建衍生作品时，
 请保留署名并以相同许可共享；商业使用前请先取得原作者授权。

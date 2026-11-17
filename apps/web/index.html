@@ -1,84 +1,96 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BeatPrints Web — 在线制作音乐海报</title>
-    <meta
-      name="description"
-      content="BeatPrints Web 是免费的在线音乐海报制作工具。搜索单曲或专辑，可选最多四行歌词、海报主题和二维码平台，生成并下载 PNG 音乐海报。"
-    />
+    <script id="app-bootstrap">
+      document.documentElement.setAttribute("data-app-pending", "")
+    </script>
+    <style>
+      html[data-app-pending], html[data-app-pending] body {
+        margin: 0;
+        background: #f3edf0;
+      }
+      #app-loading { display: none; }
+      html[data-app-pending] #root { display: none; }
+      html[data-app-pending] #app-loading {
+        display: grid;
+        min-height: 100vh;
+        place-items: center;
+        color: #281d29;
+        background: #f3edf0;
+        font: 600 18px system-ui, sans-serif;
+      }
+      #app-loading div { text-align: center; }
+      #app-loading .app-loading-brand {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+      }
+      #app-loading .app-loading-logo {
+        width: 64px;
+        height: 64px;
+        object-fit: contain;
+      }
+      #app-loading .app-loading-spinner {
+        width: 20px;
+        height: 20px;
+        margin-top: 4px;
+        color: #6f606a;
+        animation: app-loading-spin 1s linear infinite;
+      }
+      @keyframes app-loading-spin {
+        to { transform: rotate(360deg); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #app-loading .app-loading-spinner { animation: none; }
+      }
+    </style>
+    <title>BeatPrints Web · Online Music Poster Maker</title>
+    <meta name="description" content="Find a track or album, choose lyrics, a theme and an optional music platform link, then create and download a PNG music poster." />
     <meta name="application-name" content="BeatPrints Web" />
     <meta name="author" content="BeatPrints Web Contributors" />
-    <meta name="generator" content="BeatPrints Web" />
-    <meta
-      name="robots"
-      content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
-    />
-    <meta
-      name="googlebot"
-      content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
-    />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
-    <meta name="format-detection" content="telephone=no" />
     <meta name="theme-color" content="#f3edf0" />
     <meta name="color-scheme" content="light" />
-
-    <link id="canonical-url" rel="canonical" />
+    <link rel="canonical" href="https://beatprints.bytespark.app/" />
     <link rel="describedby" type="text/plain" href="/llms.txt" />
     <link rel="icon" type="image/png" href="/favicon.png" />
-
     <meta property="og:type" content="website" />
-    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:locale" content="en_US" />
     <meta property="og:site_name" content="BeatPrints Web" />
-    <meta id="open-graph-url" property="og:url" content="" />
-    <meta property="og:title" content="BeatPrints Web — 在线制作音乐海报" />
-    <meta
-      property="og:description"
-      content="搜索真实单曲或专辑，可选最多四行歌词、海报主题和二维码平台，生成可下载的 PNG 音乐海报。"
-    />
-
-    <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="BeatPrints Web — 在线制作音乐海报" />
-    <meta
-      name="twitter:description"
-      content="搜索真实单曲或专辑，可选最多四行歌词、海报主题和二维码平台，生成可下载的 PNG 音乐海报。"
-    />
-
-    <script>
-      const pageUrl = new URL("/", window.location.href).href
-      document.querySelector("#canonical-url").href = pageUrl
-      document.querySelector("#open-graph-url").content = pageUrl
-    </script>
+    <meta property="og:url" content="https://beatprints.bytespark.app/" />
+    <meta property="og:title" content="BeatPrints Web · Online Music Poster Maker" />
+    <meta property="og:description" content="Find a track or album, choose lyrics, a theme and an optional music platform link, then create and download a PNG music poster." />
+    <meta property="og:image" content="https://beatprints.bytespark.app/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="BeatPrints Web music poster examples" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="BeatPrints Web · Online Music Poster Maker" />
+    <meta name="twitter:description" content="Find a track or album, choose lyrics, a theme and an optional music platform link, then create and download a PNG music poster." />
+    <meta name="twitter:image" content="https://beatprints.bytespark.app/og-image.png" />
+    <meta name="twitter:image:alt" content="BeatPrints Web music poster examples" />
     <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "WebApplication",
-        "name": "BeatPrints Web",
-        "alternateName": "BeatPrints Web 音乐海报制作工具",
-        "description": "搜索真实单曲或专辑，可选最多四行歌词、海报主题和二维码平台，生成并下载 PNG 音乐海报。",
-        "applicationCategory": "MultimediaApplication",
-        "applicationSubCategory": "Music poster maker",
-        "operatingSystem": "Any",
-        "browserRequirements": "Requires JavaScript",
-        "inLanguage": "zh-CN",
-        "isAccessibleForFree": true,
-        "license": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
-        "codeRepository": "https://github.com/sdrpsps/beatprints-web",
-        "offers": {
-          "@type": "Offer",
-          "price": "0",
-          "priceCurrency": "CNY"
-        }
-      }
+      {"@context":"https://schema.org","@type":"WebApplication","name":"BeatPrints Web","description":"Find a track or album, choose lyrics, a theme and an optional music platform link, then create and download a PNG music poster.","url":"https://beatprints.bytespark.app/","applicationCategory":"MultimediaApplication","operatingSystem":"Any","browserRequirements":"Requires JavaScript","inLanguage":"en","isAccessibleForFree":true,"license":"https://creativecommons.org/licenses/by-nc-sa/4.0/","codeRepository":"https://github.com/sdrpsps/beatprints-web"}
     </script>
   </head>
   <body>
-    <div id="root"></div>
-    <noscript>
-      BeatPrints Web 是一款免费的在线音乐海报制作工具，需要启用 JavaScript
-      才能搜索音乐、选择歌词并生成 PNG 海报。
-    </noscript>
+    <div id="app-loading">
+      <div>
+        <div class="app-loading-brand" role="status" aria-label="Loading BeatPrints Web">
+          <img class="app-loading-logo" src="/favicon.png" width="64" height="64" alt="" />
+          <span>BeatPrints Web</span>
+          <svg class="app-loading-spinner" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+          </svg>
+        </div>
+      </div>
+    </div>
+    <div id="root"><main><h1>Let a song, take shape on paper.</h1><p>Find the exact release in real music catalogs, optionally choose up to four lyric lines, and create a downloadable PNG poster.</p><h2>How to make a music poster</h2><p>Find the right track or album, choose lyrics and a theme, and create a downloadable PNG.</p></main></div>
+    <noscript>Enable JavaScript to search for music and create posters.</noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
