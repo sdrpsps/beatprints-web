@@ -940,3 +940,146 @@ def test_label_enrichment_is_independent_of_disabled_spotify_destination(
     assert result.title == "Track"
     with pytest.raises(UnsupportedDestinationError):
         get_destination_adapter("spotify")
+
+
+@pytest.mark.parametrize(
+    "platform", ["spotify", "apple_music", "qq_music", "netease_music"]
+)
+@pytest.mark.parametrize("item_type", ["track", "album"])
+@pytest.mark.parametrize(
+    ("source_title", "candidate_title"),
+    [
+        ("Example Song", "Example Song (DJ Remix)"),
+        ("Example Song (DJ Remix)", "Example Song"),
+        ("Example Song", "Example Song - DJ Remix"),
+        ("Example Song (DJ A Remix)", "Example Song (DJ B Remix)"),
+        ("Example Song (DJ A 混音)", "Example Song (DJ B 混音)"),
+    ],
+)
+def test_remix_conflicts_remain_manual_candidates(
+    platform, item_type, source_title, candidate_title
+) -> None:
+    from dataclasses import replace
+
+    common = dict(
+        title=source_title,
+        artists=["Example Artist"],
+        released="2020-01-01",
+        cover="https://example.com/cover.jpg",
+        label="",
+    )
+    if item_type == "track":
+        metadata = TrackMetadata(**common, album="Example Album", duration="03:15")
+    else:
+        metadata = AlbumMetadata(**common, tracks=["One", "Two"])
+    candidate = {
+        "title": candidate_title,
+        "artists": ["Example Artist"],
+        "album": "Example Album",
+        "duration_seconds": 195,
+        "release_year": 2020,
+        "track_count": 2,
+        "url": "https://example.com/candidate",
+        "type": item_type,
+    }
+    seen = []
+
+    def source(provider, catalog_id, kind):
+        seen.append((provider, catalog_id, kind))
+        return metadata
+
+    adapter = replace(
+        get_destination_adapter(platform),
+        search=lambda _query, _kind: [candidate],
+        resolve_source=None,
+        supports_isrc=False,
+    )
+    result = matching_service.platform_match_options(
+        "source-provider",
+        "exact-source-id",
+        item_type,
+        platform,
+        source_metadata_fn=source,
+        destination_adapter_fn=lambda _platform: adapter,
+    )
+
+    assert seen == [("source-provider", "exact-source-id", item_type)]
+    assert result.match is None
+    assert [str(item.url) for item in result.candidates] == [candidate["url"]]
+
+
+def test_remix_identity_and_isrc_confirmation() -> None:
+    metadata = TrackMetadata(
+        title="Example Song (DJ Remix)",
+        artists=["Example Artist"],
+        album="Example Album",
+        released="2020-01-01",
+        duration="03:15",
+        cover="https://example.com/cover.jpg",
+        label="",
+    )
+    candidate = {
+        "title": "Example Song - DJ Remix",
+        "artists": ["Example Artist"],
+        "album": "Example Album",
+        "duration_seconds": 195,
+        "release_year": 2020,
+        "url": "https://example.com/candidate",
+        "type": "track",
+    }
+    search = lambda _query, _kind: [candidate]
+    assert matching_service.match_metadata(metadata, "track", search).match is not None
+
+    candidate["title"] = "Example Song"
+    candidate["isrc"] = "US-EXAMPLE-01"
+    result = matching_service.match_metadata(metadata, "track", search, "US-EXAMPLE-01")
+    assert result.match is not None
+    assert str(result.match.url) == candidate["url"]
+
+
+def test_exact_isrc_outranks_title_match_and_remix_conflict() -> None:
+    metadata = TrackMetadata(
+        title="Example Song",
+        artists=["Example Artist"],
+        album="Example Album",
+        released="2020-01-01",
+        duration="03:15",
+        cover="https://example.com/cover.jpg",
+        label="",
+    )
+    original = {
+        "title": "Example Song",
+        "artists": ["Example Artist"],
+        "album": "Example Album",
+        "duration_seconds": 195,
+        "release_year": 2020,
+        "url": "https://example.com/original",
+        "type": "track",
+    }
+    remix = {
+        **original,
+        "title": "Example Song (DJ Remix)",
+        "url": "https://example.com/remix",
+        "isrc": "US-EXAMPLE-01",
+    }
+    search = lambda _query, _kind: [original, remix]
+
+    without_isrc = matching_service.match_metadata(metadata, "track", search)
+    assert str(without_isrc.match.url) == original["url"]
+    assert [str(item.url) for item in without_isrc.candidates] == [
+        original["url"],
+        remix["url"],
+    ]
+
+    with_isrc = matching_service.match_metadata(
+        metadata, "track", search, "US-EXAMPLE-01"
+    )
+    assert str(with_isrc.match.url) == remix["url"]
+    assert str(with_isrc.candidates[0].url) == remix["url"]
+
+
+def test_remix_marker_does_not_match_inside_words() -> None:
+    assert matching_service._catalog_title_parts("Remixology")[1] == frozenset()
+    assert matching_service._catalog_title_parts("Song（DJ REMIX）")[1] == frozenset(
+        {"remix"}
+    )

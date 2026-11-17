@@ -229,6 +229,10 @@ POST /v1/posters/track
 POST /v1/posters/album
 ```
 
+直接请求单曲海报时，如果既未提供 `lyrics` 也未提供 `lyrics_range`，非纯音乐会从默认歌词来源
+选取前四行非空歌词；可用歌词不足四行时返回上游错误。显式 `lyrics` 优先，`lyrics: ""` 表示不显示
+歌词；显式 `lyrics_range` 必须选出恰好四行。
+
 支持地区的集成通过 `GET /v1/capabilities` 返回来源和目标各自的地区列表。调用方应保留
 搜索时选择的来源地区，直至生成海报；来源地区和二维码目标地区独立选择，省略时默认为 `US`。
 各步骤的参数和示例见 [地区工作流](../apps/api/README.md#音乐平台)。

@@ -208,6 +208,8 @@ POST /v1/posters/track
 POST /v1/posters/album
 ```
 
+直接請求單曲海報時，若未提供 `lyrics` 和 `lyrics_range`，非純音樂會從預設歌詞來源選取前四行非空歌詞；可用歌詞不足四行時會回傳上游錯誤。明確提供的 `lyrics` 優先，`lyrics: ""` 表示不顯示歌詞；明確提供的 `lyrics_range` 必須選出恰好四行。
+
 支援地區的整合可透過 `GET /v1/capabilities` 查詢來源與目標各自支援的地區。呼叫方應從搜尋到生成海報持續保留所選來源地區；來源與 QR 目的地地區彼此獨立，省略時預設為 `US`。各步驟的參數與範例見[地區工作流程](../apps/api/README.md#音乐平台)。
 
 完整請求格式、跨平台比對、錯誤處理與 `curl` 範例請參閱 [BeatPrints API 文件](../apps/api/README.md)，或在服務啟動後開啟 `/docs`。

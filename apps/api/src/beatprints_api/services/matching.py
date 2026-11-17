@@ -77,6 +77,7 @@ def _album_metadata(request: AlbumPosterRequest) -> deez.AlbumMetadata:
 
 _VERSION_MARKERS = {
     "live",
+    "remix",
     "remaster",
     "remastered",
     "acoustic",
@@ -133,10 +134,31 @@ def _catalog_title_parts(
     return frozenset(aliases), versions
 
 
+def _version_conflict(
+    left: object,
+    right: object,
+    left_versions: frozenset[str],
+    right_versions: frozenset[str],
+) -> bool:
+    if left_versions != right_versions:
+        return True
+    if left_versions & {"remix", "混音"}:
+        # A shared remix marker does not establish that the remixers or mixes
+        # are the same. Require the full normalized title, not a stripped alias.
+        return _match_text(
+            unicodedata.normalize("NFKC", str(left or ""))
+        ) != _match_text(unicodedata.normalize("NFKC", str(right or "")))
+    return False
+
+
 def _catalog_title_similarity(left: object, right: object) -> float:
     left_aliases, left_versions = _catalog_title_parts(left)
     right_aliases, right_versions = _catalog_title_parts(right)
-    if not left_aliases or not right_aliases or left_versions != right_versions:
+    if (
+        not left_aliases
+        or not right_aliases
+        or _version_conflict(left, right, left_versions, right_versions)
+    ):
         return 0.0
     return max(
         _text_similarity(left_alias, right_alias)
@@ -184,7 +206,7 @@ def _candidate_title_similarity(left: object, right: object) -> tuple[float, boo
         for left_alias in left_aliases
         for right_alias in right_aliases
     )
-    return similarity, left_versions != right_versions
+    return similarity, _version_conflict(left, right, left_versions, right_versions)
 
 
 def _candidate_search_title_similarity(left: object, right: object) -> float:

@@ -216,6 +216,11 @@ POST /v1/posters/track
 POST /v1/posters/album
 ```
 
+For direct track poster requests, omitting both `lyrics` and `lyrics_range` selects the first four
+non-empty lines from the default lyrics source for a non-instrumental track; fewer than four
+available lines produce an upstream error. Explicit `lyrics` takes precedence, and `lyrics: ""`
+omits lyrics. An explicit `lyrics_range` must select exactly four lines.
+
 For region-aware integrations, discover supported source and destination regions through
 `GET /v1/capabilities` and carry the chosen source region from search through poster generation.
 The source and QR destination regions are independent and default to `US` when omitted. See the

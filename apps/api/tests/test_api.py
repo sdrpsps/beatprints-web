@@ -224,6 +224,74 @@ def test_track_returns_png(monkeypatch) -> None:
     assert response.headers["x-process-time"]
 
 
+@pytest.mark.parametrize(("count", "status"), [(3, 502), (4, 200), (6, 200)])
+def test_track_default_lyrics_use_first_four_from_qq_music(
+    monkeypatch, count, status
+) -> None:
+    from BeatPrints.deez import TrackMetadata
+    from beatprints_api.integrations.clients.qq_music import qq_music_client
+    from beatprints_api.services import catalog as catalog_service
+    from beatprints_api.services import rendering
+
+    metadata = TrackMetadata(
+        title="Example Song",
+        artists=["Example Artist"],
+        album="Example Album",
+        released="2020-01-01",
+        duration="03:15",
+        cover="https://example.com/cover.jpg",
+        label="",
+    )
+    monkeypatch.setattr(catalog_service, "track_metadata", lambda _request: metadata)
+    monkeypatch.setattr(
+        qq_music_client,
+        "search",
+        lambda *_args: {
+            "data": {
+                "song": {
+                    "list": [
+                        {
+                            "songmid": "example",
+                            "songname": "Example Song",
+                            "singer": [{"name": "Example Artist"}],
+                            "albumname": "Example Album",
+                            "interval": 195,
+                        }
+                    ]
+                }
+            }
+        },
+    )
+    monkeypatch.setattr(
+        qq_music_client,
+        "lyrics",
+        lambda _id: {
+            "lyric": "\n".join(
+                f"[00:{index:02d}.00]Line {index}" for index in range(1, count + 1)
+            )
+        },
+    )
+    rendered = []
+
+    def render(_request, _metadata, selected_lyrics):
+        rendered.append(selected_lyrics)
+        return rendering.PosterResult(b"\x89PNG\r\n\x1a\n", "poster.png", {})
+
+    monkeypatch.setattr(rendering, "render_track", render)
+    response = client.post(
+        "/v1/posters/track",
+        json={"provider": "spotify", "catalog_id": "exact-track-id"},
+    )
+
+    assert response.status_code == status
+    if status == 200:
+        assert response.headers["content-type"] == "image/png"
+        assert rendered == ["Line 1\nLine 2\nLine 3\nLine 4"]
+    else:
+        assert "Fewer than four" in response.json()["message"]
+        assert rendered == []
+
+
 def test_track_endpoint_accepts_empty_lyrics(monkeypatch) -> None:
     captured: dict[str, str | None] = {}
 
@@ -839,6 +907,10 @@ def test_openapi_includes_descriptions_and_request_examples() -> None:
     assert qr_platform_schema["anyOf"][0]["type"] == "string"
     track_schema = schema["components"]["schemas"]["TrackPosterRequest"]
     album_schema = schema["components"]["schemas"]["AlbumPosterRequest"]
+    assert (
+        "默认选取前四行非空歌词"
+        in track_schema["properties"]["lyrics_range"]["description"]
+    )
     assert track_schema["example"]["catalog_id"] == "7lp5evZr7qEDwlv5PS8b6i"
     assert album_schema["example"]["catalog_id"] == "614LGcMwiEpyQ5SVg6S5Im"
     assert schema["components"]["schemas"]["TrackMetadataInput"]["properties"][

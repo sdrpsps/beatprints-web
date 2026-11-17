@@ -145,8 +145,8 @@ docker compose logs -f beatprints-api
 ## 1. 用已选歌曲生成
 
 服务会用 `provider` 指定的平台获取元数据和封面。歌词来源由独立适配器提供；客户端
-将所选歌词来源 key 传给歌词预览。没有指定 `lyrics_range`
-时，兼容接口仍通过默认来源选择前四行非空歌词。
+将所选歌词来源 key 传给歌词预览。既未提供 `lyrics` 也未提供 `lyrics_range`
+时，兼容接口通过默认来源选择前四行非空歌词；非纯音乐少于四行时返回上游错误。
 
 `GET /v1/capabilities` 按注册顺序返回已启用的来源和二维码目的地。当前两者均依次为
 Apple Music、Spotify、QQ 音乐、网易云音乐；客户端应使用接口返回的列表和可用状态。

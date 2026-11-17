@@ -311,7 +311,8 @@ class TrackPosterRequest(PosterSource):
             pattern=r"^[1-9]\d*-[1-9]\d*$",
             description=(
                 "未提供 lyrics 时，从默认歌词来源中选取的行号范围；"
-                "范围内必须恰好有四行非空歌词。"
+                "范围内必须恰好有四行非空歌词。两者均未提供时，"
+                "默认选取前四行非空歌词。"
             ),
             examples=["11-14"],
         ),

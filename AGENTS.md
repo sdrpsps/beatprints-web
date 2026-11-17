@@ -46,6 +46,17 @@ mapping, current backend capabilities, and known integration gaps. Preserve thes
   examples, API README, relevant project documentation, and `apps/web/public/llms.txt` together.
   Check the `llms.txt` workflow explicitly even when no change to it is needed.
 
+### Multilingual README synchronization
+
+- When a README change describes shared product behavior, API workflows, setup, or deployment,
+  review the English `README.md` and all localized counterparts: `docs/README.zh-CN.md`,
+  `docs/README.zh-TW.md`, `docs/README.ja.md`, and `docs/README.ko.md`. This also applies when
+  the original change is made in a more detailed README such as `apps/api/README.md`.
+- Update the affected information in all five languages in the same change, including adding an
+  equivalent concise explanation where needed. Preserve each document's language and links; do
+  not require word-for-word translation or create translations of unrelated specialized READMEs.
+  If the shared README content is unaffected, state that in the implementation summary.
+
 ### Pluggable integration architecture
 
 All integrations with external music capabilities are plug-ins, not branches in a central

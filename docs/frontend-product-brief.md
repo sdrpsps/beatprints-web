@@ -81,7 +81,7 @@ The generation endpoint currently supports:
 - `lyrics`: optional explicit text supplied by the caller, limited to four lines; an empty
   string explicitly omits lyrics from the poster;
 - `lyrics_range`: an inclusive `start-end` string such as `11-14`; the selected range must
-  resolve to exactly four non-empty LRClib lines;
+  resolve to exactly four non-empty lines from the default lyrics source;
 - neither field: the backend selects the first four non-empty QQ Music lyric lines;
 - instrumental recordings: `instrumental_text` is rendered instead.
 
