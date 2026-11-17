@@ -14,6 +14,7 @@ dependencies = [
     "deezer-python==7.3.0",
     "qrcode[pil]>=8.2,<9",
     "httpcore==1.0.9",
+    "opencc==1.4.2",
 ]
 
 [project.scripts]

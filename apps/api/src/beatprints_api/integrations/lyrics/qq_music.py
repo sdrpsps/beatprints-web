@@ -45,18 +45,22 @@ def _select_song(payload: dict, metadata: deez.TrackMetadata) -> str | None:
     rows = song.get("list") if isinstance(song, dict) else []
     if not isinstance(rows, list):
         return None
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        duration = row.get("interval")
-        if row.get("songmid") and confident_track_match(
-            metadata,
-            title=row.get("songname") or row.get("title"),
-            artists=_artists(row),
-            album=_album_name(row),
-            candidate_duration_seconds=duration if isinstance(duration, int) else None,
-        ):
-            return str(row["songmid"])
+    for simplify_chinese in (False, True):
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            duration = row.get("interval")
+            if row.get("songmid") and confident_track_match(
+                metadata,
+                title=row.get("songname") or row.get("title"),
+                artists=_artists(row),
+                album=_album_name(row),
+                candidate_duration_seconds=(
+                    duration if isinstance(duration, int) else None
+                ),
+                simplify_chinese=simplify_chinese,
+            ):
+                return str(row["songmid"])
     return None
 
 

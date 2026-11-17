@@ -4,11 +4,13 @@ import re
 import unicodedata
 
 from BeatPrints import deez
+from opencc import OpenCC
 
 _TIMESTAMP = re.compile(r"\[\d{1,3}:\d{2}(?:[.:]\d{1,3})?\]")
 _METADATA = re.compile(r"^\[[A-Za-z]{1,12}:.*\]\s*$")
 _TRAILING_PARENS = re.compile(r"\s*[（(][^()（）]*[）)]\s*$")
 _TITLE_SEPARATOR = re.compile(r"\s+[-–—]\s+")
+_SIMPLIFIED_CHINESE = OpenCC("t2s.json")
 _VERSION_MARKERS = (
     "live",
     "remix",
@@ -30,8 +32,13 @@ _VERSION_MARKERS = (
 )
 
 
-def normalized(value: object) -> str:
+def _text(value: object, *, simplify_chinese: bool = False) -> str:
     text = unicodedata.normalize("NFKC", str(value or "")).casefold()
+    return _SIMPLIFIED_CHINESE.convert(text) if simplify_chinese else text
+
+
+def normalized(value: object, *, simplify_chinese: bool = False) -> str:
+    text = _text(value, simplify_chinese=simplify_chinese)
     return "".join(character for character in text if character.isalnum())
 
 
@@ -43,8 +50,8 @@ def duration_seconds(value: object) -> int | None:
         return None
 
 
-def _versions(value: object) -> frozenset[str]:
-    text = unicodedata.normalize("NFKC", str(value or "")).casefold()
+def _versions(value: object, *, simplify_chinese: bool = False) -> frozenset[str]:
+    text = _text(value, simplify_chinese=simplify_chinese)
     return frozenset(
         marker
         for marker in _VERSION_MARKERS
@@ -56,8 +63,8 @@ def _versions(value: object) -> frozenset[str]:
     )
 
 
-def _title_aliases(value: object) -> frozenset[str]:
-    text = unicodedata.normalize("NFKC", str(value or "")).casefold().strip()
+def _title_aliases(value: object, *, simplify_chinese: bool = False) -> frozenset[str]:
+    text = _text(value, simplify_chinese=simplify_chinese).strip()
     base = _TRAILING_PARENS.sub("", text).strip()
     return frozenset(
         alias
@@ -78,15 +85,30 @@ def search_title_variants(value: object) -> tuple[str, ...]:
     return tuple(variants)
 
 
-def titles_match(left: object, right: object) -> bool:
-    return bool(_title_aliases(left) & _title_aliases(right)) and _versions(
-        left
-    ) == _versions(right)
+def titles_match(
+    left: object, right: object, *, simplify_chinese: bool = False
+) -> bool:
+    return bool(
+        _title_aliases(left, simplify_chinese=simplify_chinese)
+        & _title_aliases(right, simplify_chinese=simplify_chinese)
+    ) and _versions(left, simplify_chinese=simplify_chinese) == _versions(
+        right, simplify_chinese=simplify_chinese
+    )
 
 
-def _artists_match(source: list[str], candidate: list[str]) -> bool:
-    source_names = {normalized(value) for value in source if normalized(value)}
-    candidate_names = {normalized(value) for value in candidate if normalized(value)}
+def _artists_match(
+    source: list[str], candidate: list[str], *, simplify_chinese: bool = False
+) -> bool:
+    source_names = {
+        name
+        for value in source
+        if (name := normalized(value, simplify_chinese=simplify_chinese))
+    }
+    candidate_names = {
+        name
+        for value in candidate
+        if (name := normalized(value, simplify_chinese=simplify_chinese))
+    }
     return bool(source_names & candidate_names)
 
 
@@ -98,17 +120,18 @@ def confident_track_match(
     album: object,
     candidate_duration_seconds: int | None,
     tolerance_seconds: int = 3,
+    simplify_chinese: bool = False,
 ) -> bool:
     target_duration = duration_seconds(metadata.duration)
     if target_duration is None or candidate_duration_seconds is None:
         return False
     if abs(target_duration - candidate_duration_seconds) > tolerance_seconds:
         return False
-    if not titles_match(metadata.title, title):
+    if not titles_match(metadata.title, title, simplify_chinese=simplify_chinese):
         return False
-    return _artists_match(metadata.artists, artists) or titles_match(
-        metadata.album, album
-    )
+    return _artists_match(
+        metadata.artists, artists, simplify_chinese=simplify_chinese
+    ) or titles_match(metadata.album, album, simplify_chinese=simplify_chinese)
 
 
 def lrc_lines(value: object) -> tuple[str, ...]:

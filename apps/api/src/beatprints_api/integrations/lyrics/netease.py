@@ -35,22 +35,26 @@ def _select_song(payload: dict, metadata: deez.TrackMetadata) -> int | None:
     rows = result.get("songs") or []
     if not isinstance(rows, list):
         return None
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        album = row.get("album") or {}
-        if not isinstance(album, dict):
-            album = {}
-        duration_ms = row.get("duration")
-        duration = round(duration_ms / 1000) if isinstance(duration_ms, int) else None
-        if row.get("id") and confident_track_match(
-            metadata,
-            title=row.get("name"),
-            artists=_artists(row),
-            album=album.get("name"),
-            candidate_duration_seconds=duration,
-        ):
-            return int(row["id"])
+    for simplify_chinese in (False, True):
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            album = row.get("album") or {}
+            if not isinstance(album, dict):
+                album = {}
+            duration_ms = row.get("duration")
+            duration = (
+                round(duration_ms / 1000) if isinstance(duration_ms, int) else None
+            )
+            if row.get("id") and confident_track_match(
+                metadata,
+                title=row.get("name"),
+                artists=_artists(row),
+                album=album.get("name"),
+                candidate_duration_seconds=duration,
+                simplify_chinese=simplify_chinese,
+            ):
+                return int(row["id"])
     return None
 
 
