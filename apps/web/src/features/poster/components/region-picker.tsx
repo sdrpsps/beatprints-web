@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useMemo, useRef, useState } from "react"
 import { SearchIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
@@ -8,14 +8,11 @@ import {
   ComboboxContent,
   ComboboxEmpty,
   ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
   ComboboxTrigger,
 } from "@/components/ui/combobox"
 import { InputGroupAddon } from "@/components/ui/input-group"
 import { Separator } from "@/components/ui/separator"
-
-type Region = { code: string; flag: string; name: string; label: string; search: string }
+import { RegionList, type Region, type RegionVirtualizer } from "@/features/poster/components/region-list"
 
 export function RegionPicker({ value, onChange, disabled, platform, className, regionCodes }: {
   value: string
@@ -26,6 +23,8 @@ export function RegionPicker({ value, onChange, disabled, platform, className, r
   className?: string
 }) {
   const { t, i18n } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const virtualizerRef = useRef<RegionVirtualizer | null>(null)
   const regions = useMemo(() => {
     const locale = i18n.resolvedLanguage || "en"
     const names = new Intl.DisplayNames([locale], { type: "region" })
@@ -39,7 +38,15 @@ export function RegionPicker({ value, onChange, disabled, platform, className, r
   const selected = regions.find((region) => region.code === value) ?? null
 
   return (
-    <Combobox items={regions} value={selected} onValueChange={(region: Region | null) => { if (region) onChange(region.code) }}
+    <Combobox virtualized items={regions} open={open} onOpenChange={setOpen} value={selected} onValueChange={(region: Region | null) => { if (region) onChange(region.code) }}
+      onItemHighlighted={(region, { reason, index }) => {
+        const virtualizer = virtualizerRef.current
+        if (!region || !virtualizer) return
+        const isEnd = index === virtualizer.options.count - 1
+        if (reason === "none" || (reason === "keyboard" && (index === 0 || isEnd))) {
+          queueMicrotask(() => virtualizer.scrollToIndex(index, { align: isEnd ? "start" : "end" }))
+        }
+      }}
       itemToStringLabel={(region: Region) => region.label}
       isItemEqualToValue={(a: Region, b: Region) => a.code === b.code}
       filter={(region, query) => region.search.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())}>
@@ -63,15 +70,7 @@ export function RegionPicker({ value, onChange, disabled, platform, className, r
         </div>
         <Separator />
         <ComboboxEmpty className="px-4 py-6 text-center text-sm text-muted-foreground">{t("poster.regionEmpty")}</ComboboxEmpty>
-        <ComboboxList className="min-h-0 max-h-64 p-2 [scrollbar-width:thin]! [scrollbar-color:var(--muted-foreground)_transparent] [&::-webkit-scrollbar]:block! [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:bg-muted-foreground/50 [&::-webkit-scrollbar-thumb]:bg-clip-padding">
-          {(region: Region) => (
-            <ComboboxItem key={region.code} value={region} className="min-h-10 gap-3 py-2 pr-9 pl-2.5 data-selected:bg-secondary/60">
-              <span aria-hidden="true" className="w-6 shrink-0 text-center text-lg leading-none">{region.flag}</span>
-              <span className="min-w-0 flex-1 truncate">{region.name}</span>
-              <span className="font-utility text-[0.65rem] tracking-wide text-muted-foreground">{region.code}</span>
-            </ComboboxItem>
-          )}
-        </ComboboxList>
+        <RegionList open={open} virtualizerRef={virtualizerRef} />
       </ComboboxContent>
     </Combobox>
   )
