@@ -106,6 +106,16 @@ def resolve(url: str) -> PlatformLinkMatchData:
     raise PlatformLinkNoMatchError("Apple Music link did not resolve to a catalog item")
 
 
+def _resolve_source(provider: str, catalog_id: int | str, item_type: str) -> PlatformLinkMatchData | None:
+    if provider != "apple_music":
+        return None
+    kind = "song" if item_type == "track" else "album"
+    result = resolve(f"https://music.apple.com/{settings.apple_music_storefront.lower()}/{kind}/{catalog_id}")
+    if result.type != item_type:
+        raise PlatformLinkNoMatchError("Apple Music catalog item type did not match")
+    return result
+
+
 def _scannable_link(url: str) -> str:
     """Remove Apple's optional title and tracking parameters to fit a sunflower code."""
     parsed = urlparse(url)
@@ -127,6 +137,8 @@ adapter = register(
         label="Apple Music",
         search=search,
         resolve=resolve,
+        resolve_source=_resolve_source,
+        reuses_source_link=lambda provider: provider == "apple_music",
         scannable=lambda link: icon_qr_scannable(
             _scannable_link(link), ASSET_PATH
         ),

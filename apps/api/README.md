@@ -286,7 +286,7 @@ curl --get "http://localhost:8000/v1/platform-links/spotify/resolve" \
 ```
 
 `/options` 提供自动确认与可由用户确认的排序候选；`/resolve` 读取所选公开链接的当前资料，用于刷新目标
-平台确认卡片。两者均支持四个平台，且不会改写海报使用的 QQ 音乐、网易云音乐或 Spotify 来源资料、歌词或封面。
+平台确认卡片。两者均支持四个平台，且不会改写海报使用的 QQ 音乐、网易云音乐、Spotify 或 Apple Music 来源资料、歌词或封面。
 
 选择 Spotify 且链接是标准的 Spotify 歌曲或专辑链接时，海报左下角会使用 Spotify
 提供的原生 Spotify Code PNG（可由 Spotify App 的“搜索 → 扫描”识别），而不是普通
@@ -326,14 +326,17 @@ APPLE_MUSIC_STOREFRONT=US
 随后可使用：
 
 ```text
+GET /v1/search?query=Summer%20Breeze&type=track&provider=apple_music&limit=5
 GET /v1/search?query=Summer%20Breeze&type=track&provider=spotify&limit=5
 GET /v1/search?query=Summer%20Breeze&type=track&provider=all&limit=5
 ```
 
 `provider=all` 中的 `limit` 对每个来源分别生效；Spotify 单次最多返回 10 条。未配置
-Spotify 时，`all` 仍会返回 QQ 音乐和网易云音乐结果；明确指定 `provider=spotify` 则返回 HTTP 503。
+Spotify 时，`all` 仍会返回 QQ 音乐、网易云音乐和 Apple Music 结果；明确指定 `provider=spotify` 则返回 HTTP 503。
 
-生成接口统一使用 `provider + catalog_id`。QQ 音乐、网易云音乐和 Spotify 是同等级 provider；
+Apple Music 搜索无需 Spotify 凭据，`APPLE_MUSIC_STOREFRONT` 同时控制搜索和链接解析的地区。
+
+生成接口统一使用 `provider + catalog_id`。QQ 音乐、网易云音乐、Spotify 和 Apple Music 是同等级 provider；
 以后新增目录平台时，也不需要改变请求结构。
 
 Spotify 海报分支会保持封面原有构图和色彩。只有明确提供 `qr_platform` 时才会显示指定平台的彩色二维码。Spotify 完整专辑响应

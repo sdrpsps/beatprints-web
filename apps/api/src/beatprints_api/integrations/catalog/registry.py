@@ -34,3 +34,4 @@ def catalog_adapters() -> tuple[CatalogAdapter, ...]:
 from beatprints_api.integrations.catalog import qq_music  # noqa: E402, F401
 from beatprints_api.integrations.catalog import netease_music  # noqa: E402, F401
 from beatprints_api.integrations.catalog import spotify  # noqa: E402, F401
+from beatprints_api.integrations.catalog import apple_music  # noqa: E402, F401

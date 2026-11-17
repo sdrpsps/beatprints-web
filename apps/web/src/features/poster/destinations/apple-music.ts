@@ -9,5 +9,5 @@ registerDestination({
   order: 3,
   default: false,
   domains: ["music.apple.com"],
-  reusesSourceLink: () => false,
+  reusesSourceLink: (provider) => provider === "apple_music",
 })

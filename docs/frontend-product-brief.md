@@ -21,7 +21,7 @@ Product surfaces and exported-work attribution must not imply unrestricted comme
 The user searches by song, artist, album, or an approximate combination. The frontend calls:
 
 ```http
-GET /v1/search?query=<query>&type=track&provider=<qq_music|netease_music|spotify|all>&limit=<1..20>
+GET /v1/search?query=<query>&type=track&provider=<qq_music|netease_music|spotify|apple_music|all>&limit=<1..20>
 ```
 
 Search results already contain the data needed for a useful selection card:
@@ -41,7 +41,7 @@ values as `provider + catalog_id`; the generation API does not accept a text que
 
 The result list needs loading, no-results, upstream-unavailable, source-not-configured, and
 retry states. Spotify may return HTTP 503 when server credentials are not configured;
-`provider=all` still returns QQ Music and NetEase Music results when Spotify is unavailable.
+`provider=all` still returns QQ Music, NetEase Music, and Apple Music results when Spotify is unavailable.
 
 ### 2. Confirm the matched recording
 
@@ -75,7 +75,7 @@ The frontend keeps its enabled lyric sources in a static registry, then reads no
 for the exact selected recording with:
 
 ```http
-GET /v1/lyrics?provider=<qq_music|netease_music|spotify>&catalog_id=<selected-result-id>&source=<source-key>
+GET /v1/lyrics?provider=<qq_music|netease_music|spotify|apple_music>&catalog_id=<selected-result-id>&source=<source-key>
 ```
 
 The endpoint returns ordered, non-empty lyric lines with stable one-based indices and an
@@ -94,7 +94,7 @@ interval.
 
 The metadata provider and poster platform are separate concepts:
 
-- `provider` chooses where metadata is fetched: `qq_music`, `netease_music`, or `spotify`.
+- `provider` chooses where metadata is fetched: `qq_music`, `netease_music`, `spotify`, or `apple_music`.
 - `qr_platform` optionally chooses one destination from the frontend's static registry.
 
 The frontend maintains static catalog, lyric, and destination registries. They supply labels,
@@ -110,7 +110,7 @@ result's unchanged `provider + id`, never a new text query:
 
 ```http
 GET /v1/platform-links/<enabled-destination>/options
-  ?provider=<qq_music|netease_music|spotify>&catalog_id=<id>&type=<track|album>
+  ?provider=<qq_music|netease_music|spotify|apple_music>&catalog_id=<id>&type=<track|album>
 ```
 
 The backend retrieves that exact source item and runs one shared matching engine for every

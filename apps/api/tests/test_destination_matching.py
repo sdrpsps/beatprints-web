@@ -7,6 +7,7 @@ from BeatPrints.deez import AlbumMetadata, TrackMetadata
 from beatprints_api.integrations.catalog import netease_music as netease_catalog
 from beatprints_api.integrations.catalog import qq_music as qq_catalog
 from beatprints_api.integrations.destinations import (
+    apple_music,
     netease_music,
     qq_music,
     spotify as spotify_destination,
@@ -95,6 +96,7 @@ def test_source_catalogs_are_registered_independently() -> None:
         "qq_music",
         "netease_music",
         "spotify",
+        "apple_music",
     ]
     for adapter in catalog_adapters():
         assert adapter.search and adapter.track_metadata and adapter.album_metadata
@@ -108,6 +110,7 @@ def test_source_catalogs_are_registered_independently() -> None:
     ("adapter", "provider"),
     [
         (spotify_destination.adapter, "spotify"),
+        (apple_music.adapter, "apple_music"),
         (qq_music.adapter, "qq_music"),
         (netease_music.adapter, "netease_music"),
     ],
@@ -124,6 +127,7 @@ def test_destination_plugins_reuse_only_their_own_catalog_links(
     [
         (qq_music, "qq_music"),
         (netease_music, "netease_music"),
+        (apple_music, "apple_music"),
     ],
 )
 def test_same_source_destination_resolves_its_canonical_link(

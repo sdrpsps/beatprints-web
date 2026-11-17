@@ -27,14 +27,14 @@ BeatPrints Web extends the upstream generator by providing:
 
 - A responsive React web interface to complete the entire poster creation flow in your browser;
 - A FastAPI backend service for searching music catalogs, fetching lyrics, and rendering posters;
-- Multi-source catalog integrations (QQ Music, NetEase Cloud Music, Spotify) and QR destination resolution;
+- Multi-source catalog integrations (QQ Music, NetEase Cloud Music, Spotify, Apple Music) and QR destination resolution;
 - Production-ready Docker Compose configurations, unified multi-architecture container images, and automated release workflows.
 
 If you only need the CLI generator or want to explore the underlying poster typography engine, please visit [TrueMyst/BeatPrints](https://github.com/TrueMyst/BeatPrints). If you want to use BeatPrints in a web browser or deploy it as an HTTP service, you can use this project directly.
 
 ## What is BeatPrints Web
 
-BeatPrints Web is a self-hostable web application built on top of the original BeatPrints. Rather than generating fictitious content, it fetches authentic cover artwork and track metadata from QQ Music, NetEase Cloud Music, or Spotify, allowing you to select and confirm the exact release before invoking BeatPrints to render the final poster.
+BeatPrints Web is a self-hostable web application built on top of the original BeatPrints. Rather than generating fictitious content, it fetches authentic cover artwork and track metadata from QQ Music, NetEase Cloud Music, Spotify, or Apple Music, allowing you to select and confirm the exact release before invoking BeatPrints to render the final poster.
 
 The creation flow for a track poster is straightforward:
 
@@ -45,7 +45,7 @@ Search track → Select exact release → Optionally pick up to 4 lyric lines �
 Album posters follow the same creation flow, with additional options for track indexing and tracklist shuffling. Generated posters are streamed directly to the browser; the server stores no poster images.
 
 > [!IMPORTANT]
-> **Metadata source** and **Poster platform destination** are two independent concepts: `provider` determines where catalog metadata is fetched from (QQ Music, NetEase Cloud Music, or Spotify), while `qr_platform` determines whether the poster includes a scannable code/link for Spotify, Apple Music, QQ Music, or NetEase Cloud Music. If no platform is selected, the poster will not display any platform mark or QR code.
+> **Metadata source** and **Poster platform destination** are two independent concepts: `provider` determines where catalog metadata is fetched from (QQ Music, NetEase Cloud Music, Spotify, or Apple Music), while `qr_platform` determines whether the poster includes a scannable code/link for Spotify, Apple Music, QQ Music, or NetEase Cloud Music. If no platform is selected, the poster will not display any platform mark or QR code.
 
 ## Features
 
@@ -83,7 +83,7 @@ Once started, you can access:
 - API: <http://localhost:8000>
 - OpenAPI Docs: <http://localhost:8000/docs>
 
-Spotify search is optional. When needed, configure `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` in `.env`; without Spotify credentials, QQ Music and NetEase Cloud Music search remain fully functional.
+Spotify search is optional. When needed, configure `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` in `.env`; without Spotify credentials, QQ Music, NetEase Cloud Music, and Apple Music search remain available.
 
 WeChat sunflower codes require a QR service. Docker Compose starts it automatically; for local development, set `WECHAT_QR_BASE_URL` to the service address (for example, `http://127.0.0.1:8080`). The WeChat option is hidden when no address is configured. See the [API documentation](apps/api/README.md#本地启动) for deployment details. Standard QR codes do not require this service; Spotify always uses Spotify Code.
 
@@ -154,7 +154,7 @@ Key environment variables are documented in [`.env.example`](.env.example):
 | `CORS_ORIGINS` | Allowed CORS origins, comma-separated | Blank |
 | `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | Enable Spotify search and metadata | Blank |
 | `SPOTIFY_MARKET` | Spotify market code | `US` |
-| `APPLE_MUSIC_STOREFRONT` | Apple Music storefront code | `US` |
+| `APPLE_MUSIC_STOREFRONT` | Apple Music storefront for catalog search and link resolution | `US` |
 | `METADATA_CACHE_TTL_SECONDS` | Metadata cache expiration time in seconds | `600` |
 | `MAX_CONCURRENT_JOBS` | Maximum concurrent poster rendering jobs per worker | `1` |
 

@@ -28,7 +28,7 @@ BeatPrints Web 在原生成器之外补充了：
 
 - 可以在浏览器中完成整个创作流程的 React 界面；
 - 用于搜索音乐、读取歌词和生成海报的 FastAPI 服务；
-- QQ 音乐、网易云音乐、Spotify 与多个二维码目标平台的目录集成；
+- QQ 音乐、网易云音乐、Spotify、Apple Music 与多个二维码目标平台的目录集成；
 - Docker Compose、统一生产镜像和自动发布工具。
 
 如果你只需要原始生成器，或想了解海报排版能力本身，请访问
@@ -38,7 +38,7 @@ BeatPrints，或者把它作为 HTTP 服务部署，则可以直接使用本项�
 ## BeatPrints Web 是什么
 
 BeatPrints Web 是基于原始 BeatPrints 构建的可自部署 Web 创作应用。它不生成虚构的音乐内容，
-而是从 QQ 音乐、网易云音乐或 Spotify 获取真实的封面与曲目信息，让你确认准确版本后，再调用
+而是从 QQ 音乐、网易云音乐、Spotify 或 Apple Music 获取真实的封面与曲目信息，让你确认准确版本后，再调用
 BeatPrints 完成海报渲染。
 
 单曲海报的创作流程非常简单：
@@ -51,7 +51,7 @@ BeatPrints 完成海报渲染。
 服务端不会保存你的任何海报。
 
 > [!IMPORTANT]
-> **元数据来源**与**海报平台入口**是两个独立的概念：`provider` 决定从 QQ 音乐、网易云音乐或 Spotify
+> **元数据来源**与**海报平台入口**是两个独立的概念：`provider` 决定从 QQ 音乐、网易云音乐、Spotify 或 Apple Music
 > 获取元数据；`qr_platform` 决定海报是否附带 Spotify、Apple Music、QQ 音乐或
 > 网易云音乐的跳转入口。未选择平台入口时，海报不会显示任何平台标识或二维码。
 
@@ -92,7 +92,7 @@ make dev
 - OpenAPI 文档：<http://localhost:8000/docs>
 
 Spotify 搜索是可选能力。需要时，在 `.env` 中配置
-`SPOTIFY_CLIENT_ID` 和 `SPOTIFY_CLIENT_SECRET`；未配置时仍可使用 QQ 音乐或网易云音乐。
+`SPOTIFY_CLIENT_ID` 和 `SPOTIFY_CLIENT_SECRET`；未配置时仍可使用 QQ 音乐、网易云音乐或 Apple Music。
 
 微信葵花码需要二维码服务。Docker Compose 会自动启动该服务；本地开发时可通过
 `WECHAT_QR_BASE_URL` 指定服务地址（例如 `http://127.0.0.1:8080`）；未配置时隐藏微信葵花码选项。标准二维码不需要
@@ -168,7 +168,7 @@ MAX_CONCURRENT_JOBS=1
 | `CORS_ORIGINS` | 允许访问 API 的前端来源，多个值用逗号分隔 | 留空 |
 | `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | 启用 Spotify 搜索与资料获取 | 留空 |
 | `SPOTIFY_MARKET` | Spotify 市场区域 | `US` |
-| `APPLE_MUSIC_STOREFRONT` | Apple Music Storefront 区域 | `US` |
+| `APPLE_MUSIC_STOREFRONT` | Apple Music 搜索及链接解析的 Storefront 区域 | `US` |
 | `METADATA_CACHE_TTL_SECONDS` | 元数据缓存时间（秒） | `600` |
 | `MAX_CONCURRENT_JOBS` | 单进程同时生成海报的最大并发数 | `1` |
 
