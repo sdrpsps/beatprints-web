@@ -1,3 +1,4 @@
+from beatprints_api.integrations.regions.spotify import REGIONS
 """Spotify destination adapter."""
 
 import io
@@ -107,4 +108,4 @@ def scannable(link: str):
     return render
 
 
-adapter = register(DestinationAdapter(key="spotify", label="Spotify", configured=lambda: spotify_client.configured, fixed_code=True, search=spotify_client.search_candidates, resolve=resolve, scannable=scannable, supports_isrc=True, resolve_source=_resolve_source, reuses_source_link=lambda provider: provider == "spotify"))
+adapter = register(DestinationAdapter(key="spotify", label="Spotify", supports_regions=True, regions=REGIONS, configured=lambda: spotify_client.configured, fixed_code=True, search=spotify_client.search_candidates, resolve=resolve, scannable=scannable, supports_isrc=True, resolve_source=_resolve_source, reuses_source_link=lambda provider: provider == "spotify"))

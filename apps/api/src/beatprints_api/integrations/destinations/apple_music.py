@@ -1,3 +1,4 @@
+from beatprints_api.integrations.regions.apple_music import REGIONS
 """Apple Music destination adapter."""
 
 from pathlib import Path
@@ -5,7 +6,8 @@ from urllib.parse import parse_qs, urlparse
 
 import httpx
 
-from beatprints_api.config import settings
+from beatprints_api.integrations.region import current_region
+from beatprints_api.integrations import apple_music_public
 from beatprints_api.integrations.destinations.base import DestinationAdapter
 from beatprints_api.integrations.destinations.registry import register
 from beatprints_api.integrations.destinations.scannable import icon_qr_scannable, standard_icon_qr_scannable
@@ -48,23 +50,7 @@ def _result_data(result: dict) -> PlatformLinkMatchData:
     )
 
 
-def search(query: str, item_type: str) -> list[dict]:
-    entity = "song" if item_type == "track" else "album"
-    try:
-        response = http_client.get(
-            SEARCH_URL,
-            params={
-                "term": query,
-                "media": "music",
-                "entity": entity,
-                "country": settings.apple_music_storefront,
-                "limit": 10,
-            },
-        )
-        response.raise_for_status()
-        results = response.json().get("results", [])
-    except (httpx.HTTPError, ValueError) as exc:
-        raise UpstreamError(f"Apple Music search failed: {exc}") from exc
+def _search_candidates(results: list) -> list[dict]:
     candidates: list[dict] = []
     for result in results:
         if not isinstance(result, dict):
@@ -77,6 +63,45 @@ def search(query: str, item_type: str) -> list[dict]:
             result.get("trackId") if candidate["type"] == "track" else result.get("collectionId")
         )
         candidates.append(candidate)
+    return candidates
+
+
+def search(query: str, item_type: str) -> list[dict]:
+    entity = "song" if item_type == "track" else "album"
+    try:
+        response = http_client.get(
+            SEARCH_URL,
+            params={
+                "term": query,
+                "media": "music",
+                "entity": entity,
+                "country": current_region(),
+                "limit": 10,
+            },
+        )
+        response.raise_for_status()
+        payload = response.json()
+        results = payload.get("results", []) if isinstance(payload, dict) else []
+        candidates = _search_candidates(results) if isinstance(results, list) else []
+    except (httpx.HTTPError, ValueError):
+        # The public Apple Music page may still be available when iTunes search fails.
+        candidates = []
+    if candidates:
+        return candidates
+
+    def lookup(ids: str) -> list[dict]:
+        try:
+            response = http_client.get(LOOKUP_URL, params={"id": ids, "country": current_region()})
+            response.raise_for_status()
+            rows = response.json().get("results", [])
+            return [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+        except (httpx.HTTPError, ValueError) as exc:
+            raise UpstreamError(f"Apple Music lookup failed: {exc}") from exc
+
+    rows = apple_music_public.search_rows(query, item_type, 10, lookup)
+    candidates = _search_candidates(rows)
+    if rows and not candidates:
+        raise UpstreamError(apple_music_public.SEARCH_UNAVAILABLE)
     return candidates
 
 
@@ -94,7 +119,7 @@ def resolve(url: str) -> PlatformLinkMatchData:
     try:
         response = http_client.get(
             LOOKUP_URL,
-            params={"id": identifier, "country": settings.apple_music_storefront},
+            params={"id": identifier, "country": current_region()},
         )
         response.raise_for_status()
         results = response.json().get("results", [])
@@ -110,7 +135,7 @@ def _resolve_source(provider: str, catalog_id: int | str, item_type: str) -> Pla
     if provider != "apple_music":
         return None
     kind = "song" if item_type == "track" else "album"
-    result = resolve(f"https://music.apple.com/{settings.apple_music_storefront.lower()}/{kind}/{catalog_id}")
+    result = resolve(f"https://music.apple.com/{current_region().lower()}/{kind}/{catalog_id}")
     if result.type != item_type:
         raise PlatformLinkNoMatchError("Apple Music catalog item type did not match")
     return result
@@ -134,6 +159,7 @@ def _scannable_link(url: str) -> str:
 adapter = register(
     DestinationAdapter(
         key="apple_music",
+        supports_regions=True, regions=REGIONS,
         label="Apple Music",
         search=search,
         resolve=resolve,

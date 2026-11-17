@@ -1,3 +1,4 @@
+from beatprints_api.integrations.regions.spotify import REGIONS
 from PIL import Image
 
 from BeatPrints import deez, image as beatprints_image
@@ -46,7 +47,7 @@ def cover_renderer(_url: str, path: str | None) -> Image.Image:
 
 
 adapter = register(CatalogAdapter(
-    key="spotify", label="Spotify", configured=lambda: spotify_client.configured,
+    key="spotify", label="Spotify", supports_regions=True, regions=REGIONS, configured=lambda: spotify_client.configured,
     search=spotify_client.search, track_metadata=track_metadata, album_metadata=album_metadata,
     cover_renderer=cover_renderer,
 ))

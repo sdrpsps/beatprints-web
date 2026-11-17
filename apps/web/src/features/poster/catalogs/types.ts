@@ -5,4 +5,6 @@ export type CatalogSource = {
   labelKey: IntegrationLabelKey
   label?: string
   available?: boolean
+  supportsRegions?: boolean
+  regions?: string[]
 }

@@ -65,6 +65,10 @@ export type PosterState = {
   clearCapabilities: () => void
 
   // Catalog / Search
+  sourceRegions: Record<string, string>
+  destinationRegions: Record<string, string>
+  setSourceRegion: (provider: string, region: string, t: TFunction) => void
+  setDestinationRegion: (platform: string, region: string, t: TFunction) => void
   query: string
   provider: CatalogProvider
   searchResults: SearchResult[]
@@ -235,7 +239,7 @@ export const usePosterStore = create<PosterState>((set, get) => ({
     const fallbackKey = (key: string) => key as IntegrationLabelKey
     const catalogs = capabilities.catalogs.map((item) => ({
       ...(catalogPresentation(item.key) ?? { key: item.key, labelKey: fallbackKey(item.key) }),
-      label: item.label, available: item.available,
+      label: item.label, available: item.available, supportsRegions: item.supports_regions, regions: item.regions,
     }))
     const lyrics = capabilities.lyrics.filter((item) => item.available).map((item) => ({
       ...(lyricsPresentation(item.key) ?? { key: item.key, labelKey: fallbackKey(item.key) }),
@@ -245,7 +249,7 @@ export const usePosterStore = create<PosterState>((set, get) => ({
       const local = destinationPresentation(item.key)
       const destination: PosterDestination = {
         ...(local ?? { key: item.key, labelKey: fallbackKey(item.key) }),
-        label: item.label, available: item.available, fixedCode: item.fixed_code,
+        label: item.label, available: item.available, fixedCode: item.fixed_code, supportsRegions: item.supports_regions, regions: item.regions,
         reusesSourceLink: (provider) => item.reuses_source_links.includes(provider),
       }
       return destination
@@ -275,10 +279,41 @@ export const usePosterStore = create<PosterState>((set, get) => ({
       set({ lyricsSource: undefined, lyricsState: "idle", lyricsError: undefined,
         lyrics: [], selectedLines: [], lyricEdits: {}, instrumental: false, lyricsMode: "manual" })
     }
-    set({ capabilities, catalogSources: catalogs, destinations, lyricsSources: lyrics, provider })
+    const sourceRegions = Object.fromEntries(catalogs.filter((item) => item.supportsRegions && item.regions?.length).map((item) => {
+      const previous = current.sourceRegions[item.key] ?? "US"
+      return [item.key, item.regions!.includes(previous) ? previous : item.regions![0]]
+    }))
+    const destinationRegions = Object.fromEntries(destinations.filter((item) => item.supportsRegions && item.regions?.length).map((item) => {
+      const previous = current.destinationRegions[item.key] ?? "US"
+      return [item.key, item.regions!.includes(previous) ? previous : item.regions![0]]
+    }))
+    if (current.selected?.source_region && !catalogs.find((item) => item.key === current.selected?.provider)?.regions?.includes(current.selected.source_region)) {
+      get().resetSelection()
+    } else if (current.qrPlatform && current.destinationRegions[current.qrPlatform] && current.destinationRegions[current.qrPlatform] !== destinationRegions[current.qrPlatform]) {
+      get().clearPlatform()
+    }
+    set({ capabilities, catalogSources: catalogs, destinations, lyricsSources: lyrics, provider, sourceRegions, destinationRegions })
   },
 
   // Catalog / Search
+  sourceRegions: {},
+  destinationRegions: {},
+  setSourceRegion: (provider, region, t) => {
+    if (!get().catalogSources.find((source) => source.key === provider && source.available)?.regions?.includes(region)) return
+    if ((get().sourceRegions[provider] ?? "US") === region) return
+    set({ sourceRegions: { ...get().sourceRegions, [provider]: region } })
+    if (get().provider === provider) {
+      searchAbort?.abort()
+      if (get().selected) get().resetSelection()
+      if (get().query.trim()) void get().search(t)
+    }
+  },
+  setDestinationRegion: (platform, region, t) => {
+    if (!get().destinations.find((destination) => destination.key === platform && destination.available)?.regions?.includes(region)) return
+    if ((get().destinationRegions[platform] ?? "US") === region) return
+    set({ destinationRegions: { ...get().destinationRegions, [platform]: region } })
+    if (get().qrPlatform === platform) get().setQrPlatform(platform, t)
+  },
   query: "",
   provider: "",
   searchResults: [],
@@ -315,9 +350,10 @@ export const usePosterStore = create<PosterState>((set, get) => ({
         get().kind,
         activeProvider,
         controller.signal,
+        get().catalogSources.find((item) => item.key === activeProvider)?.supportsRegions ? (get().sourceRegions[activeProvider] ?? "US") : undefined,
       )
       if (controller.signal.aborted) return
-      set({ searchResults: results, searchState: "success" })
+      set({ searchResults: results.map((item) => ({ ...item, source_region: get().catalogSources.find((source) => source.key === item.provider)?.supportsRegions ? (get().sourceRegions[item.provider] ?? "US") : undefined })), searchState: "success" })
     } catch (error) {
       if (controller.signal.aborted) return
       set({
@@ -410,6 +446,7 @@ export const usePosterStore = create<PosterState>((set, get) => ({
         selected.id,
         source,
         controller.signal,
+        selected.source_region,
       )
       if (controller.signal.aborted) return
 
@@ -464,6 +501,8 @@ export const usePosterStore = create<PosterState>((set, get) => ({
           selected.id,
           get().kind,
           controller.signal,
+          selected.source_region,
+          get().destinations.find((d) => d.key === value)?.supportsRegions ? (get().destinationRegions[value] ?? "US") : undefined,
         )
         if (controller.signal.aborted) return
 
@@ -534,6 +573,8 @@ export const usePosterStore = create<PosterState>((set, get) => ({
           selected.id,
           kind,
           controller.signal,
+          selected.source_region,
+          get().destinations.find((d) => d.key === qrPlatform)?.supportsRegions ? (get().destinationRegions[qrPlatform] ?? "US") : undefined,
         )
         if (controller.signal.aborted) return
         set({
@@ -582,6 +623,7 @@ export const usePosterStore = create<PosterState>((set, get) => ({
         qrPlatform,
         platformUrl.trim(),
         controller.signal,
+        get().destinations.find((d) => d.key === qrPlatform)?.supportsRegions ? (get().destinationRegions[qrPlatform] ?? "US") : undefined,
       )
       if (controller.signal.aborted) return
       if (match.type !== kind) {
@@ -619,6 +661,7 @@ export const usePosterStore = create<PosterState>((set, get) => ({
         qrPlatform,
         candidate.url,
         controller.signal,
+        get().destinations.find((d) => d.key === qrPlatform)?.supportsRegions ? (get().destinationRegions[qrPlatform] ?? "US") : undefined,
       )
       if (controller.signal.aborted) return
       if (match.type !== kind) {
@@ -718,6 +761,8 @@ export const usePosterStore = create<PosterState>((set, get) => ({
     const request = {
       provider: state.selected.provider,
       catalog_id: state.selected.id,
+      source_region: state.selected.source_region,
+      destination_region: state.qrPlatform && state.destinations.find((d) => d.key === state.qrPlatform)?.supportsRegions ? (state.destinationRegions[state.qrPlatform] ?? "US") : undefined,
       theme: state.theme,
       accent: state.accent,
       ...(state.kind === "track"
@@ -780,6 +825,7 @@ export const usePosterStore = create<PosterState>((set, get) => ({
           instrumental: state.kind === "track" && state.instrumental,
           instrumentalText: state.kind === "track" && state.instrumental ? state.instrumentalText : undefined,
           qrPlatform: state.qrPlatform || undefined,
+          destinationRegion: state.qrPlatform ? state.destinationRegions[state.qrPlatform] ?? "US" : undefined,
           qrFormat: state.qrFormat,
           platformUrl: state.platformUrl || undefined,
           indexing: state.indexing,
@@ -828,6 +874,11 @@ export const usePosterStore = create<PosterState>((set, get) => ({
     searchAbort?.abort()
     get().resetSelection()
     const snapshot = item.snapshot
+    const savedSource = snapshot?.selectedItem
+    const source = get().catalogSources.find((entry) => entry.key === savedSource?.provider && entry.available)
+    const sourceRegionValid = !savedSource?.source_region || Boolean(source?.regions?.includes(savedSource.source_region))
+    const destination = get().destinations.find((entry) => entry.key === snapshot?.qrPlatform && entry.available)
+    const destinationRegionValid = !snapshot?.destinationRegion || Boolean(destination?.regions?.includes(snapshot.destinationRegion))
     set({
       kind: item.kind,
       theme: item.theme,
@@ -835,7 +886,9 @@ export const usePosterStore = create<PosterState>((set, get) => ({
       provider: get().catalogSources.some((source) => source.key === snapshot?.selectedItem?.provider && source.available)
         ? snapshot!.selectedItem!.provider
         : get().catalogSources.find((source) => source.available)?.key ?? "",
-      selected: snapshot?.selectedItem,
+      selected: sourceRegionValid ? savedSource : undefined,
+      sourceRegions: sourceRegionValid && snapshot?.selectedItem?.source_region ? { ...get().sourceRegions, [snapshot.selectedItem.provider]: snapshot.selectedItem.source_region } : get().sourceRegions,
+      destinationRegions: destinationRegionValid && snapshot?.qrPlatform && snapshot.destinationRegion ? { ...get().destinationRegions, [snapshot.qrPlatform]: snapshot.destinationRegion } : get().destinationRegions,
       query: "",
       searchResults: [],
       searchState: "idle",
@@ -848,7 +901,7 @@ export const usePosterStore = create<PosterState>((set, get) => ({
       shuffle: snapshot?.shuffle ?? false,
       qrFormat: snapshot?.qrFormat ?? "standard",
     })
-    if (snapshot?.qrPlatform && get().destinations.some((d) => d.key === snapshot.qrPlatform && d.available) && snapshot.selectedItem) {
+    if (snapshot?.qrPlatform && destination && destinationRegionValid && sourceRegionValid && snapshot.selectedItem) {
       if (snapshot.platformUrl) {
         set({ qrPlatform: snapshot.qrPlatform, platformUrl: snapshot.platformUrl, platformChoiceMode: "manual" })
         void get().resolveManualPlatformUrl(t)

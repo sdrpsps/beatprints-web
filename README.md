@@ -153,8 +153,6 @@ Key environment variables are documented in [`.env.example`](.env.example):
 | `API_KEY` | Optional Bearer Token for `/v1` endpoints | Blank |
 | `CORS_ORIGINS` | Allowed CORS origins, comma-separated | Blank |
 | `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | Enable Spotify search and metadata | Blank |
-| `SPOTIFY_MARKET` | Spotify market code | `US` |
-| `APPLE_MUSIC_STOREFRONT` | Apple Music storefront for catalog search and link resolution | `US` |
 | `METADATA_CACHE_TTL_SECONDS` | Metadata cache expiration time in seconds | `600` |
 | `MAX_CONCURRENT_JOBS` | Maximum concurrent poster rendering jobs per worker | `1` |
 
@@ -202,10 +200,17 @@ Primary endpoints include:
 ```http
 GET  /v1/search
 GET  /v1/lyrics
-GET  /v1/platform-links/{platform}
+GET  /v1/capabilities
+GET  /v1/platform-links/{platform}/options
+GET  /v1/platform-links/{platform}/resolve
 POST /v1/posters/track
 POST /v1/posters/album
 ```
+
+For region-aware integrations, discover supported source and destination regions through
+`GET /v1/capabilities` and carry the chosen source region from search through poster generation.
+The source and QR destination regions are independent and default to `US` when omitted. See the
+[region workflow and examples](apps/api/README.md#音乐平台) for the parameters used at each step.
 
 For complete request schemas, cross-platform matching logic, error handling, and `curl` examples, please refer to the [BeatPrints API Documentation](apps/api/README.md) or visit `/docs` after launching the server.
 

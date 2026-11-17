@@ -7,6 +7,7 @@ from functools import lru_cache
 
 from BeatPrints import deez
 from beatprints_api.config import settings
+from beatprints_api.integrations.region import current_region, use_region
 from beatprints_api.exceptions import UpstreamError
 from beatprints_api.integrations.catalog import catalog_adapters, get_catalog_adapter
 from beatprints_api.models.poster import AlbumPosterRequest, TrackPosterRequest
@@ -38,18 +39,20 @@ def _enrich_missing_track_label(metadata: deez.TrackMetadata) -> deez.TrackMetad
 
 @lru_cache(maxsize=settings.metadata_cache_max_entries)
 def _cached_track_metadata(
-    provider: str, track_id: int | str, _cache_token: int
+    provider: str, track_id: int | str, _cache_token: int, region: str | None = None
 ) -> deez.TrackMetadata:
-    return _enrich_missing_track_label(
-        get_catalog_adapter(provider).track_metadata(track_id)
-    )
+    with use_region(region):
+        return _enrich_missing_track_label(
+            get_catalog_adapter(provider).track_metadata(track_id)
+        )
 
 
 @lru_cache(maxsize=settings.metadata_cache_max_entries)
 def _cached_album_metadata(
-    provider: str, album_id: int | str, _cache_token: int
+    provider: str, album_id: int | str, _cache_token: int, region: str | None = None
 ) -> deez.AlbumMetadata:
-    return get_catalog_adapter(provider).album_metadata(album_id)
+    with use_region(region):
+        return get_catalog_adapter(provider).album_metadata(album_id)
 
 
 def _catalog_reference(
@@ -70,7 +73,7 @@ def track_metadata(request: TrackPosterRequest) -> deez.TrackMetadata:
         )
     provider, track_id = _catalog_reference(request)
     get_catalog_adapter(provider)
-    return copy.deepcopy(_cached_track_metadata(provider, track_id, _metadata_cache_token()))
+    return copy.deepcopy(_cached_track_metadata(provider, track_id, _metadata_cache_token(), current_region()))
 
 
 def album_metadata(request: AlbumPosterRequest) -> deez.AlbumMetadata:
@@ -82,7 +85,7 @@ def album_metadata(request: AlbumPosterRequest) -> deez.AlbumMetadata:
         )
     provider, album_id = _catalog_reference(request)
     get_catalog_adapter(provider)
-    metadata = copy.deepcopy(_cached_album_metadata(provider, album_id, _metadata_cache_token()))
+    metadata = copy.deepcopy(_cached_album_metadata(provider, album_id, _metadata_cache_token(), current_region()))
     if request.shuffle:
         random.shuffle(metadata.tracks)
     return metadata

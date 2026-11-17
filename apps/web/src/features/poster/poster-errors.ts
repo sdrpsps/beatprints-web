@@ -7,6 +7,10 @@ import { ApiError } from "@/features/poster/api"
 export function friendlyError(error: unknown, fallback: string, t: TFunction) {
   if (!(error instanceof ApiError)) return { message: fallback }
 
+  if (error.status === 502 && error.message === "Apple Music search is unavailable for the selected region") {
+    return { message: t("poster.errors.appleRegionSearchUnavailable"), requestId: error.requestId }
+  }
+
   if (error.status === 422 && error.message.startsWith("cover_url")) {
     return { message: t("poster.errors.coverAddressError"), requestId: error.requestId }
   }

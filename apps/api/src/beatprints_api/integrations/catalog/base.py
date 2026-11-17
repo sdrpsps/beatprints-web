@@ -24,4 +24,6 @@ class CatalogAdapter:
     track_isrc: Callable[[int | str, deez.TrackMetadata], str | None] = (
         lambda _catalog_id, metadata: getattr(metadata, "isrc", None)
     )
+    supports_regions: bool = False
+    regions: tuple[str, ...] = ()
     cover_renderer: Callable[[str, str | None], object] | None = None

@@ -836,6 +836,9 @@ def test_capabilities_follow_registries_and_configuration(monkeypatch) -> None:
     assert {item["key"] for item in data["catalogs"]} == set(catalogs._adapters)
     assert {item["key"] for item in data["destinations"]} == set(destinations._adapters)
     assert {item["key"] for item in data["lyrics"]} == set(lyrics._adapters)
+    expected_order = ["apple_music", "spotify", "qq_music", "netease_music"]
+    assert [item["key"] for item in data["catalogs"]] == expected_order
+    assert [item["key"] for item in data["destinations"]] == expected_order
     for item in data["destinations"]:
         adapter = destinations.get_destination_adapter(item["key"])
         assert set(item["reuses_source_links"]) == {
@@ -849,6 +852,9 @@ def test_capabilities_follow_registries_and_configuration(monkeypatch) -> None:
     assert "spotify" not in {item["key"] for item in data["catalogs"]}
     assert "spotify" in {item["key"] for item in data["destinations"]}
     assert "lrclib" not in {item["key"] for item in data["lyrics"]}
+    assert [item["key"] for item in data["catalogs"]] == [
+        "apple_music", "qq_music", "netease_music"
+    ]
 
 
 def test_capabilities_reports_unconfigured_catalog(monkeypatch) -> None:

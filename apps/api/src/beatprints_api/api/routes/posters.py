@@ -1,3 +1,4 @@
+from beatprints_api.integrations.region import use_region
 import asyncio
 import logging
 import time
@@ -43,6 +44,7 @@ TRACK_EXAMPLES = {
         "value": {
             "provider": "spotify",
             "catalog_id": "7lp5evZr7qEDwlv5PS8b6i",
+            "source_region": "JP",
             "theme": "Light",
             "accent": True,
         },
@@ -63,11 +65,13 @@ TRACK_EXAMPLES = {
     "apple_music_qr": {
         "summary": "用 Spotify 资料生成 Apple Music 版本",
         "description": (
-            "provider 只决定元数据来源；qr_platform 单独指定海报二维码平台。"
+            "来源地区和目标地区独立选择；链接应来自目标地区的匹配或解析结果。"
         ),
         "value": {
             "provider": "spotify",
             "catalog_id": "7lp5evZr7qEDwlv5PS8b6i",
+            "source_region": "JP",
+            "destination_region": "US",
             "platform_links": {
                 "apple_music": (
                     "https://music.apple.com/us/album/summer-breeze/1790520587"
@@ -120,6 +124,7 @@ ALBUM_EXAMPLES = {
         "value": {
             "provider": "spotify",
             "catalog_id": "614LGcMwiEpyQ5SVg6S5Im",
+            "source_region": "JP",
             "theme": "Light",
             "accent": True,
             "indexing": True,
@@ -133,6 +138,8 @@ ALBUM_EXAMPLES = {
         "value": {
             "provider": "spotify",
             "catalog_id": "614LGcMwiEpyQ5SVg6S5Im",
+            "source_region": "JP",
+            "destination_region": "US",
             "qr_platform": "spotify",
             "theme": "Light",
             "accent": True,
@@ -222,7 +229,8 @@ async def _generate(
     try:
         async with poster_slots:
             queue_ms = (time.perf_counter() - queue_started_at) * 1000
-            result = await run_in_threadpool(generator, request)
+            with use_region(request.source_region):
+                result = await run_in_threadpool(generator, request)
     except ValueError as exc:
         raise InvalidInputError(str(exc)) from exc
     except IntegrationNotConfiguredError as exc:

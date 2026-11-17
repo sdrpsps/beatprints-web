@@ -21,8 +21,20 @@ Product surfaces and exported-work attribution must not imply unrestricted comme
 The user searches by song, artist, album, or an approximate combination. The frontend calls:
 
 ```http
-GET /v1/search?query=<query>&type=track&provider=<qq_music|netease_music|spotify|apple_music|all>&limit=<1..20>
+GET /v1/search?query=<query>&type=track&provider=<qq_music|netease_music|spotify|apple_music|all>&region=<source-region>&limit=<1..20>
 ```
+
+Spotify and Apple Music expose a searchable region selector. Their per-integration supported-region
+list is supplied by `GET /v1/capabilities` from provider-owned snapshots of the official support
+pages, rather than from a general list of ISO regions. Snapshots require periodic maintenance.
+The optional source region is sent as the `region` query parameter and saved by the caller with
+the selected result for lyrics, matching, and generation; search responses do not include it.
+Destination regions are selected independently and are sent as `destination_region` for matching
+and `region` when resolving links. The poster request carries `source_region` and
+`destination_region`; confirmed destination links remain separate from source metadata. An omitted
+region defaults to `US`. For `provider=all`, the same region applies to every region-aware source.
+The API validates two uppercase letters, not membership in the capability list. A supplied
+`platform_links` URL is used as given and is not re-resolved in `destination_region`.
 
 Search results already contain the data needed for a useful selection card:
 
@@ -75,7 +87,7 @@ The frontend obtains enabled lyric sources from the backend capabilities registr
 for the exact selected recording with:
 
 ```http
-GET /v1/lyrics?provider=<qq_music|netease_music|spotify|apple_music>&catalog_id=<selected-result-id>&source=<source-key>
+GET /v1/lyrics?provider=<qq_music|netease_music|spotify|apple_music>&catalog_id=<selected-result-id>&source=<source-key>&region=<source-region>
 ```
 
 The endpoint returns ordered, non-empty lyric lines with stable one-based indices and an
@@ -101,6 +113,8 @@ The backend registries determine which catalog, lyric, and destination integrati
 `GET /v1/capabilities` exposes their availability and source-link reuse behavior. Frontend modules
 supply presentation assets and translated labels for known integrations, with a generic fallback
 for newer backend integrations. No frontend presentation module can enable an integration.
+Display catalogs and destinations in the order returned by the capabilities endpoint. The currently
+enabled platforms are ordered Apple Music, Spotify, QQ Music, and NetEase Music in both lists.
 An unavailable capability remains disabled in the interface. The frontend validates the capability
 response, refreshes it when the window regains focus, and stops the editor with a retry message if
 the response is missing or incompatible.
@@ -114,7 +128,7 @@ result's unchanged `provider + id`, never a new text query:
 
 ```http
 GET /v1/platform-links/<enabled-destination>/options
-  ?provider=<qq_music|netease_music|spotify|apple_music>&catalog_id=<id>&type=<track|album>
+  ?provider=<qq_music|netease_music|spotify|apple_music>&catalog_id=<id>&type=<track|album>&source_region=<source-region>&destination_region=<destination-region>
 ```
 
 The backend retrieves that exact source item and runs one shared matching engine for every
@@ -132,7 +146,7 @@ can transition directly to the alternatives without another user action or anoth
 because confirmation and alternatives come from the same response. It shows these
 alternatives using the same cover/title/artist/context hierarchy as source search, with a “Select”
 action. Selecting a candidate calls
-`GET /v1/platform-links/<enabled-destination>/resolve?url=<public-url>` and uses the returned current metadata
+`GET /v1/platform-links/<enabled-destination>/resolve?url=<public-url>&region=<destination-region>` and uses the returned current metadata
 for the platform confirmation card. Manual public-link entry remains the final fallback and uses
 the same resolve behavior. Candidate or manual resolution refreshes only the QR destination and
 confirmation card; the poster's source metadata, lyrics, cover, and catalog ID remain unchanged.
@@ -162,8 +176,11 @@ Content-Type: application/json
 {
   "provider": "spotify",
   "catalog_id": "<selected-result-id>",
+  "source_region": "JP",
   "lyrics": "line one\nline two\nline three\nline four",
-  "qr_platform": "spotify",
+  "qr_platform": "apple_music",
+  "destination_region": "US",
+  "platform_links": { "apple_music": "<confirmed-apple-music-url>" },
   "theme": "Light",
   "accent": true
 }

@@ -21,7 +21,7 @@ from beatprints_api.services import rendering
 
 
 def test_spotify_requires_credentials() -> None:
-    client = SpotifyClient(client_id=None, client_secret=None, market="US")
+    client = SpotifyClient(client_id=None, client_secret=None)
 
     with pytest.raises(SpotifyNotConfiguredError):
         client.search("SUMMER BREEZE", "track", 5)

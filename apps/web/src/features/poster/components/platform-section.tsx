@@ -2,10 +2,12 @@ import { useEffect, useId, useState } from "react"
 import { ChevronRightIcon, Disc3Icon, PlusIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
+import { ButtonGroup } from "@/components/ui/button-group"
 import { Button } from "@/components/ui/button"
 import { FieldLegend, FieldSet } from "@/components/ui/field"
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { RegionPicker } from "@/features/poster/components/region-picker"
 import { PlatformLinkFlow } from "@/features/poster/components/platform-link-flow"
 import { SectionHeading, studioSectionClass } from "@/features/poster/components/studio-shared"
 import type { PosterDestination } from "@/features/poster/destinations/types"
@@ -20,6 +22,8 @@ export function PlatformSection() {
   const setQrPlatform = usePosterStore((s) => s.setQrPlatform)
   const clearPlatform = usePosterStore((s) => s.clearPlatform)
   const destinations = usePosterStore((s) => s.destinations)
+  const regions = usePosterStore((s) => s.destinationRegions)
+  const setRegion = usePosterStore((s) => s.setDestinationRegion)
   const [choosing, setChoosing] = useState(false)
 
   if (!selected) return null
@@ -61,9 +65,12 @@ export function PlatformSection() {
                 <ItemMedia><DestinationLogo destination={destination} /></ItemMedia>
                 <ItemContent><ItemTitle>{t(destination.labelKey, { defaultValue: destination.label })}</ItemTitle></ItemContent>
                 <ItemActions>
+                  <ButtonGroup aria-label={destination.label ?? destination.key}>
+                  {destination.supportsRegions ? <RegionPicker regionCodes={destination.regions ?? []} platform={destination.label ?? destination.key} value={regions[destination.key] ?? "US"} onChange={(value) => setRegion(destination.key, value, t)} /> : null}
                   <Button type="button" variant="ghost" size="sm" onClick={() => setChoosing(!choosing)} aria-expanded={choosing} aria-controls="platform-picker">
                     {choosing ? t("poster.listenCancel") : t("poster.listenChange")}
                   </Button>
+                  </ButtonGroup>
                 </ItemActions>
               </Item>
             ) : null}
@@ -83,11 +90,14 @@ export function PlatformSection() {
                   className="w-full"
                 >
                   {destinations.map((option) => (
-                    <ToggleGroupItem key={option.key} value={option.key} disabled={!option.available} className="h-11 w-full justify-start gap-2.5 px-3">
-                      <DestinationLogo destination={option} />
-                      <span className="flex-1 text-left">{t(option.labelKey, { defaultValue: option.label })}</span>
-                      <ChevronRightIcon data-icon="inline-end" aria-hidden="true" />
-                    </ToggleGroupItem>
+                    <ButtonGroup key={option.key} className="w-full" aria-label={option.label ?? option.key}>
+                      <ToggleGroupItem value={option.key} disabled={!option.available} className="h-11 min-w-0 flex-1 justify-start gap-2.5 px-3">
+                        <DestinationLogo destination={option} />
+                        <span className="flex-1 text-left">{t(option.labelKey, { defaultValue: option.label })}</span>
+                        <ChevronRightIcon data-icon="inline-end" aria-hidden="true" />
+                      </ToggleGroupItem>
+                      {option.supportsRegions ? <RegionPicker regionCodes={option.regions ?? []} platform={option.label ?? option.key} value={regions[option.key] ?? "US"} onChange={(value) => setRegion(option.key, value, t)} disabled={!option.available} className="h-11" /> : null}
+                    </ButtonGroup>
                   ))}
                 </ToggleGroup>
                 {!qrPlatform ? <Button type="button" variant="ghost" size="sm" onClick={() => setChoosing(false)}>{t("poster.listenCancel")}</Button> : null}

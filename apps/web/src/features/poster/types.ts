@@ -16,6 +16,7 @@ export type Theme =
 export type SearchResult = {
   id: number | string
   provider: CatalogProvider
+  source_region?: string
   type: PosterKind
   title: string
   artists: string[]
@@ -77,6 +78,8 @@ export type PosterOutput = {
 export type PosterRequest = {
   provider: CatalogProvider
   catalog_id: number | string
+  source_region?: string
+  destination_region?: string
   theme: Theme
   accent: boolean
   lyrics?: string

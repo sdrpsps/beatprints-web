@@ -1,3 +1,4 @@
+from beatprints_api.integrations.region import use_region
 """Poster rendering, artwork safety checks, and destination-code composition."""
 
 import atexit
@@ -167,12 +168,22 @@ def selected_platform_link(
     selected_platform: str | None,
     provider: str | None,
     source_link: str | None,
+    destination_region: str | None = None,
+    catalog_id: int | str | None = None,
+    item_type: str | None = None,
 ) -> tuple[DestinationAdapter, str] | None:
     if selected_platform is None:
         return None
     adapter = get_destination_adapter(selected_platform)
     values = links.root if links is not None else {}
     link = values.get(selected_platform)
+    if link is None and destination_region and provider and catalog_id is not None and item_type and adapter.resolve_source:
+        with use_region(destination_region):
+            resolved = adapter.resolve_source(provider, catalog_id, item_type)
+        if resolved is not None:
+            link = resolved.url
+        else:
+            raise ValueError("The destination could not be resolved in the selected region")
     if (
         link is None
         and source_link
@@ -492,6 +503,7 @@ def render_track(
         request.qr_platform,
         provider,
         getattr(metadata, "link", None),
+        request.destination_region, request.catalog_id, "track",
     )
     with tempfile.TemporaryDirectory(prefix="beatprints-") as temp:
         directory, cover_path = Path(temp), Path(temp) / "cover"
@@ -518,6 +530,7 @@ def render_album(request: AlbumPosterRequest, metadata) -> PosterResult:
         request.qr_platform,
         provider,
         getattr(metadata, "link", None),
+        request.destination_region, request.catalog_id, "album",
     )
     with tempfile.TemporaryDirectory(prefix="beatprints-") as temp:
         directory, cover_path = Path(temp), Path(temp) / "cover"

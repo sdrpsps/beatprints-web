@@ -5,6 +5,7 @@ from collections.abc import Callable
 from difflib import SequenceMatcher
 
 from beatprints_api.integrations.destinations import DestinationAdapter, get_destination_adapter
+from beatprints_api.integrations.region import use_region
 from beatprints_api.integrations.catalog import get_catalog_adapter
 from beatprints_api.integrations.lyrics import get_lyrics_source
 from beatprints_api.exceptions import PlatformLinkNoMatchError, UpstreamError
@@ -371,6 +372,8 @@ def platform_match_options(
     limit: int = 8,
     *,
     source_metadata_fn=None,
+    source_region=None,
+    destination_region=None,
     destination_adapter_fn=None,
     source_isrc_fn=None,
 ) -> PlatformMatchOptionsData:
@@ -382,22 +385,26 @@ def platform_match_options(
     adapter = destination_adapter_fn(platform)
     if adapter.resolve_source is not None:
         get_catalog_adapter(provider)
-    direct_match = (
-        adapter.resolve_source(provider, catalog_id, item_type)
-        if adapter.resolve_source is not None
-        else None
-    )
+    with use_region(destination_region):
+        direct_match = (
+            adapter.resolve_source(provider, catalog_id, item_type)
+            if adapter.resolve_source is not None
+            else None
+        )
     if direct_match is not None:
         match = direct_match
         return PlatformMatchOptionsData(match=match, candidates=[match])
 
-    metadata = source_metadata_fn(provider, catalog_id, item_type)
-    isrc = (
-        source_isrc_fn(provider, catalog_id, metadata)
-        if item_type == "track" and adapter.supports_isrc
-        else None
-    )
-    return match_metadata(metadata, item_type, adapter.search, isrc, limit)
+    with use_region(source_region):
+        metadata = source_metadata_fn(provider, catalog_id, item_type)
+    with use_region(source_region):
+        isrc = (
+            source_isrc_fn(provider, catalog_id, metadata)
+            if item_type == "track" and adapter.supports_isrc
+            else None
+        )
+    with use_region(destination_region):
+        return match_metadata(metadata, item_type, adapter.search, isrc, limit)
 
 
 def match_metadata(

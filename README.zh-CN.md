@@ -167,8 +167,6 @@ MAX_CONCURRENT_JOBS=1
 | `API_KEY` | `/v1` 接口的可选 Bearer Token | 留空 |
 | `CORS_ORIGINS` | 允许访问 API 的前端来源，多个值用逗号分隔 | 留空 |
 | `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | 启用 Spotify 搜索与资料获取 | 留空 |
-| `SPOTIFY_MARKET` | Spotify 市场区域 | `US` |
-| `APPLE_MUSIC_STOREFRONT` | Apple Music 搜索及链接解析的 Storefront 区域 | `US` |
 | `METADATA_CACHE_TTL_SECONDS` | 元数据缓存时间（秒） | `600` |
 | `MAX_CONCURRENT_JOBS` | 单进程同时生成海报的最大并发数 | `1` |
 
@@ -216,10 +214,16 @@ MAX_CONCURRENT_JOBS=1
 ```http
 GET  /v1/search
 GET  /v1/lyrics
-GET  /v1/platform-links/{platform}
+GET  /v1/capabilities
+GET  /v1/platform-links/{platform}/options
+GET  /v1/platform-links/{platform}/resolve
 POST /v1/posters/track
 POST /v1/posters/album
 ```
+
+支持地区的集成通过 `GET /v1/capabilities` 返回来源和目标各自的地区列表。调用方应保留
+搜索时选择的来源地区，直至生成海报；来源地区和二维码目标地区独立选择，省略时默认为 `US`。
+各步骤的参数和示例见 [地区工作流](apps/api/README.md#音乐平台)。
 
 完整的请求字段、跨平台匹配方式、错误结构与 `curl` 示例请参阅
 [BeatPrints API 文档](apps/api/README.md)，或在服务启动后打开 `/docs`。

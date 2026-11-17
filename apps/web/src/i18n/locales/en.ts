@@ -110,6 +110,10 @@ export const en = {
     listenCancel: "Cancel",
     listenChange: "Change",
     listenCodeType: "Choose a code type",
+    regionChoose: "Choose a region",
+    regionSearch: "Search regions or codes",
+    regionFor: "{{platform}} region",
+    regionEmpty: "No regions found",
     qrPlatformLabel: "QR Platform",
     qrFormatLabel: "Code type",
     qrFormatStandard: "Standard QR",
@@ -243,6 +247,7 @@ export const en = {
       urlErrorProtocol: "Link must start with http:// or https://.",
       urlErrorDomain:
         "This link does not appear to belong to the selected platform.",
+      appleRegionSearchUnavailable: "Apple Music search is unavailable in this region. Try selecting a different region.",
       searchErrorDefault: "Search failed. Please try again later.",
       lyricsErrorDefault:
         "Could not fetch lyrics. Please enter 4 lines manually.",

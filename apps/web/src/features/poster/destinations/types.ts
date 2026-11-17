@@ -6,6 +6,8 @@ export type PosterDestination = {
   labelKey: IntegrationLabelKey
   label?: string
   available?: boolean
+  supportsRegions?: boolean
+  regions?: string[]
   reusesSourceLink?: (provider: CatalogProvider) => boolean
   fixedCode?: boolean
   logo?: string

@@ -191,6 +191,14 @@ class PosterSource(BaseModel):
             ],
         ),
     ] = None
+    source_region: Annotated[str | None, Field(
+        pattern=r"^[A-Z]{2}$", examples=["JP"],
+        description="读取来源目录元数据的地区，应与所选搜索结果使用的地区一致；省略时使用 US。",
+    )] = None
+    destination_region: Annotated[str | None, Field(
+        pattern=r"^[A-Z]{2}$", examples=["US"],
+        description="目标平台地区。未提供可复用的来源平台链接时用于解析该来源直链；已提供的 platform_links 原样使用，不会按此地区重新解析。省略时使用 US。",
+    )] = None
     platform_links: Annotated[
         PosterPlatformLinks | None,
         Field(

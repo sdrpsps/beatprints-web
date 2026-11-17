@@ -38,6 +38,13 @@ mapping, current backend capabilities, and known integration gaps. Preserve thes
   provide the complete ready-to-paste three-language `## What's New` section. Do not create a
   PR unless authorized.
 
+### API documentation
+
+- When changing API endpoints, request or response fields, validation, defaults, capabilities,
+  authentication, or the recommended API workflow, review and update the OpenAPI descriptions and
+  examples, API README, relevant project documentation, and `apps/web/public/llms.txt` together.
+  Check the `llms.txt` workflow explicitly even when no change to it is needed.
+
 ### Pluggable integration architecture
 
 All integrations with external music capabilities are plug-ins, not branches in a central

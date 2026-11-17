@@ -68,6 +68,8 @@ export type IntegrationCapability = {
   reason: string | null
   default: boolean
   fixed_code: boolean
+  supports_regions?: boolean
+  regions?: string[]
   reuses_source_links: string[]
 }
 export type Capabilities = {
@@ -89,6 +91,8 @@ export function parseCapabilities(value: unknown): Capabilities {
       if (typeof entry.key !== "string" || !entry.key || keys.has(entry.key) ||
           typeof entry.label !== "string" || !entry.label || typeof entry.available !== "boolean" ||
           typeof entry.default !== "boolean" || typeof entry.fixed_code !== "boolean" ||
+          (entry.supports_regions !== undefined && typeof entry.supports_regions !== "boolean") ||
+          (entry.supports_regions === true && (!Array.isArray(entry.regions) || entry.regions.length === 0 || !entry.regions.every((code) => typeof code === "string" && /^[A-Z]{2}$/.test(code)))) ||
           !(entry.reason === null || typeof entry.reason === "string") ||
           !Array.isArray(entry.reuses_source_links) || !entry.reuses_source_links.every((key) => typeof key === "string")) return false
       keys.add(entry.key)
@@ -113,6 +117,7 @@ export async function searchCatalog(
   kind: PosterKind,
   provider: SearchProvider,
   signal?: AbortSignal,
+  region?: string,
 ) {
   const params = new URLSearchParams({
     query,
@@ -120,6 +125,7 @@ export async function searchCatalog(
     provider,
     limit: "8",
   })
+  if (region) params.set("region", region)
   return getJson<SearchResult[]>(`/v1/search?${params}`, signal)
 }
 
@@ -128,12 +134,14 @@ export async function fetchLyrics(
   catalogId: number | string,
   source: string,
   signal?: AbortSignal,
+  region?: string,
 ) {
   const params = new URLSearchParams({
     provider,
     catalog_id: String(catalogId),
     source,
   })
+  if (region) params.set("region", region)
   return getJson<LyricsPreview>(`/v1/lyrics?${params}`, signal)
 }
 
@@ -147,6 +155,8 @@ export async function fetchPlatformMatchOptions(
   catalogId: number | string,
   kind: PosterKind,
   signal?: AbortSignal,
+  sourceRegion?: string,
+  destinationRegion?: string,
 ) {
   const params = new URLSearchParams({
     provider,
@@ -154,6 +164,8 @@ export async function fetchPlatformMatchOptions(
     type: kind,
     limit: "8",
   })
+  if (sourceRegion) params.set("source_region", sourceRegion)
+  if (destinationRegion) params.set("destination_region", destinationRegion)
   return getJson<PlatformMatchOptions>(
     `/v1/platform-links/${platform}/options?${params}`,
     signal,
@@ -164,8 +176,10 @@ export async function resolvePlatformUrl(
   platform: PosterPlatform,
   url: string,
   signal?: AbortSignal,
+  region?: string,
 ) {
   const params = new URLSearchParams({ url })
+  if (region) params.set("region", region)
   return getJson<PlatformLinkMatch>(
     `/v1/platform-links/${platform}/resolve?${params}`,
     signal,

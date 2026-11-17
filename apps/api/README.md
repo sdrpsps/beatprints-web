@@ -147,6 +147,9 @@ docker compose logs -f beatprints-api
 将所选歌词来源 key 传给歌词预览。没有指定 `lyrics_range`
 时，兼容接口仍通过默认来源选择前四行非空歌词。
 
+`GET /v1/capabilities` 按注册顺序返回已启用的来源和二维码目的地。当前两者均依次为
+Apple Music、Spotify、QQ 音乐、网易云音乐；客户端应使用接口返回的列表和可用状态。
+
 前端歌词选择器可以先读取所选歌曲的规范化歌词：
 
 ```bash
@@ -317,8 +320,6 @@ cp .env.example .env
 ```dotenv
 SPOTIFY_CLIENT_ID=your-client-id
 SPOTIFY_CLIENT_SECRET=your-client-secret
-SPOTIFY_MARKET=US
-APPLE_MUSIC_STOREFRONT=US
 ```
 
 重新执行 `make dev:api`，或用 `docker compose up -d --build` 重建服务。
@@ -334,7 +335,7 @@ GET /v1/search?query=Summer%20Breeze&type=track&provider=all&limit=5
 `provider=all` 中的 `limit` 对每个来源分别生效；Spotify 单次最多返回 10 条。未配置
 Spotify 时，`all` 仍会返回 QQ 音乐、网易云音乐和 Apple Music 结果；明确指定 `provider=spotify` 则返回 HTTP 503。
 
-Apple Music 搜索无需 Spotify 凭据，`APPLE_MUSIC_STOREFRONT` 同时控制搜索和链接解析的地区。
+Apple Music 搜索无需 Spotify 凭据。当 iTunes 搜索失败或在所选地区未返回可用结果时，服务会从 Apple Music 公开搜索页面读取候选 ID，再通过同地区的精确 ID 查询获取当前资料；专辑曲目缺失时会读取公开专辑页面。公开页面结构若发生变化，相关请求可能暂时失败。搜索和歌词接口可通过 `region` 指定地区；平台匹配使用 `source_region` 和 `destination_region`，链接解析使用 `region`。生成请求可提供 `source_region` 和 `destination_region`。这些地区使用大写 ISO 3166-1 两字母代码；未指定时使用默认地区 `US`。 `GET /v1/capabilities` 返回各启用集成的 `regions`，列表根据 Apple 和 Spotify 的官方服务地区页面维护，更新日期和来源记录在各自的地区模块中。
 
 生成接口统一使用 `provider + catalog_id`。QQ 音乐、网易云音乐、Spotify 和 Apple Music 是同等级 provider；
 以后新增目录平台时，也不需要改变请求结构。

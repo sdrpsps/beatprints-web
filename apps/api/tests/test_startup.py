@@ -4,6 +4,17 @@ import subprocess
 import sys
 
 
+def test_catalog_capabilities_follow_the_provider_registry_order() -> None:
+    from fastapi.testclient import TestClient
+    from beatprints_api.main import app
+
+    response = TestClient(app).get("/v1/capabilities")
+    assert response.status_code == 200
+    assert [item["key"] for item in response.json()["data"]["catalogs"]] == [
+        "apple_music", "spotify", "qq_music", "netease_music"
+    ]
+
+
 def test_application_imports_without_pylette_dependency() -> None:
     script = """
 import builtins

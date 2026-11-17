@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
 
 from beatprints_api.api.dependencies import require_api_key
+from beatprints_api.integrations.region import use_region
 from beatprints_api.exceptions import (
     IntegrationNotConfiguredError,
     LyricsNotFoundError,
@@ -58,11 +59,21 @@ async def platform_match_options(
     catalog_id: Annotated[str, Query(min_length=1)],
     type: Annotated[Literal["track", "album"], Query()],
     limit: Annotated[int, Query(ge=1, le=10)] = 8,
+    source_region: Annotated[str | None, Query(
+        pattern=r"^[A-Z]{2}$", examples=["JP"],
+        description="来源目录地区，须与所选搜索结果使用的地区一致；省略时使用 US。",
+    )] = None,
+    destination_region: Annotated[str | None, Query(
+        pattern=r"^[A-Z]{2}$", examples=["US"],
+        description="目标平台检索及来源直链解析使用的地区；独立于来源地区，省略时使用 US。",
+    )] = None,
 ) -> ApiResponse[PlatformMatchOptionsData]:
     try:
         result = await run_in_threadpool(
             matching_service.platform_match_options,
             provider, catalog_id, type, platform, limit,
+            **({"source_region": source_region, "destination_region": destination_region}
+               if source_region or destination_region else {}),
         )
     except IntegrationNotConfiguredError as exc:
         raise UpstreamServiceError(str(exc), unavailable=True) from exc
@@ -133,6 +144,10 @@ async def search(
         Literal["track", "album"],
         Query(description="搜索类型：track 表示歌曲，album 表示专辑。"),
     ] = "track",
+    region: Annotated[str | None, Query(
+        pattern=r"^[A-Z]{2}$", examples=["JP"],
+        description="目录地区的两位大写代码；省略时使用 US。支持地区的目录由 /v1/capabilities 的 regions 列出；all 对支持地区的来源使用同一地区。",
+    )] = None,
     limit: Annotated[
         int,
         Query(
@@ -144,7 +159,8 @@ async def search(
     ] = 5,
 ) -> ApiResponse[list[SearchResult]]:
     try:
-        results = await run_in_threadpool(
+        with use_region(region):
+            results = await run_in_threadpool(
             catalog_service.search_catalog,
             query,
             type,
@@ -190,6 +206,10 @@ async def preview_lyrics(
             description="所选歌曲在 provider 中的 ID，来自 /v1/search。",
         ),
     ],
+    region: Annotated[str | None, Query(
+        pattern=r"^[A-Z]{2}$", examples=["JP"],
+        description="读取所选歌曲元数据的来源地区，应与搜索时一致；省略时使用 US。歌词来源通过 source 单独选择。",
+    )] = None,
     source: Annotated[
         str | None,
         Query(
@@ -199,7 +219,8 @@ async def preview_lyrics(
     ] = None,
 ) -> ApiResponse[LyricsPreviewData]:
     try:
-        result = await run_in_threadpool(
+        with use_region(region):
+            result = await run_in_threadpool(
             matching_service.preview_lyrics,
             provider,
             catalog_id,
@@ -234,9 +255,14 @@ async def preview_lyrics(
 async def resolve_platform_url(
     platform: str,
     url: Annotated[str, Query(min_length=1, max_length=2000)],
+    region: Annotated[str | None, Query(
+        pattern=r"^[A-Z]{2}$", examples=["US"],
+        description="目标平台读取链接当前资料的地区；与来源地区独立，省略时使用 US。",
+    )] = None,
 ) -> ApiResponse[PlatformLinkMatchData]:
     try:
-        result = await run_in_threadpool(
+        with use_region(region):
+            result = await run_in_threadpool(
             matching_service.resolve_platform_url, platform, url
         )
     except PlatformLinkNoMatchError as exc:

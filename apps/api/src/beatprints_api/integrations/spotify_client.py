@@ -9,6 +9,7 @@ from typing import Literal
 import httpx
 
 from beatprints_api.config import settings
+from beatprints_api.integrations.region import current_region
 from beatprints_api.exceptions import IntegrationNotConfiguredError, UpstreamError
 
 
@@ -28,11 +29,9 @@ class SpotifyClient:
         self,
         client_id: str | None,
         client_secret: str | None,
-        market: str = "US",
     ) -> None:
         self.client_id = client_id
         self.client_secret = client_secret
-        self.market = market
         self._token: str | None = None
         self._token_expires_at = 0.0
         self._token_lock = threading.Lock()
@@ -103,7 +102,7 @@ class SpotifyClient:
                 "q": query,
                 "type": search_type,
                 "limit": min(limit, 10),
-                "market": self.market,
+                "market": current_region(),
             },
         )
         key = "tracks" if search_type == "track" else "albums"
@@ -149,8 +148,8 @@ class SpotifyClient:
         return response.json()
 
     def track_metadata(self, track_id: str) -> dict:
-        track = self._get(f"/tracks/{track_id}", {"market": self.market})
-        album = self._get(f"/albums/{track['album']['id']}", {"market": self.market})
+        track = self._get(f"/tracks/{track_id}", {"market": current_region()})
+        album = self._get(f"/albums/{track['album']['id']}", {"market": current_region()})
         seconds = int(track["duration_ms"]) // 1000
         minutes, remaining_seconds = divmod(seconds, 60)
         return {
@@ -166,7 +165,7 @@ class SpotifyClient:
         }
 
     def album_metadata(self, album_id: str) -> dict:
-        album = self._get(f"/albums/{album_id}", {"market": self.market})
+        album = self._get(f"/albums/{album_id}", {"market": current_region()})
         tracks_page = album["tracks"]
         tracks = [item["name"] for item in tracks_page["items"]]
         while tracks_page.get("next"):
@@ -262,6 +261,5 @@ class SpotifyClient:
 spotify_client = SpotifyClient(
     settings.spotify_client_id,
     settings.spotify_client_secret,
-    settings.spotify_market,
 )
 atexit.register(spotify_client.close)
