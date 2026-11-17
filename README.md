@@ -10,7 +10,7 @@ Find the exact track or album from real music catalogs, pick lyric lines and pla
 [BeatPrints by TrueMyst / elysianmyst](https://github.com/TrueMyst/BeatPrints):
 the upstream project provides the core poster typography and rendering engine, while this project adds a modern web creation interface, an HTTP API, multi-platform music catalog integrations, and self-hosting capabilities.
 
-[English](README.md) · [简体中文](README.zh-CN.md)
+[English](README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md) · [한국어](README.ko.md)
 
 [Quick Start](#quick-start) · [Docker Deployment](#docker-deployment) · [API Documentation](apps/api/README.md) · [Frontend Guide](apps/web/README.md)
 
@@ -55,7 +55,7 @@ Album posters follow the same creation flow, with additional options for track i
 - **Conservative Cross-Platform Matching**: Prioritizes stable identifiers (e.g., ISRC); falls back to ranked candidates or manual URL resolution when ambiguous—never silently chooses a weak match.
 - **Customizable Appearance**: Choose from curated themes (Light, Dark, Catppuccin, Gruvbox, Nord, RosePine, Everforest) and optional cover-extracted accent colors.
 - **Track & Album Modes**: Create posters for individual tracks or full albums, with album-specific options for track indexing and tracklist shuffling.
-- **Multilingual Interface**: Full i18n support for English, Simplified Chinese, and Traditional Chinese.
+- **Multilingual Interface**: Full i18n support for English, Simplified Chinese, Traditional Chinese, Japanese, and Korean.
 - **All-in-One Deployment**: A single unified container image serves both the React static frontend and the FastAPI backend.
 
 ## Quick Start
@@ -109,6 +109,15 @@ pnpm --filter @beatprints/web build
 ## Docker Deployment
 
 This project provides a single-container deployment where frontend static assets are bundled and served directly by FastAPI, exposing only port `8000`.
+
+The English homepage at `/` is the only search-indexed page. The interface detects
+browser language and also provides explicit `/en/`, `/zh-CN/`, `/zh-TW/`, `/ja/`, and `/ko/` URLs;
+a selected URL takes precedence over the browser preference. Those localized URLs are
+marked `noindex` and point to the English canonical URL. Canonical, sitemap, and sharing
+URLs use `https://beatprints.bytespark.app` even on other hosts. A separate deployment
+that should be indexed under its own domain must update `apps/web/index.html`,
+`apps/web/public/robots.txt`, `apps/web/public/sitemap.xml`, and the domain expectations
+in `apps/web/tests/seo-regressions.mjs` before building.
 
 ```bash
 cp .env.example .env

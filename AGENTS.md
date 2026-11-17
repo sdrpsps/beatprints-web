@@ -29,13 +29,14 @@ mapping, current backend capabilities, and known integration gaps. Preserve thes
 
 ### Pull request update notes
 
-- Every feature PR must include the exact `## What's New` section and all three headings
-  from the PR template: `### 简体中文`, `### 繁體中文`, and `### English`. Under each,
+- Every feature PR must include the exact `## What's New` section and all five headings
+  from the PR template: `### 简体中文`, `### 繁體中文`, `### English`, `### 日本語`,
+  and `### 한국어`. Under each,
   write equivalent, concise Markdown bullets describing the final user-visible changes in
   plain language. Do not invent functionality or expose irrelevant implementation details.
-- For purely internal changes, explicitly write `None` in each of the three sections. Never leave a language blank. The release workflow aggregates these notes.
+- For purely internal changes, explicitly write `None` in each of the five sections. Never leave a language blank. The release workflow aggregates these notes.
 - When the user will create the PR themselves instead of asking the agent to create it,
-  provide the complete ready-to-paste three-language `## What's New` section. Do not create a
+  provide the complete ready-to-paste five-language `## What's New` section. Do not create a
   PR unless authorized.
 
 ### API documentation

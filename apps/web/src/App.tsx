@@ -1,7 +1,10 @@
-import { ArrowDownIcon, Code2Icon } from "lucide-react"
-import { useEffect } from "react"
+import { Code2Icon } from "lucide-react"
+import { useEffect, useLayoutEffect } from "react"
 import { useTranslation } from "react-i18next"
 
+import { HomeGuide, HomeHero } from "@/components/home-content"
+import { homeContent } from "@/i18n/home"
+import { normalizeLanguage } from "@/i18n/resources"
 import { HistoryNavButton } from "@/components/history-nav-button"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { buttonVariants } from "@/components/ui/button"
@@ -14,9 +17,11 @@ import "./App.css"
 function App() {
   const { t, i18n } = useTranslation()
 
-  useEffect(() => {
-    document.title = t("app.documentTitle")
-  }, [i18n.resolvedLanguage, t])
+  const content = homeContent[normalizeLanguage(i18n.resolvedLanguage ?? i18n.language)]
+
+  useLayoutEffect(() => {
+    document.documentElement.removeAttribute("data-app-pending")
+  }, [])
 
   useEffect(() => {
     void usePosterStore.getState().loadHistory()
@@ -24,10 +29,10 @@ function App() {
 
   return (
     <div className="min-h-screen overflow-clip">
-      <header className="mx-auto flex min-h-19 w-[calc(100%-40px)] max-w-360 items-center justify-between gap-6 border-b max-sm:min-h-16 max-sm:w-[calc(100%-28px)]">
+      <header className="mx-auto flex min-h-19 w-[calc(100%-40px)] max-w-360 items-center justify-between gap-6 border-b max-sm:gap-2 max-sm:min-h-16 max-sm:w-[calc(100%-28px)]">
         <a
-          className="inline-flex items-center gap-2.5 text-[15px] font-[720] tracking-tight text-foreground no-underline"
-          href="/"
+          className="inline-flex shrink-0 items-center gap-2.5 whitespace-nowrap text-[15px] font-[720] tracking-tight text-foreground no-underline"
+          href={content.path}
           aria-label={t("app.homeLabel")}
         >
           <img
@@ -50,44 +55,16 @@ function App() {
             rel="noreferrer"
           >
             <Code2Icon aria-hidden="true" />
-            GitHub
+            <span className="max-sm:sr-only">GitHub</span>
           </a>
           <LanguageSwitcher />
         </nav>
       </header>
 
       <main>
-        <section
-          className="mx-auto grid min-h-[clamp(540px,76vh,780px)] w-[calc(100%-40px)] max-w-360 grid-rows-[auto_1fr_auto] border-b pt-[clamp(42px,7vw,96px)] pb-13.5 max-[960px]:min-h-150 max-sm:min-h-135 max-sm:w-[calc(100%-28px)] max-sm:pt-8.5 max-sm:pb-8"
-          aria-labelledby="hero-title"
-        >
-          <div className="flex justify-between gap-5 font-utility text-[10px] font-semibold tracking-[0.14em] text-muted-foreground">
-            <span>{t("app.heroSubtitle")}</span>
-            <span>{t("app.heroEst")}</span>
-          </div>
-          <h1
-            className="my-[clamp(44px,8vh,88px)] max-w-280 self-center text-[clamp(62px,8.5vw,132px)] leading-[0.96] font-[680] tracking-[-0.068em] [font-variation-settings:'wdth'_82] max-sm:my-12 max-sm:text-[10.8vw] max-sm:leading-none max-sm:tracking-[-0.065em]"
-            id="hero-title"
-          >
-            <span>{t("app.heroTitleFirstLine")}</span>
-            <span className="block whitespace-nowrap">
-              {t("app.heroTitleSecondLine")}
-            </span>
-          </h1>
-          <div className="grid grid-cols-[minmax(260px,480px)_auto] items-end justify-between gap-8 max-sm:grid-cols-1 max-sm:items-start max-sm:gap-6">
-            <p className="m-0 text-[clamp(16px,1.6vw,21px)] leading-[1.62] text-muted-foreground text-balance">
-              {t("poster.heroBody")}
-            </p>
-            <a
-              className={buttonVariants({ size: "lg" })}
-              href="#studio"
-            >
-              {t("app.startCreating")}
-              <ArrowDownIcon data-icon="inline-end" />
-            </a>
-          </div>
-        </section>
+        <HomeHero content={content} buttonClass={buttonVariants({ size: "lg" })} />
         <PosterStudio />
+        <HomeGuide content={content} />
       </main>
       <SiteFooter />
       <Toaster />

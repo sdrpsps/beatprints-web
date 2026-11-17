@@ -8,10 +8,14 @@
 
 ## What's New
 
-<!-- Write equivalent, concise Markdown bullets for all three languages. For changes with no user-visible impact, write None in each section. -->
+<!-- Write equivalent, concise Markdown bullets for all five languages. For changes with no user-visible impact, write None in each section. -->
 
 ### 简体中文
 
 ### 繁體中文
 
 ### English
+
+### 日本語
+
+### 한국어

@@ -25,23 +25,65 @@ Internal details
 - 支援掃碼
 ### English
 - Scan codes
+### 日本語
+- コードをスキャン
+### 한국어
+- 코드 스캔
 ## Verification
 Done
 """
 
 
 class ReleaseSummaryTests(unittest.TestCase):
-    def test_extracts_three_languages_and_excludes_other_sections(self):
-        self.assertEqual(module.extract_summary(NOTES), {"zh-CN": "- 支持扫码", "zh-TW": "- 支援掃碼", "en": "- Scan codes"})
+    def test_extracts_five_languages_and_excludes_other_sections(self):
+        self.assertEqual(module.extract_summary(NOTES), {
+            "zh-CN": "- 支持扫码", "zh-TW": "- 支援掃碼", "en": "- Scan codes",
+            "ja": "- コードをスキャン", "ko": "- 코드 스캔",
+        })
 
     def test_rejects_missing_duplicate_empty_or_mixed_markers(self):
-        for body in ("", NOTES.replace("### English", "### Français"), NOTES.replace("- Scan codes", ""), NOTES.replace("- Scan codes", "None"), NOTES.replace("### English", "### English\n- First\n### English")):
+        for body in (
+            "", NOTES.replace("### English", "### Français"), NOTES.replace("- Scan codes", ""),
+            NOTES.replace("- Scan codes", "None"), NOTES.replace("### English", "### English\n- First\n### English"),
+            NOTES.replace("### 日本語\n- コードをスキャン\n", ""),
+            NOTES.replace("### 한국어\n- 코드 스캔\n", ""),
+            NOTES.replace("- 코드 스캔", "None"),
+        ):
             with self.subTest(body=body), self.assertRaises(ValueError):
                 module.extract_summary(body)
 
     def test_internal_changes_require_explicit_markers_in_all_languages(self):
-        body = NOTES.replace("- 支持扫码", "None").replace("- 支援掃碼", "None").replace("- Scan codes", "None")
-        self.assertEqual(module.extract_summary(body), {"zh-CN": "", "zh-TW": "", "en": ""})
+        body = NOTES.replace("- 支持扫码", "None").replace("- 支援掃碼", "None").replace("- Scan codes", "None").replace("- コードをスキャン", "None").replace("- 코드 스캔", "None")
+        self.assertEqual(module.extract_summary(body), {lang: "" for lang in module.LANGUAGES})
+
+    def test_legacy_prs_are_only_accepted_for_release_aggregation(self):
+        legacy = NOTES.replace("### 日本語\n- コードをスキャン\n", "").replace("### 한국어\n- 코드 스캔\n", "")
+        with self.assertRaises(ValueError):
+            module.extract_summary(legacy)
+        summary = module.extract_summary(legacy, allow_legacy=True)
+        self.assertEqual(summary["ja"], "- Scan codes")
+        self.assertEqual(summary["ko"], "- Scan codes")
+        empty = legacy.replace("- 支持扫码", "None").replace("- 支援掃碼", "None").replace("- Scan codes", "None")
+        self.assertEqual(module.extract_summary(empty, allow_legacy=True), {lang: "" for lang in module.LANGUAGES})
+        partial = NOTES.replace("### 한국어\n- 코드 스캔\n", "")
+        with self.assertRaises(ValueError):
+            module.extract_summary(partial, allow_legacy=True)
+
+    def test_collects_legacy_and_five_language_prs_into_release(self):
+        legacy = NOTES.replace("### 日本語\n- コードをスキャン\n", "").replace("### 한국어\n- 코드 스캔\n", "")
+        prs = [
+            {"number": 1, "merged_at": "2026-01-01", "base": {"ref": "main"}, "body": legacy},
+            {"number": 2, "merged_at": "2026-01-01", "base": {"ref": "main"}, "body": NOTES},
+        ]
+        with patch.object(module, "run", return_value="first"), patch.object(module, "gh_json", return_value=[prs]):
+            summaries = module.collect_summaries("owner/repo", "main", "v1.0.0", "HEAD")
+        release = module.update_body("## Features\n\n* technical change", summaries)
+        for lang in module.LANGUAGES:
+            self.assertIn(f"<!-- release-summary:{lang}:start -->", release)
+            self.assertIn(f"<!-- release-summary:{lang}:end -->", release)
+        self.assertEqual(summaries[0]["ja"], "- Scan codes")
+        self.assertEqual(summaries[1]["ko"], "- 코드 스캔")
+        self.assertIn("## Features\n\n* technical change", release)
 
     def test_pr_validation_requires_notes_for_feature_and_release_prs(self):
         script = Path(__file__).parents[1] / "scripts" / "validate_pr_notes.py"
@@ -104,6 +146,8 @@ class ReleaseSummaryTests(unittest.TestCase):
             self.assertIn(f"<!-- release-summary:{lang}:start -->", updated)
             self.assertIn(summary[lang], updated)
         self.assertIn("No user-visible changes.", module.update_body(original, []))
+        self.assertIn("ユーザー向けの変更はありません。", module.update_body(original, []))
+        self.assertIn("사용자에게 표시되는 변경 사항이 없습니다.", module.update_body(original, []))
         self.assertIn(original, module.update_body(updated, []))
 
     def test_collects_merged_prs_once_and_preserves_release_notes(self):

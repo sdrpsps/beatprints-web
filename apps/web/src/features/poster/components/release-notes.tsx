@@ -7,6 +7,8 @@ import remarkGfm from "remark-gfm"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { fetchReleaseNotes } from "@/features/poster/api"
+import { localizedReleaseNotes } from "@/features/poster/release-notes-content"
+import { normalizeLanguage } from "@/i18n/resources"
 import { buildInfo } from "@/lib/build-info"
 
 const version = buildInfo.version.replace(/^v/, "")
@@ -20,7 +22,7 @@ function unseenRelease() {
 }
 
 export function ReleaseNotes({ triggerClassName }: { triggerClassName: string }) {
-  const { t } = useTranslation()
+  const { i18n, t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [body, setBody] = useState<string | null>(null)
   const [error, setError] = useState(false)
@@ -69,7 +71,7 @@ export function ReleaseNotes({ triggerClassName }: { triggerClassName: string })
               remarkPlugins={[remarkGfm]}
               components={{ a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" /> }}
             >
-              {body}
+              {localizedReleaseNotes(body, normalizeLanguage(i18n.resolvedLanguage ?? i18n.language))}
             </Markdown>
           </div>
         ) : error ? (
@@ -79,7 +81,7 @@ export function ReleaseNotes({ triggerClassName }: { triggerClassName: string })
           </div>
         ) : <p className="text-sm" role="status">{t("app.releaseLoading")}</p>}
         <DialogFooter>
-          <Button variant="outline" render={<a href={releaseUrl} target="_blank" rel="noreferrer" />}>{t("app.releaseView")}</Button>
+          <Button nativeButton={false} variant="outline" render={<a href={releaseUrl} target="_blank" rel="noreferrer" />}>{t("app.releaseView")}</Button>
           <DialogClose render={<Button />}>{t("app.releaseDismiss")}</DialogClose>
         </DialogFooter>
       </DialogContent>

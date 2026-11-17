@@ -20,7 +20,7 @@ export function HistoryNavButton() {
       aria-label={t("poster.historyOpenAria")}
     >
       <HistoryIcon aria-hidden="true" />
-      {t("app.history")}
+      <span className="max-sm:sr-only">{t("app.history")}</span>
       {historyCount > 0 ? (
         <Badge
           variant="secondary"

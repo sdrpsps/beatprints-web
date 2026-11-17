@@ -10,7 +10,7 @@
 [TrueMyst / elysianmyst 创作的 BeatPrints](https://github.com/TrueMyst/BeatPrints) 构建：
 原项目负责音乐海报的核心排版与渲染，本项目为它补充了 Web 创作界面、HTTP API、音乐目录集成和自部署能力。
 
-[English](README.md) · [简体中文](README.zh-CN.md)
+[English](README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md) · [한국어](README.ko.md)
 
 [快速开始](#快速开始) · [Docker 部署](#docker-部署) · [API 文档](apps/api/README.md) · [前端开发](apps/web/README.md)
 
@@ -63,7 +63,7 @@ BeatPrints 完成海报渲染。
 - **跨平台严谨匹配**：优先使用 ISRC 等稳定标识；无法确认时展示候选列表或支持手动输入链接，绝不静默关联错误版本。
 - **定制海报外观**：内置 Light、Dark、Catppuccin、Gruvbox、Nord、RosePine 与 Everforest 主题，支持封面强调色。
 - **单曲与专辑双模式**：专辑海报额外支持曲目编号与随机曲序。
-- **多语言界面**：支持简体中文、繁體中文与 English。
+- **多语言界面**：支持简体中文、繁體中文、English、日本語和 한국어。
 - **Web 与 API 一体部署**：单一生产镜像同时提供前端静态页面与 FastAPI 后端服务。
 
 ## 快速开始
@@ -120,6 +120,14 @@ pnpm --filter @beatprints/web build
 ## Docker 部署
 
 项目提供单容器部署方案：前端构建产物由 FastAPI 一并托管提供，对外只需暴露 `8000` 端口。
+
+英文首页 `/` 是唯一提交搜索收录的页面。界面会检测浏览器语言，也可以使用
+`/en/`、`/zh-CN/`、`/zh-TW/`、`/ja/` 和 `/ko/` 指定语言；明确的语言地址优先于浏览器设置。
+这些语言地址标记为 `noindex`，规范链接指向英文首页。规范链接、站点地图和分享地址
+固定使用 `https://beatprints.bytespark.app`，在其他域名访问时也不会改变。
+如果独立部署需要以自己的域名被搜索引擎收录，请在构建前同步修改 `apps/web/index.html`、
+`apps/web/public/robots.txt`、`apps/web/public/sitemap.xml` 和
+`apps/web/tests/seo-regressions.mjs` 中的域名。
 
 ```bash
 cp .env.example .env

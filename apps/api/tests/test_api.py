@@ -86,10 +86,30 @@ def test_invalid_request_id_is_replaced() -> None:
 def test_web_app_is_served_without_shadowing_api(tmp_path: Path) -> None:
     (tmp_path / "index.html").write_text("<h1>BeatPrints</h1>")
     (tmp_path / "favicon.svg").write_text("<svg></svg>")
+    (tmp_path / "en").mkdir()
+    (tmp_path / "en" / "index.html").write_text("<h1>English</h1>")
+    (tmp_path / "zh-CN").mkdir()
+    (tmp_path / "zh-CN" / "index.html").write_text("<h1>简体中文</h1>")
+    (tmp_path / "zh-TW").mkdir()
+    (tmp_path / "zh-TW" / "index.html").write_text("<h1>繁體中文</h1>")
+    (tmp_path / "ja").mkdir()
+    (tmp_path / "ja" / "index.html").write_text("<h1>日本語</h1>")
+    (tmp_path / "ko").mkdir()
+    (tmp_path / "ko" / "index.html").write_text("<h1>한국어</h1>")
     web_client = TestClient(create_app(web_root=tmp_path))
 
     assert web_client.get("/").text == "<h1>BeatPrints</h1>"
-    assert web_client.get("/studio").text == "<h1>BeatPrints</h1>"
+    assert web_client.get("/en/").text == "<h1>English</h1>"
+    assert web_client.head("/en").status_code == 200
+    assert web_client.get("/zh-CN/").text == "<h1>简体中文</h1>"
+    assert web_client.get("/zh-TW/").text == "<h1>繁體中文</h1>"
+    assert web_client.get("/ja/").text == "<h1>日本語</h1>"
+    assert web_client.head("/ja").status_code == 200
+    assert web_client.get("/ko/").text == "<h1>한국어</h1>"
+    assert web_client.head("/ko").status_code == 200
+    for path in ("/studio", "/not-a-page", "/assets/missing.js", "/en/missing"):
+        assert web_client.get(path).status_code == 404
+        assert web_client.head(path).status_code == 404
     assert web_client.get("/favicon.svg").text == "<svg></svg>"
     assert web_client.head("/favicon.svg").status_code == 200
     assert web_client.get("/health").json()["data"]["status"] == "ok"

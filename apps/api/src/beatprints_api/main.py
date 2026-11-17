@@ -61,13 +61,24 @@ def create_app(web_root: Path | None = None) -> FastAPI:
         def serve_web_app(path: str) -> FileResponse:
             if path == "v1" or path.startswith("v1/"):
                 raise HTTPException(status_code=404, detail="Not Found")
-            requested_file = (resolved_web_root / path).resolve()
+            # Only published homepage routes may resolve to an HTML document.
+            # All other missing files and paths must remain genuine 404s.
+            pages = {
+                "": "index.html",
+                "en": "en/index.html",
+                "zh-CN": "zh-CN/index.html",
+                "zh-TW": "zh-TW/index.html",
+                "ja": "ja/index.html",
+                "ko": "ko/index.html",
+            }
+            page = pages.get(path.rstrip("/"))
+            requested_file = (resolved_web_root / (page if page is not None else path)).resolve()
             if (
                 requested_file.is_relative_to(resolved_web_root)
                 and requested_file.is_file()
             ):
                 return FileResponse(requested_file)
-            return FileResponse(index_file)
+            raise HTTPException(status_code=404, detail="Not Found")
 
     return app
 
