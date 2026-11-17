@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.5.0](https://github.com/sdrpsps/beatprints-web/compare/v1.4.1...v1.5.0) (2026-11-17)
+
+
+### Features
+
+* add regional music selection and localized experience ([#27](https://github.com/sdrpsps/beatprints-web/issues/27)) ([dfe6082](https://github.com/sdrpsps/beatprints-web/commit/dfe60823e9c455ab2de9e7d1105bce2aca52a63c))
+
+
+### Bug Fixes
+
+* **ci:** publish manifest after skipped PR check ([51e27e8](https://github.com/sdrpsps/beatprints-web/commit/51e27e87f0462bc2dd25d0fadf66d6c326363e0a))
+* publish release image manifest after PR check ([386f8dc](https://github.com/sdrpsps/beatprints-web/commit/386f8dc1504ac5dfe8843ddae59f571d078fdebc))
+
+### PR #27 commit details
+
+* feat: add Apple Music catalog search ([37ba228](https://github.com/sdrpsps/beatprints-web/commit/37ba22856de70b6c0feb18d52ca40c8bce1036ee))
+* feat(api): expose enabled integrations through capabilities API ([a74b52e](https://github.com/sdrpsps/beatprints-web/commit/a74b52ed30e18a282505e29993b656bcdf8ec2c2))
+* feat(web): drive integration choices from backend capabilities ([7043793](https://github.com/sdrpsps/beatprints-web/commit/7043793d74df400b5fc0988d97584e328094f466))
+* feat: add music region selection and Apple Music search fallback ([4f9e4fe](https://github.com/sdrpsps/beatprints-web/commit/4f9e4fe8cc017cecb93f3583f126f03df671fe31))
+* perf(web): virtualize region picker options ([8a2ab9f](https://github.com/sdrpsps/beatprints-web/commit/8a2ab9f7d9982d9e4393c4cfdd6d6583f053ddc2))
+* feat: add localized homepages and release notes ([70bc9a9](https://github.com/sdrpsps/beatprints-web/commit/70bc9a9b9f4ee7f92579d96ae0ed99cebc98fc23))
+* fix: harden release workflow and regional matching ([9474ae6](https://github.com/sdrpsps/beatprints-web/commit/9474ae6767003a4f7aa42927ea7d15e214092948))
+* feat: use Apple Music web catalog ([1d5e545](https://github.com/sdrpsps/beatprints-web/commit/1d5e545d2fa342b2cd4ebc6af05a52ffe3287dea))
+* refactor(api): consolidate integration clients ([449bcbd](https://github.com/sdrpsps/beatprints-web/commit/449bcbd299129c95f43e9acf2acfed6f5a210ff0))
+* fix(api): match lyrics across Chinese scripts ([b55bc96](https://github.com/sdrpsps/beatprints-web/commit/b55bc96d986d2f49af1b0d96b98f673edc7495e5))
+* fix(web): update poster example descriptions ([7887354](https://github.com/sdrpsps/beatprints-web/commit/7887354a134c6e60c6952d522f52ae6d1e6916f3))
+* fix(api): preserve remix identity and default lyrics ([5904bd3](https://github.com/sdrpsps/beatprints-web/commit/5904bd3b687978b4453711fff950f67eb4a388d4))
+
 ## [1.4.1](https://github.com/sdrpsps/beatprints-web/compare/v1.4.0...v1.4.1) (2026-11-12)
 
 
